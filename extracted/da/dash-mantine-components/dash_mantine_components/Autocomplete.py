@@ -193,10 +193,14 @@ Keyword arguments:
         Determines  whether overflow along this axis is checked to
         perform a flip. @,default,True.
 
-    - crossAxis (boolean; optional):
+    - crossAxis (optional):
         The axis that runs along the alignment of the floating
         element. Determines  whether overflow along this axis is
-        checked to perform a flip. @,default,True.
+        checked to perform a flip.  - `True`: Whether to check cross
+        axis overflow for both side and alignment flipping.  -
+        `False`: Whether to disable all cross axis overflow checking.
+        - `'alignment'`: Whether to check cross axis overflow for
+        alignment flipping only. @,default,True.
 
     - rootBoundary (optional):
         The root clipping area in which overflow will be checked.
@@ -325,6 +329,13 @@ Keyword arguments:
 
 - data-* (string; optional):
     Wild card data attributes.
+
+- debounce (number; default False):
+    (boolean | number; default False): If True, changes to input will
+    be sent back to the Dash server only on enter or when losing
+    focus. If it's False, it will send the value back on every change.
+    If a number, it will not send anything back to the Dash server
+    until the user has stopped typing for that number of milliseconds.
 
 - description (a list of or a singular dash component, string or number; optional):
     Contents of `Input.Description` component. If not set, description
@@ -480,6 +491,14 @@ Keyword arguments:
 
 - my (number; optional):
     MarginBlock, theme key: theme.spacing.
+
+- n_blur (number; default 0):
+    An integer that represents the number of times that this element
+    has lost focus.
+
+- n_submit (number; default 0):
+    An integer that represents the number of times that this element
+    has been submitted.
 
 - name (string; optional):
     Name prop.
@@ -826,7 +845,7 @@ Keyword arguments:
 - unstyled (boolean; optional):
     Remove all Mantine styling from the component.
 
-- value (string; optional):
+- value (string; default ''):
     Controlled component value.
 
 - variant (string; optional):
@@ -868,7 +887,7 @@ Keyword arguments:
             "type": NotRequired[Literal["auto", "always", "scroll", "hover", "never"]],
             "scrollHideDelay": NotRequired[NumberType],
             "scrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["xy"]]],
-            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"]]],
+            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["present"]]],
             "overscrollBehavior": NotRequired[typing.Union[Literal["auto"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["contain"], Literal["none"]]],
             "className": NotRequired[str],
             "style": NotRequired[typing.Any],
@@ -918,7 +937,7 @@ Keyword arguments:
             "bgsz": NotRequired[typing.Union[str, NumberType]],
             "bgp": NotRequired[typing.Union[str, NumberType]],
             "bgr": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]],
-            "bga": NotRequired[typing.Union[Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"]]],
+            "bga": NotRequired[typing.Union[Literal["local"], Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"]]],
             "pos": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]],
             "top": NotRequired[typing.Union[str, NumberType]],
             "left": NotRequired[typing.Union[str, NumberType]],
@@ -981,7 +1000,7 @@ Keyword arguments:
             {
             "padding": NotRequired[typing.Union[NumberType]],
             "mainAxis": NotRequired[bool],
-            "crossAxis": NotRequired[bool],
+            "crossAxis": NotRequired[typing.Union[Literal["alignment"]]],
             "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"]]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
@@ -1107,7 +1126,7 @@ Keyword arguments:
         bgsz: typing.Optional[typing.Union[str, NumberType]] = None,
         bgp: typing.Optional[typing.Union[str, NumberType]] = None,
         bgr: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]] = None,
-        bga: typing.Optional[typing.Union[Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"]]] = None,
+        bga: typing.Optional[typing.Union[Literal["local"], Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"]]] = None,
         pos: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]] = None,
         top: typing.Optional[typing.Union[str, NumberType]] = None,
         left: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -1159,14 +1178,17 @@ Keyword arguments:
         id: typing.Optional[typing.Union[str, dict]] = None,
         tabIndex: typing.Optional[NumberType] = None,
         loading_state: typing.Optional["LoadingState"] = None,
+        n_blur: typing.Optional[NumberType] = None,
+        n_submit: typing.Optional[NumberType] = None,
+        debounce: typing.Optional[typing.Union[NumberType]] = None,
         persistence: typing.Optional[typing.Union[str, NumberType]] = None,
         persisted_props: typing.Optional[typing.Sequence[str]] = None,
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'autoSelectOnBlur', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'autoSelectOnBlur', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'autoSelectOnBlur', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'autoSelectOnBlur', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

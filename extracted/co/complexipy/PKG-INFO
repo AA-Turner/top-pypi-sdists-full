@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: complexipy
-Version: 4.1.0
+Version: 4.2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -33,7 +33,7 @@ Project-URL: Repository, https://github.com/rohaquinlop/complexipy
 # complexipy
 
 <div align="center">
-  <img src="docs/img/complexipy_icon.svg" alt="complexipy" width="120" height="120">
+  <img src="https://raw.githubusercontent.com/rohaquinlop/complexipy/refs/heads/main/docs/img/complexipy_icon.svg" alt="complexipy" width="120" height="120">
   
   <p><em>Blazingly fast cognitive complexity analysis for Python, written in Rust.</em></p>
 
@@ -86,6 +86,9 @@ complexipy . --max-complexity-allowed 10
 
 # Save results to JSON/CSV
 complexipy . --output-json --output-csv
+
+# Analyze current directory while excluding specific files
+complexipy . --exclude path/to/exclude.py --exclude path/to/other/exclude.py
 ```
 
 ### Python API
@@ -168,6 +171,7 @@ quiet = false
 ignore-complexity = false
 details = "normal"
 sort = "asc"
+exclude = []
 
 [output]
 csv = true
@@ -183,6 +187,7 @@ quiet = false
 ignore-complexity = false
 details = "normal"
 sort = "asc"
+exclude = []
 
 [tool.complexipy.output]
 csv = true
@@ -193,6 +198,7 @@ json = true
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--exclude` | Exclude entries relative to each provided path. Entries resolve to existing directories (prefix match) or files (exact match). Non-existent entries are ignored. |  |
 | `--max-complexity-allowed` | Complexity threshold | `15` |
 | `--output-json` | Save results as JSON | `false` |
 | `--output-csv` | Save results as CSV | `false` |
@@ -201,6 +207,28 @@ json = true
 | `--quiet` | Suppress output | `false` |
 | `--ignore-complexity` | Don't exit with error on threshold breach | `false` |
 | `--version` | Show installed complexipy version and exit | - |
+
+Example:
+
+```
+# Exclude only top-level 'tests' directory under the provided root
+complexipy . --exclude tests
+# This will not exclude './complexipy/utils.py' if you pass '--exclude utils' at repo root,
+# because there is no './utils' directory or file at that level.
+```
+
+### Inline Ignores
+
+You can explicitly ignore a known complex function inline, similar to Ruff's `C901` ignores:
+
+```python
+def legacy_adapter(x, y):  # noqa: complexipy (safe wrapper)
+    if x and y:
+        return x + y
+    return 0
+```
+
+Place `# noqa: complexipy` on the function definition line (or the line immediately above). An optional reason can be provided in parentheses or plain text, it’s ignored by the parser.
 
 ## API Reference
 
@@ -226,11 +254,11 @@ FunctionComplexity:
 
 <div align="center">
 
+<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by SonarSource, G. Ann Campbell</sub>
+
 **[Documentation](https://rohaquinlop.github.io/complexipy/) • [PyPI](https://pypi.org/project/complexipy/) • [GitHub](https://github.com/rohaquinlop/complexipy)**
 
 <sub>Built with ❤️ by <a href="https://github.com/rohaquinlop">@rohaquinlop</a> and <a href="https://github.com/rohaquinlop/complexipy/graphs/contributors">contributors</a></sub>
-
-<sub>Inspired by the <a href="https://www.sonarsource.com/resources/cognitive-complexity/">Cognitive Complexity</a> research by SonarSource</sub>
 
 </div>
 

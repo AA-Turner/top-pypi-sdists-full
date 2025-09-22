@@ -1995,6 +1995,71 @@ def laplaciandeform_bind(
     :type modifier: str
     """
 
+def lattice_add_to_selected(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    fit_to_selected: bool | None = True,
+    radius: float | None = 1.0,
+    margin: float | None = 0.0,
+    add_modifiers: bool | None = True,
+    resolution_u: int | None = 2,
+    resolution_v: int | None = 2,
+    resolution_w: int | None = 2,
+    enter_editmode: bool | None = False,
+    align: typing.Literal["WORLD", "VIEW", "CURSOR"] | None = "WORLD",
+    location: collections.abc.Sequence[float] | mathutils.Vector | None = (
+        0.0,
+        0.0,
+        0.0,
+    ),
+    rotation: collections.abc.Sequence[float] | mathutils.Euler | None = (
+        0.0,
+        0.0,
+        0.0,
+    ),
+    scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
+) -> None:
+    """Add a lattice and use it to deform selected objects
+
+        :type execution_context: int | str | None
+        :type undo: bool | None
+        :param fit_to_selected: Fit to Selected, Resize lattice to fit selected deformable objects
+        :type fit_to_selected: bool | None
+        :param radius: Radius
+        :type radius: float | None
+        :param margin: Margin, Add margin to lattice dimensions
+        :type margin: float | None
+        :param add_modifiers: Add Modifiers, Automatically add lattice modifiers to selected objects
+        :type add_modifiers: bool | None
+        :param resolution_u: Resolution U, Lattice resolution in U direction
+        :type resolution_u: int | None
+        :param resolution_v: V, Lattice resolution in V direction
+        :type resolution_v: int | None
+        :param resolution_w: W, Lattice resolution in W direction
+        :type resolution_w: int | None
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
+        :type enter_editmode: bool | None
+        :param align: Align, The alignment of the new object
+
+    WORLD
+    World -- Align the new object to the world.
+
+    VIEW
+    View -- Align the new object to the view.
+
+    CURSOR
+    3D Cursor -- Use the 3D cursor orientation for the new object.
+        :type align: typing.Literal['WORLD','VIEW','CURSOR'] | None
+        :param location: Location, Location for the newly added object
+        :type location: collections.abc.Sequence[float] | mathutils.Vector | None
+        :param rotation: Rotation, Rotation for the newly added object
+        :type rotation: collections.abc.Sequence[float] | mathutils.Euler | None
+        :param scale: Scale, Scale for the newly added object
+        :type scale: collections.abc.Sequence[float] | mathutils.Vector | None
+    """
+
 def light_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,

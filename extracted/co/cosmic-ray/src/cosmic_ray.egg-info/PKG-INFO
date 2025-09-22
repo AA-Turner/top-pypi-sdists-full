@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cosmic_ray
-Version: 8.4.1
+Version: 8.4.3
 Summary: Mutation testing
 Author-email: Sixty North AS <austin@sixty-north.com>
 License: Copyright (c) 2015-2017 Sixty North AS
@@ -53,6 +53,7 @@ Requires-Dist: sqlalchemy
 Requires-Dist: stevedore
 Requires-Dist: toml
 Requires-Dist: yattag
+Dynamic: license-file
 
 |Python version| |Python version windows| |Build Status| |Documentation|
 

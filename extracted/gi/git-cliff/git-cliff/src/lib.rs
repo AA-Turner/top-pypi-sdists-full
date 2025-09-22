@@ -253,7 +253,7 @@ fn process_repository<'a>(
 
     // Include only the current directory if not running from the root repository
     let mut include_path = config.git.include_paths.clone();
-    if let Some(mut path_diff) = pathdiff::diff_paths(repository.root_path()?, env::current_dir()?)
+    if let Some(mut path_diff) = pathdiff::diff_paths(env::current_dir()?, repository.root_path()?)
     {
         if args.workdir.is_none() && include_path.is_empty() && path_diff != Path::new("") {
             info!(
@@ -525,9 +525,7 @@ pub fn run_with_changelog_modifier(
     // Set path for the configuration file.
     let mut path = args.config.clone();
     if !path.exists() {
-        if let Some(config_path) =
-            dirs::config_dir().map(|dir| dir.join(env!("CARGO_PKG_NAME")).join(DEFAULT_CONFIG))
-        {
+        if let Some(config_path) = Config::retrieve_config_path() {
             path = config_path;
         }
     }

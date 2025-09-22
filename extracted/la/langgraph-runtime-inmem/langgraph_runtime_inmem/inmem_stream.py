@@ -108,9 +108,10 @@ class StreamManager:
             thread_id = _ensure_uuid(thread_id)
 
         message.id = _generate_ms_seq_id().encode()
+        # For resumable run streams, embed the generated message ID into the frame
+        topic = message.topic.decode()
         if resumable:
             self.message_stores[thread_id][run_id].append(message)
-        topic = message.topic.decode()
         if "control" in topic:
             self.control_keys[thread_id][run_id] = message
             queues = self.control_queues[thread_id][run_id]

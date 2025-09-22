@@ -100,6 +100,9 @@ Keyword arguments:
         Replaces default close icon. If set, `iconSize` prop is
         ignored.
 
+- clearSearchOnChange (boolean; optional):
+    Clear search value when item is selected. Default True.
+
 - clearable (boolean; optional):
     Determines whether the clear button should be displayed in the
     right section when the component has value, `False` by default.
@@ -205,10 +208,14 @@ Keyword arguments:
         Determines  whether overflow along this axis is checked to
         perform a flip. @,default,True.
 
-    - crossAxis (boolean; optional):
+    - crossAxis (optional):
         The axis that runs along the alignment of the floating
         element. Determines  whether overflow along this axis is
-        checked to perform a flip. @,default,True.
+        checked to perform a flip.  - `True`: Whether to check cross
+        axis overflow for both side and alignment flipping.  -
+        `False`: Whether to disable all cross axis overflow checking.
+        - `'alignment'`: Whether to check cross axis overflow for
+        alignment flipping only. @,default,True.
 
     - rootBoundary (dict; optional):
         The root clipping area in which overflow will be checked.
@@ -943,7 +950,7 @@ Keyword arguments:
             "type": NotRequired[Literal["auto", "always", "scroll", "hover", "never"]],
             "scrollHideDelay": NotRequired[NumberType],
             "scrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["xy"]]],
-            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"]]],
+            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["present"]]],
             "overscrollBehavior": NotRequired[typing.Union[Literal["auto"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["contain"], Literal["none"]]],
             "className": NotRequired[str],
             "style": NotRequired[typing.Union[typing.Any]],
@@ -993,7 +1000,7 @@ Keyword arguments:
             "bgsz": NotRequired[typing.Union[str, NumberType]],
             "bgp": NotRequired[typing.Union[str, NumberType]],
             "bgr": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]],
-            "bga": NotRequired[typing.Union[Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"]]],
+            "bga": NotRequired[typing.Union[Literal["local"], Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"]]],
             "pos": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]],
             "top": NotRequired[typing.Union[str, NumberType]],
             "left": NotRequired[typing.Union[str, NumberType]],
@@ -1057,7 +1064,7 @@ Keyword arguments:
             {
             "padding": NotRequired[typing.Union[NumberType, "ComboboxPropsMiddlewaresFlipPadding"]],
             "mainAxis": NotRequired[bool],
-            "crossAxis": NotRequired[bool],
+            "crossAxis": NotRequired[typing.Union[Literal["alignment"]]],
             "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"], "ComboboxPropsMiddlewaresFlipRootBoundary"]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
@@ -1142,6 +1149,7 @@ Keyword arguments:
         hiddenInputProps: typing.Optional[dict] = None,
         hiddenInputValuesDivider: typing.Optional[str] = None,
         scrollAreaProps: typing.Optional["ScrollAreaProps"] = None,
+        clearSearchOnChange: typing.Optional[bool] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -1190,7 +1198,7 @@ Keyword arguments:
         bgsz: typing.Optional[typing.Union[str, NumberType]] = None,
         bgp: typing.Optional[typing.Union[str, NumberType]] = None,
         bgr: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]] = None,
-        bga: typing.Optional[typing.Union[Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"]]] = None,
+        bga: typing.Optional[typing.Union[Literal["local"], Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"]]] = None,
         pos: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]] = None,
         top: typing.Optional[typing.Union[str, NumberType]] = None,
         left: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -1251,9 +1259,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearSearchOnChange', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'checkIconPosition', 'className', 'classNames', 'clearButtonProps', 'clearSearchOnChange', 'clearable', 'comboboxProps', 'darkHidden', 'data', 'data-*', 'debounce', 'description', 'descriptionProps', 'disabled', 'display', 'dropdownOpened', 'error', 'errorProps', 'ff', 'filter', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hiddenInputValuesDivider', 'hidePickedOptions', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'limit', 'loading_state', 'lts', 'm', 'mah', 'maw', 'maxDropdownHeight', 'maxValues', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'nothingFoundMessage', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'renderOption', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'searchValue', 'searchable', 'selectFirstOptionOnChange', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withCheckIcon', 'withErrorStyles', 'withScrollArea', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

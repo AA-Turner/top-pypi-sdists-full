@@ -2681,6 +2681,7 @@ def remove_doubles(
     /,
     *,
     threshold: float | None = 0.0001,
+    use_centroid: bool | None = True,
     use_unselected: bool | None = False,
     use_sharp_edge_from_normals: bool | None = False,
 ) -> None:
@@ -2690,6 +2691,8 @@ def remove_doubles(
     :type undo: bool | None
     :param threshold: Merge Distance, Maximum distance between elements to merge
     :type threshold: float | None
+    :param use_centroid: Centroid Merge, Move vertices to the centroid of the duplicate cluster, otherwise the vertex closest to the centroid is used.
+    :type use_centroid: bool | None
     :param use_unselected: Unselected, Merge selected to other unselected vertices
     :type use_unselected: bool | None
     :param use_sharp_edge_from_normals: Sharp Edges, Calculate sharp edges using custom normal data (when available)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 10.4.0
+Version: 10.5.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -286,33 +286,25 @@ Roadmap
 Current Release Changes
 =======================
 
-* Apply client-side filtering for *maxsize* in misermode in
-  Site.allpages()(T402995)
-* Add filter_func()and filter_item()
-  filter function in APIGeneratorBase
-  and modify `generator` property to implement filtering in
-  `APIGeneratorBase` subclasses (T402995)
-* All parameters of Site.allpages()
-  except *start* must be given as keyword arguments.
-* Add support for bewwiktionary (T402136)
-* Add user-agent header to eventstreamsrequests (T402796)
-* Update i18n
-* Save global options in bot.global_args(T250034)
-* Update pluralforms from unicode.org (T114978)
-* Add textlib.SectionListto hold textlib.Content.sections(T401464)
-* pywikibot.Coordinateparameters are keyword only
-* Add *strict* parameter to Site.unconnected_pages()
-  and pagegenerators.UnconnectedPageGenerator
-  (T401699)
-* Raise ValueError if a VAR_POSITIONAL parameter like *\*args* is used with
-  tools.deprecate_positionalsdecorator
-* Add get_value_at_timestamp()API
-  to pywikibot.ItemPage(T400612)
-* Clean up setupmodule (T396356)
-* Implement pywikibot.ItemPage.get_best_claim(T400610)
-* Add *expiry* parameter to BasePage.watch()and
-  Site.watch(); fix the methods to return False if
-  page is missing and no expiry is set (T330839)
+* Siteinfoquery is made with formatversion 2. Several
+  boolean values are available now. Note that '*' keys for some data are kept for backward
+  compatibility but may be removed later. (T404301)
+* A new property APISite.restrictionswas
+  added. It replaces the methods APISite.protection_types()
+  and APISite.protection_levels()
+  which are deprecated now.
+* Support for mswikiquote was added (T404702)
+* APISite.rollbackpage()supports *pageid*
+  argument as alternative to *page*. *markbot* defaults to True if the rollbacker is a bot and not
+  explicitly given. The method now returns a dictionary with rollback information. The version
+  history no longer has to be preloaded. (T403425)
+* BasePage.rollback()was implemented (T403425)
+* The first parameter of exceptions.PageRelatedErrormay now be a pageid (T403425)
+* i18n Updates
+* Use 'login' token from API response in login.ClientLoginManager.login_to_site
+  (T328814)
+* Always use *fallback_prompt* in i18n.twtranslatewhenever no
+  translation is found, including unknown keys in existing packages (T326470)
 
 
 Deprecations
@@ -321,6 +313,13 @@ Deprecations
 Pending removal in Pywikibot 13
 -------------------------------
 
+* 10.5.0: Accessing the fallback '*' keys in 'languages', 'namespaces', 'namespacealiases', and
+  'skins' properties of APISite.siteinfoare
+  deprecated and will be removed.
+* 10.5.0: The methods APISite.protection_types()
+  and APISite.protection_levels()
+  are deprecated.
+  APISite.restrictionsshould be used instead.
 * 10.4.0: Require all parameters of Site.allpages()
   except *start* to be keyword arguments.
 * 10.4.0: Positional arguments of pywikibot.Coordinateare deprecated and must be given as

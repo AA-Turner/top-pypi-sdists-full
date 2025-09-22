@@ -46,9 +46,11 @@ Grammar Grammar::FromJSONSchema(
     std::optional<int> indent,
     std::optional<std::pair<std::string, std::string>> separators,
     bool strict_mode,
+    std::optional<int> max_whitespace_cnt,
     bool print_converted_ebnf
 ) {
-  auto ebnf_string = JSONSchemaToEBNF(schema, any_whitespace, indent, separators, strict_mode);
+  auto ebnf_string =
+      JSONSchemaToEBNF(schema, any_whitespace, indent, separators, strict_mode, max_whitespace_cnt);
   if (print_converted_ebnf) {
     XGRAMMAR_LOG(INFO) << "Converted EBNF: " << ebnf_string << std::endl;
   }
@@ -63,11 +65,10 @@ Grammar Grammar::FromRegex(const std::string& regex, bool print_converted_ebnf) 
   return FromEBNF(ebnf_string);
 }
 
-Grammar Grammar::FromStructuralTag(
-    const std::vector<StructuralTagItem>& tags, const std::vector<std::string>& triggers
+std::variant<Grammar, StructuralTagError> Grammar::FromStructuralTag(
+    const std::string& structural_tag_json
 ) {
-  Grammar grammar = StructuralTagToGrammar(tags, triggers);
-  return grammar;
+  return StructuralTagToGrammar(structural_tag_json).ToVariant();
 }
 
 // Optimized json grammar for the speed of the grammar matcher

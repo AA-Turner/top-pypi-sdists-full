@@ -1,6 +1,6 @@
 """Sphinx extension for making the spelling directive noop."""
 
-from typing import List
+from __future__ import annotations
 
 from sphinx.application import Sphinx
 from sphinx.config import Config as _SphinxConfig
@@ -9,6 +9,7 @@ from sphinx.util.docutils import SphinxDirective
 from sphinx.util.nodes import nodes
 
 from cheroot import __version__
+
 
 try:
     from enchant.tokenize import (  # noqa: WPS433
@@ -48,8 +49,17 @@ def _configure_spelling_ext(app: Sphinx, config: _SphinxConfig) -> None:
 
             return True
 
+    # Resetting the release and version strings works around problems
+    # with `setuptools-scm` generated versions being tokenized
+    # by the spell checker incorrectly.
+    app.config.release = 'dummy'
+    app.config.version = 'dummy'
+
     app.config.spelling_filters = [VersionFilter]
     app.setup_extension('sphinxcontrib.spelling')
+
+    # suppress unpicklable value warnings:
+    del app.config.spelling_filters  # noqa: WPS420
 
 
 class SpellingNoOpDirective(SphinxDirective):
@@ -57,7 +67,7 @@ class SpellingNoOpDirective(SphinxDirective):
 
     has_content = True
 
-    def run(self) -> List[nodes.Node]:
+    def run(self) -> list[nodes.Node]:
         """Generate nothing in place of the directive."""
         return []
 

@@ -150,10 +150,10 @@ def arrange_islands(
         :param order: Order, Order of islands
 
     LARGE_TO_SMALL
-    Largest to Smallest -- Sort Islands from Largest to Smallest.
+    Largest to Smallest -- Sort islands from largest to smallest.
 
     SMALL_TO_LARGE
-    Smallest to Largest -- Sort Islands from Smallest to Largest.
+    Smallest to Largest -- Sort islands from smallest to largest.
 
     Fixed
     Fixed -- Preserve island order.

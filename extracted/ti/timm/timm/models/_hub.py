@@ -404,6 +404,7 @@ def push_to_hf_hub(
         model_config: Optional[dict] = None,
         model_card: Optional[dict] = None,
         model_args: Optional[dict] = None,
+        task_name: str = 'image-classification',
         safe_serialization: Union[bool, Literal["both"]] = 'both',
 ):
     """
@@ -444,7 +445,7 @@ def push_to_hf_hub(
             model_card = model_card or {}
             model_name = repo_id.split('/')[-1]
             readme_path = Path(tmpdir) / "README.md"
-            readme_text = generate_readme(model_card, model_name)
+            readme_text = generate_readme(model_card, model_name, task_name=task_name)
             readme_path.write_text(readme_text)
 
         # Upload model and return
@@ -457,13 +458,18 @@ def push_to_hf_hub(
         )
 
 
-def generate_readme(model_card: dict, model_name: str):
-    tags = model_card.get('tags', None) or ['image-classification', 'timm', 'transformers']
+def generate_readme(
+        model_card: dict,
+        model_name: str,
+        task_name: str = 'image-classification',
+):
+    tags = model_card.get('tags', None) or [task_name, 'timm', 'transformers']
     readme_text = "---\n"
     if tags:
         readme_text += "tags:\n"
         for t in tags:
             readme_text += f"- {t}\n"
+    readme_text += f"pipeline_tag: {task_name}\n"
     readme_text += f"library_name: {model_card.get('library_name', 'timm')}\n"
     readme_text += f"license: {model_card.get('license', 'apache-2.0')}\n"
     if 'license_name' in model_card:

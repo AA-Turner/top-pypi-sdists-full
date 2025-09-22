@@ -16,10 +16,10 @@ class Weekly(BaseEntity):
     """
 
     path: str = field(
-        default = 'storage/log/weekly.log',
+        default = 'storage/logs/weekly.log',
         metadata = {
             "description": "The file path where the log is stored.",
-            "default": "storage/log/weekly.log"
+            "default": "storage/logs/weekly.log"
         },
     )
 

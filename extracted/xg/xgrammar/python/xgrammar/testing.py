@@ -22,6 +22,7 @@ def _json_schema_to_ebnf(
     any_whitespace: bool = True,
     indent: Optional[int] = None,
     separators: Optional[Tuple[str, str]] = None,
+    max_whitespace_cnt: Optional[int] = None,
     strict_mode: bool = True,
 ) -> str:
     """Convert JSON schema string to BNF grammar string. For test purposes.
@@ -47,6 +48,12 @@ def _json_schema_to_ebnf(
         This helps LLM to generate accurate output in the grammar-guided generation with JSON
         schema.
 
+    max_whitespace_cnt : Optional[int], default: None
+        The maximum number of whitespace characters allowed between elements, such like keys, values, separators and so on.
+        If None, there is no limit on the number of whitespace characters.
+        If specified, it will limit the number of whitespace characters to at most max_whitespace_cnt.
+        It should be a positive integer.
+
     Returns
     -------
     bnf_string : str
@@ -54,7 +61,7 @@ def _json_schema_to_ebnf(
     """
     schema_str = _convert_schema_to_str(schema)
     return _core.testing._json_schema_to_ebnf(
-        schema_str, any_whitespace, indent, separators, strict_mode
+        schema_str, any_whitespace, indent, separators, strict_mode, max_whitespace_cnt
     )
 
 
@@ -226,7 +233,7 @@ def _is_single_token_bitmask(
     )
 
 
-def _bool_mask_to_bitmask(bool_mask: torch.Tensor) -> torch.Tensor:
+def bool_mask_to_bitmask(bool_mask: torch.Tensor) -> torch.Tensor:
     """Get the bitmask from bool mask. If the bool mask does not align with the 32-bit block
     size, it will add extra 1 paddings.
 
@@ -253,6 +260,42 @@ def _bool_mask_to_bitmask(bool_mask: torch.Tensor) -> torch.Tensor:
     ).to(torch.int32)
     bitmask = (bool_mask_view * weights).sum(dim=2)
     return bitmask.to(torch.int32)
+
+
+def bitmask_to_bool_mask(bit_mask: torch.Tensor, vocab_size: Optional[int] = None) -> torch.Tensor:
+    """
+    Convert a bitmask tensor to a boolean mask tensor.
+
+    Parameters
+    ----------
+    bit_mask : torch.Tensor
+        The bitmask tensor to convert. Should be on CPU and of type int32.
+    vocab_size : Optional[int], default: None
+        The size of the vocabulary. If provided, the output mask will be cut to this size.
+
+    Returns
+    -------
+    bool_mask : torch.Tensor
+        The converted boolean mask tensor.
+    """
+
+    # Validate input.
+    if bit_mask.device.type != "cpu":
+        raise ValueError("bit_mask should be on CPU.")
+    if bit_mask.dtype != bitmask_dtype:
+        raise ValueError("bit_mask should be of type torch.int32.")
+
+    if vocab_size is None:
+        vocab_size = bit_mask.shape[1] * 32
+    if vocab_size > bit_mask.shape[1] * 32:
+        raise ValueError(
+            "vocab_size should be less than or equal to the size represented by bit_mask."
+        )
+
+    bool_mask = torch.zeros((bit_mask.shape[0], vocab_size), dtype=torch.bool)
+    for i in range(vocab_size):
+        bool_mask[:, i] = (bit_mask[:, i // 32] & (1 << (i % 32))) != 0
+    return bool_mask
 
 
 def _get_matcher_from_grammar_and_tokenizer_info(

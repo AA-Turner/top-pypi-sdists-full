@@ -4,12 +4,13 @@ import math
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, get_args
 
 import torch
 from pymatgen.core import Structure
 from torch import Tensor, nn
 
+from chgnet import PredTask
 from chgnet.graph import CrystalGraph, CrystalGraphConverter
 from chgnet.graph.crystalgraph import TORCH_DTYPE
 from chgnet.model.composition_model import AtomRef
@@ -27,7 +28,6 @@ from chgnet.utils import determine_device
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-    from chgnet import PredTask
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -603,7 +603,7 @@ class CHGNet(nn.Module):
 
         Args:
             graph (CrystalGraph | Sequence[CrystalGraph]): CrystalGraph(s) to predict.
-            task (str): can be 'e' 'ef', 'em', 'efs', 'efsm'
+            task (PredTask): one of 'e', 'ef', 'em', 'efs', 'efsm'
                 Default = "efsm"
             return_site_energies (bool): whether to return per-site energies.
                 Default = False
@@ -626,6 +626,9 @@ class CHGNet(nn.Module):
             raise TypeError(
                 f"{type(graph)=} must be CrystalGraph or list of CrystalGraphs"
             )
+        valid_tasks = get_args(PredTask)
+        if task not in valid_tasks:
+            raise ValueError(f"Invalid {task=}. Must be one of {valid_tasks}.")
 
         model_device = next(self.parameters()).device
 
@@ -695,7 +698,10 @@ class CHGNet(nn.Module):
         """Load pretrained CHGNet model.
 
         Args:
-            model_name (str, optional):
+            model_name (str, optional): Model name to load. Supported models:
+                - "0.3.0": Latest MPtrj-pretrained CHGNet (default)
+                - "0.2.0": Deprecated MPtrj version for backward compatibility
+                - "r2scan": R2SCAN level model transfer learned from MP-R2SCAN dataset
                 Default = "0.3.0".
             use_device (str, optional): The device to be used for predictions,
                 either "cpu", "cuda", or "mps". If not specified, the default device is
@@ -711,6 +717,9 @@ class CHGNet(nn.Module):
         checkpoint_path = {
             "0.3.0": "../pretrained/0.3.0/chgnet_0.3.0_e29f68s314m37.pth.tar",
             "0.2.0": "../pretrained/0.2.0/chgnet_0.2.0_e30f77s348m32.pth.tar",
+            "r2scan": (
+                "../pretrained/r2scan/chgnet_r2scan_transfer_learning_e15f36s161m23.pth.tar"
+            ),
         }.get(model_name)
 
         if checkpoint_path is None:

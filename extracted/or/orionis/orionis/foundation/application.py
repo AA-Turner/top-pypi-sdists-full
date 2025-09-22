@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import time
 from pathlib import Path
 from typing import Any, List, Type, Dict
@@ -141,10 +142,10 @@ class Application(Container, IApplication):
             self.__runtime_path_config: dict = {}
 
             # Property to store the scheduler instance
-            self.__scheduler: BaseScheduler = None
+            self.__scheduler: IBaseScheduler = None
 
             # Property to store the exception handler class
-            self.__exception_handler: Type[BaseExceptionHandler] = None
+            self.__exception_handler: Type[IBaseExceptionHandler] = None
 
             # Flag to prevent re-initialization
             self.__initialized = True
@@ -773,6 +774,10 @@ class Application(Container, IApplication):
         - The method always returns the current `Application` instance.
         """
 
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
+
         # Convert class type to dict using DataClass wrapper
         if (isinstance(app, type) and issubclass(app, App)):
             _app = DataClass(App).fromDataclass(app).toDict()
@@ -868,6 +873,10 @@ class Application(Container, IApplication):
         - The resulting configuration is stored in the internal configurators under the 'auth' key.
         - The method always returns the current Application instance.
         """
+
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
 
         # Convert class type to dict using DataClass wrapper
         if (isinstance(auth, type) and issubclass(auth, Auth)):
@@ -965,6 +974,10 @@ class Application(Container, IApplication):
         - The method always returns the current Application instance.
         """
 
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
+
         # Convert class type to dict using DataClass wrapper
         if (isinstance(cache, type) and issubclass(cache, Cache)):
             _cache = DataClass(Cache).fromDataclass(cache).toDict()
@@ -1060,6 +1073,10 @@ class Application(Container, IApplication):
         - The resulting configuration is stored in the internal configurators under the 'cors' key.
         - The method always returns the current Application instance.
         """
+
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
 
         # Convert class type to dict using DataClass wrapper
         if (isinstance(cors, type) and issubclass(cors, Cors)):
@@ -1157,6 +1174,10 @@ class Application(Container, IApplication):
         - The method always returns the current Application instance.
         """
 
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
+
         # Convert class type to dict using DataClass wrapper
         if (isinstance(database, type) and issubclass(database, Database)):
             _database = DataClass(Database).fromDataclass(database).toDict()
@@ -1252,6 +1273,10 @@ class Application(Container, IApplication):
         - The resulting configuration is stored in the internal configurators under the 'filesystems' key.
         - The method always returns the current Application instance.
         """
+
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
 
         # Convert class type to dict using DataClass wrapper
         if (isinstance(filesystems, type) and issubclass(filesystems, Filesystems)):
@@ -1349,6 +1374,10 @@ class Application(Container, IApplication):
         - The method always returns the current Application instance.
         """
 
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
+
         # Convert class type to dict using DataClass wrapper
         if (isinstance(logging, type) and issubclass(logging, Logging)):
             _logging = DataClass(Logging).fromDataclass(logging).toDict()
@@ -1444,6 +1473,10 @@ class Application(Container, IApplication):
         - The resulting configuration is stored in the internal configurators under the 'mail' key.
         - The method always returns the current Application instance.
         """
+
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
 
         # Convert class type to dict using DataClass wrapper
         if (isinstance(mail, type) and issubclass(mail, Mail)):
@@ -1541,6 +1574,10 @@ class Application(Container, IApplication):
         - The method always returns the current Application instance.
         """
 
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
+
         # Convert class type to dict using DataClass wrapper
         if (isinstance(queue, type) and issubclass(queue, Queue)):
             _queue = DataClass(Queue).fromDataclass(queue).toDict()
@@ -1637,6 +1674,10 @@ class Application(Container, IApplication):
         - The method always returns the current Application instance.
         """
 
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
+
         # Convert class type to dict using DataClass wrapper
         if (isinstance(session, type) and issubclass(session, Session)):
             _session = DataClass(Session).fromDataclass(session).toDict()
@@ -1732,6 +1773,10 @@ class Application(Container, IApplication):
         - The resulting configuration is stored in the internal configurators under the 'testing' key.
         - The method always returns the current Application instance.
         """
+
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
 
         # Convert class type to dict using DataClass wrapper
         if (isinstance(testing, type) and issubclass(testing, Testing)):
@@ -1865,6 +1910,10 @@ class Application(Container, IApplication):
         - The method always returns the current Application instance.
         """
 
+        # Prevent modification if the application has already been booted
+        if self.__booted:
+            raise OrionisValueError("Cannot modify configuration after application has been booted.")
+
         # Convert class type to dict using DataClass wrapper
         if (isinstance(paths, type) and issubclass(paths, Paths)):
             _paths = DataClass(Paths).fromDataclass(paths).toDict()
@@ -1919,14 +1968,16 @@ class Application(Container, IApplication):
             if not self.__config:
                 self.__config = Configuration().toDict()
 
-            # Store copy of the config as runtime config
+            # Create a deep copy of the current configuration
+            local_config_copy = copy.deepcopy(self.__config)
+
             # Copy all config except the 'path' key
-            self.__runtime_config = {k: v for k, v in self.__config.items() if k != 'path'}
+            self.__runtime_config = {k: v for k, v in local_config_copy.items() if k != 'path'}
 
             # Copy contains only the 'path' key
-            self.__runtime_path_config = self.__config.get('path', {})
+            self.__runtime_path_config = local_config_copy.get('path', {})
 
-        except Exception as e:
+        except BaseException as e:
 
             # Handle any exceptions during configuration loading
             raise OrionisRuntimeError(f"Failed to load application configuration: {str(e)}")
@@ -2029,8 +2080,11 @@ class Application(Container, IApplication):
             Returns the current `Application` instance to enable method chaining.
         """
 
+        # Create a deep copy of the current configuration
+        local_config_copy = copy.deepcopy(self.__config)
+
         # Reset the runtime configuration to match the current config (excluding 'path')
-        self.__runtime_config = {k: v for k, v in self.__config.items() if k != 'path'}
+        self.__runtime_config = {k: v for k, v in local_config_copy.items() if k != 'path'}
 
         # Return the application instance for method chaining
         return self

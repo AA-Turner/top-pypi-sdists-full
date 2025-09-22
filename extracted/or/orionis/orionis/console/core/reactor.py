@@ -280,27 +280,29 @@ class Reactor(IReactor):
         """
 
         # Import the core command class for version
-        from orionis.console.commands.version import VersionCommand
+        from orionis.console.commands.__publisher__ import PublisherCommand
+        from orionis.console.commands.__workflow__ import WorkFlowGithubCommand
+        from orionis.console.commands.cache_clear import CacheClearCommand
         from orionis.console.commands.help import HelpCommand
-        from orionis.console.commands.test import TestCommand
-        from orionis.console.commands.publisher import PublisherCommand
-        from orionis.console.commands.workflow import WorkFlowGithubCommand
-        from orionis.console.commands.cache import CacheClearCommand
-        from orionis.console.commands.scheduler_work import ScheduleWorkCommand
-        from orionis.console.commands.scheduler_list import ScheduleListCommand
+        from orionis.console.commands.log_clear import LogClearCommand
         from orionis.console.commands.make_command import MakeCommand
+        from orionis.console.commands.scheduler_list import ScheduleListCommand
+        from orionis.console.commands.scheduler_work import ScheduleWorkCommand
+        from orionis.console.commands.test import TestCommand
+        from orionis.console.commands.version import VersionCommand
 
         # List of core command classes to load (extend this list as more core commands are added)
         core_commands = [
-            VersionCommand,
-            HelpCommand,
-            TestCommand,
             PublisherCommand,
             WorkFlowGithubCommand,
             CacheClearCommand,
-            ScheduleWorkCommand,
+            HelpCommand,
+            LogClearCommand,
+            MakeCommand,
             ScheduleListCommand,
-            MakeCommand
+            ScheduleWorkCommand,
+            TestCommand,
+            VersionCommand
         ]
 
         # Iterate through the core command classes and register them
@@ -968,7 +970,8 @@ class Reactor(IReactor):
                 output = await self.__app.callAsync(command_instance, 'handle')
 
                 # Calculate elapsed time and log completion with DONE state if command.timestamps are enabled
-                elapsed_time = round(self.__performance_counter.stop(), 2)
+                self.__performance_counter.stop()
+                elapsed_time = round(self.__performance_counter.getSeconds(), 2)
                 if command.timestamps:
                     self.__executer.done(program=signature, time=f"{elapsed_time}s")
 
@@ -984,7 +987,8 @@ class Reactor(IReactor):
                 self.__logger.error(f"Command '{signature}' execution failed: {e}")
 
                 # Calculate elapsed time and log failure with ERROR state if command.timestamps are enabled
-                elapsed_time = round(self.__performance_counter.stop(), 2)
+                self.__performance_counter.stop()
+                elapsed_time = round(self.__performance_counter.getSeconds(), 2)
                 if command.timestamps:
                     self.__executer.fail(program=signature, time=f"{elapsed_time}s")
 

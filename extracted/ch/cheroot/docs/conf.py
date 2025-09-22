@@ -1,11 +1,12 @@
-#! /usr/bin/env python3
-# Requires Python 3.6+
 # pylint: disable=invalid-name
 """Configuration of Sphinx documentation generator."""
+
+from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
+
 
 # -- Path setup --------------------------------------------------------------
 
@@ -38,7 +39,6 @@ extensions = [
     'sphinx_tabs.tabs',
     'sphinxcontrib.apidoc',
     'sphinxcontrib.towncrier.ext',  # provides `.. towncrier-draft-entries::`
-
     # In-tree extensions:
     'spelling_stub_ext',  # auto-loads `sphinxcontrib.spelling` if installed
 ]
@@ -68,7 +68,8 @@ apidoc_toc_file = None
 
 spelling_ignore_acronyms = True
 spelling_ignore_importable_modules = True
-spelling_ignore_pypi_package_names = True
+# PyPI lookup because of https://github.com/sphinx-contrib/spelling/issues/227
+spelling_ignore_pypi_package_names = False
 spelling_ignore_python_builtins = True
 spelling_ignore_wiki_words = True
 spelling_show_suggestions = True
@@ -112,23 +113,32 @@ linkcheck_ignore = [
     r'http://localhost:\d+/',  # local URLs
     r'https://codecov\.io/gh/cherrypy/cheroot/branch/master/graph/badge\.svg',
     r'https://github\.com/cherrypy/cheroot/actions',  # 404 if no auth
-
     # Too many links to GitHub so they cause
     # "429 Client Error: too many requests for url"
     # Ref: https://github.com/sphinx-doc/sphinx/issues/7388
+    r'https://github\.com/cherrypy/cheroot/commit'
     r'https://github\.com/cherrypy/cheroot/issues',
     r'https://github\.com/cherrypy/cheroot/pull',
+    r'https://github\.com/cherrypy/cherrypy/commit'
     r'https://github\.com/cherrypy/cherrypy/issues',
     r'https://github\.com/cherrypy/cherrypy/pull',
-
     # Has an ephemeral anchor (line-range) but actual HTML has separate per-
     # line anchors.
     r'https://github\.com'
     r'/python/cpython/blob/c39b52f/Lib/poplib\.py#L297-L302',
     r'https://github\.com'
     r'/python/cpython/blob/c39b52f/Lib/poplib\.py#user-content-L297-L302',
-
+    r'^https://img\.shields\.io/matrix',  # these are rate-limited
     r'^https://matrix\.to/#',  # these render fully on front-end from anchors
+    r'^https://stackoverflow\.com/',  # these generate HTTP 403 Forbidden
+    r'^https://forums\.sabnzbd\.org/',  # these generate HTTP 403 Forbidden
+]
+linkcheck_anchors_ignore = [
+    r'^!',  # default
+    # ignore anchors that start with a '/', e.g. Wikipedia media files:
+    # https://en.wikipedia.org/wiki/Walrus#/media/File:Pacific_Walrus_-_Bull_(8247646168).jpg
+    r'\/.*',
+    r'issuecomment-\d+',  # GitHub comments
 ]
 linkcheck_workers = 25
 
@@ -148,7 +158,6 @@ nitpick_ignore = [
     ('py:class', '_pyio.BufferedReader'),
     ('py:class', 'unittest.case.TestCase'),
     ('py:meth', 'cheroot.connections.ConnectionManager.get_conn'),
-
     # Ref: https://github.com/pyca/pyopenssl/issues/1012
     ('py:class', 'pyopenssl:OpenSSL.SSL.Context'),
 ]

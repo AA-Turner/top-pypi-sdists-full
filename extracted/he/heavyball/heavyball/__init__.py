@@ -2,8 +2,71 @@ import functools
 import math
 from typing import Optional
 
+import torch.optim
+
 from . import chainable as C
 from . import utils
+
+
+class SAMWrapper(torch.optim.Optimizer):
+    def __init__(self, params, wrapped_optimizer: utils.StatefulOptimizer, ball: float = 0.1):
+        if not isinstance(wrapped_optimizer, utils.StatefulOptimizer):
+            raise ValueError(f"{wrapped_optimizer.__class__.__name__} is not a HeavyBall optimizer")
+        super().__init__(params, {"ball": ball})
+        self.wrapped_optimizer = wrapped_optimizer
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        if closure is None:
+            raise ValueError("SAM requires closure")
+        with torch.enable_grad():
+            closure()
+        old_params = [utils.sam_step(group["params"], group["ball"]) for group in self.param_groups]
+
+        originaL_handle_closure = self.wrapped_optimizer._handle_closure
+
+        def _handle_closure(closure):
+            originaL_handle_closure(closure)
+            for group, old in zip(self.param_groups, old_params):
+                utils.copy_stochastic_list_(group["params"], old)
+
+        try:
+            self.wrapped_optimizer._handle_closure = _handle_closure
+            loss = self.wrapped_optimizer.step(closure)
+        finally:
+            self.wrapped_optimizer._handle_closure = originaL_handle_closure
+        return loss
+
+    def zero_grad(self, set_to_none: bool = True):
+        self.wrapped_optimizer.zero_grad()
+
+
+class SGD(C.BaseOpt):
+    def __init__(
+        self,
+        params,
+        lr=0.0025,
+        beta=0.9,
+        weight_decay=0,
+        warmup_steps=0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        **kwargs,
+    ):
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, fns=(C.heavyball_momentum,))
 
 
 class ForeachAdamW(C.BaseOpt):
@@ -24,11 +87,55 @@ class ForeachAdamW(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
-        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, C.update_by_adam)
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.update_by_adam,))
+
+
+class ForeachAdamC(C.BaseOpt):
+    def __init__(
+        self,
+        params,
+        lr=0.0025,
+        betas=(0.9, 0.99),
+        eps=1e-8,
+        weight_decay=0,
+        max_lr: float | None = None,
+        warmup_steps=0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        palm: bool = C.use_default,
+        beta2_scale: float = 0.8,
+        **kwargs,
+    ):
+        if max_lr is None:
+            utils.warn_once(
+                "max_lr was not set. setting it to the current learning rate, under the assumption that it strictly decreases"
+            )
+            max_lr = lr
+
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.update_by_adamc,))
 
 
 class ForeachRMSprop(C.BaseOpt):
@@ -55,10 +162,16 @@ class ForeachRMSprop(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
         super().__init__(
             params,
             defaults,
@@ -66,7 +179,7 @@ class ForeachRMSprop(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,
-            C.scale_by_exp_avg_sq,
+            fns=(C.scale_by_exp_avg_sq,),
         )
 
 
@@ -90,10 +203,16 @@ class ForeachSFAdamW(C.ScheduleFree):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
         super().__init__(
             params,
             defaults,
@@ -101,8 +220,49 @@ class ForeachSFAdamW(C.ScheduleFree):
             gradient_clipping,
             update_clipping,
             palm,
-            C.scale_by_exp_avg_sq,
-            C.update_by_schedule_free,
+            fns=(C.scale_by_exp_avg_sq, C.update_by_schedule_free),
+        )
+
+
+class MSAMLaProp(C.MSAM):
+    def __init__(
+        self,
+        params,
+        lr=0.0025,
+        betas=(0.9, 0.99),
+        eps=1e-6,
+        weight_decay=0,
+        warmup_steps=0,
+        r=0.0,
+        weight_lr_power=2.0,
+        foreach: bool = True,
+        storage_dtype: str = "float32",
+        mars: bool = False,
+        caution: bool = False,
+        mars_gamma: float = 0.0025,
+        gradient_clipping: C.str_or_fn = C.use_default,
+        update_clipping: C.str_or_fn = C.use_default,
+        palm: bool = C.use_default,
+        beta2_scale: float = 0.8,
+        sam_step_size: float = 0.1,
+        **kwargs,
+    ):
+        defaults = locals()
+        defaults.pop("self")
+        params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(
+            params,
+            defaults,
+            foreach,
+            gradient_clipping,
+            update_clipping,
+            palm,
+            fns=(C.scale_by_exp_avg_sq, C.update_by_msam),
         )
 
 
@@ -128,11 +288,17 @@ class ForeachADOPT(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
-        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, C.update_by_adopt)
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.update_by_adopt,))
 
 
 class ForeachMuon(C.BaseOpt):
@@ -154,10 +320,16 @@ class ForeachMuon(C.BaseOpt):
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
         nesterov: bool = True,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
         super().__init__(
             params,
             defaults,
@@ -165,8 +337,7 @@ class ForeachMuon(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,
-            C.nesterov_momentum if nesterov else C.heavyball_momentum,
-            C.orthogonalize_update,
+            fns=(C.nesterov_ema if nesterov else C.exp_avg, C.orthogonalize_update),
         )
 
 
@@ -188,11 +359,17 @@ class ForeachLaProp(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
-        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, C.update_by_laprop)
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        super().__init__(params, defaults, foreach, gradient_clipping, update_clipping, palm, fns=(C.update_by_laprop,))
 
 
 class MuonLaProp(C.BaseOpt):
@@ -213,10 +390,16 @@ class MuonLaProp(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
         super().__init__(
             params,
             defaults,
@@ -224,8 +407,7 @@ class MuonLaProp(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,
-            C.scale_by_laprop,
-            C.orthogonalize_update,
+            fns=(C.scale_by_laprop, C.orthogonalize_update),
         )
 
 
@@ -271,12 +453,18 @@ class ForeachSOAP(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         storage_dtype: str = "float32",
         stochastic_schedule: bool = False,
+        precond_grad_accum: bool = False,
+        **kwargs,
     ):
         use_precond_schedule = C.default(use_precond_schedule, self.use_precond_schedule)
 
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
 
         if use_precond_schedule:
             del defaults["precondition_frequency"]
@@ -291,7 +479,7 @@ class ForeachSOAP(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,  #
-            C.scale_by_soap,
+            fns=(C.scale_by_soap,),
         )
 
 
@@ -313,10 +501,16 @@ class ForeachSignLaProp(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
         super().__init__(
             params,
             defaults,
@@ -324,8 +518,7 @@ class ForeachSignLaProp(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,
-            C.scale_by_laprop,
-            C.sign,
+            fns=(C.scale_by_laprop, C.sign),
         )
 
 
@@ -371,12 +564,17 @@ class ForeachSOLP(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         storage_dtype: str = "float32",
         stochastic_schedule: bool = False,
+        **kwargs,
     ):
         use_precond_schedule = C.default(use_precond_schedule, self.use_precond_schedule)
 
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
 
         if use_precond_schedule:
             del defaults["precondition_frequency"]
@@ -391,7 +589,7 @@ class ForeachSOLP(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,  #
-            functools.partial(C.scale_by_soap, inner="laprop"),
+            fns=(functools.partial(C.scale_by_soap, inner="laprop"),),
         )
 
 
@@ -427,10 +625,15 @@ class OrthoLaProp(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
         super().__init__(
             params,
             defaults,
@@ -438,8 +641,7 @@ class OrthoLaProp(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,
-            C.orthogonalize_grad_to_param,
-            C.scale_by_laprop,
+            fns=(C.orthogonalize_grad_to_param, C.scale_by_laprop),
         )
 
 
@@ -461,10 +663,15 @@ class LaPropOrtho(C.BaseOpt):
         update_clipping: C.str_or_fn = C.use_default,
         palm: bool = C.use_default,
         beta2_scale: float = 0.8,
+        **kwargs,
     ):
         defaults = locals()
         defaults.pop("self")
         params = defaults.pop("params")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
         super().__init__(
             params,
             defaults,
@@ -472,8 +679,7 @@ class LaPropOrtho(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             palm,
-            C.scale_by_laprop,
-            C.orthogonalize_grad_to_param,
+            fns=(C.scale_by_laprop, C.orthogonalize_grad_to_param),
         )
 
 
@@ -487,12 +693,14 @@ class ForeachPSGDKron(C.BaseOpt):
     delayed: bool = False
     cached: bool = False
     exp_avg_input: bool = True
+    quad: bool = False
 
     def __init__(
         self,
         params,
         lr=0.001,
-        beta=0.9,
+        beta=None,
+        betas=(0.9, 0.999),
         weight_decay=0.0,
         preconditioner_update_probability=None,
         max_size_triangular=2048,
@@ -515,22 +723,39 @@ class ForeachPSGDKron(C.BaseOpt):
         exp_avg_input: Optional[bool] = C.use_default,
         gradient_clipping: C.str_or_fn = C.use_default,
         update_clipping: C.str_or_fn = C.use_default,  #
+        adaptive: bool = False,
+        ortho_method: Optional[str] = None,  # If None, no orthogonalization
+        precond_grad_accum: bool = False,
+        lower_bound_beta: float = 0.9,  # 0.0 recovers pre-2.0.0 PSGD
+        inverse_free: bool = C.use_default,
+        dampening: float = 2**-13,
+        precond_update_power_iterations: int = 2,
         # expert parameters
         precond_init_scale=None,
-        precond_init_scale_scale=1,
-        precond_lr=0.1,
+        precond_init_scale_scale: float = 1,
+        precond_init_scale_power: Optional[float] = None,
+        precond_lr: float = 0.1,
+        **kwargs,
     ):
-        defaults = locals()
-        defaults.pop("self")
-        self.precond_schedule = (
-            defaults.pop("preconditioner_update_probability") or utils.precond_update_prob_schedule()
-        )
-        params = defaults.pop("params")
-
         delayed = C.default(delayed, self.delayed)
         cached = C.default(cached, self.cached)
         exp_avg_input = C.default(exp_avg_input, self.exp_avg_input)
         update_clipping = C.default(update_clipping, utils.trust_region_clip_)
+        inverse_free = C.default(inverse_free, self.quad)
+        if inverse_free:
+            raise ValueError("inverse_free (i.e., PSGD-QUAD) is not supported at the moment. Consider using https://github.com/evanatyourservice/quad_torch")
+
+        defaults = locals()
+        defaults.pop("self")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
+        self.precond_schedule = (
+            defaults.pop("preconditioner_update_probability") or utils.precond_update_prob_schedule()
+        )
+        params = defaults.pop("params")
 
         super().__init__(
             params,
@@ -539,8 +764,10 @@ class ForeachPSGDKron(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             False,  #
-            *(C.exp_avg,) * exp_avg_input,  #
-            functools.partial(C.scale_by_delayed_psgd if delayed else C.scale_by_psgd, cached=cached),
+            fns=(
+                *(C.exp_avg,) * exp_avg_input,
+                functools.partial(C.scale_by_delayed_psgd if delayed else C.scale_by_psgd, cached=cached),
+            ),
         )
 
 
@@ -567,6 +794,7 @@ class ForeachCachedNewtonPSGD(ForeachCachedPSGDKron):
 
 class NewtonHybrid2PSGDKron(ForeachCachedNewtonPSGD):
     hvp_interval = 2
+
 
 
 class ForeachPSGDLRA(C.BaseOpt):
@@ -601,13 +829,24 @@ class ForeachPSGDLRA(C.BaseOpt):
         gradient_clipping: C.str_or_fn = C.use_default,
         update_clipping: C.str_or_fn = C.use_default,
         eps: float = 1e-8,  #
-        # expert parameters
+        precond_grad_accum: bool = False,  # expert parameters
         precond_init_scale=None,
-        precond_init_scale_scale=1,
-        precond_lr=0.1,
+        precond_init_scale_scale: float = 1,
+        precond_init_scale_power: Optional[float] = None,
+        precond_lr: float = 0.1,
+        **kwargs,
     ):
+        delayed = C.default(delayed, self.delayed)
+        exp_avg_input = C.default(exp_avg_input, self.exp_avg_input)
+        update_clipping = C.default(update_clipping, utils.trust_region_clip_)
+
         defaults = locals()
         defaults.pop("self")
+        defaults.update(defaults.pop("kwargs"))
+
+        if kwargs:
+            utils.warn_once(f"Working with uncaptured keyword arguments: {kwargs}")
+
         self.precond_schedule = (
             defaults.pop("preconditioner_update_probability") or utils.precond_update_prob_schedule()
         )
@@ -621,10 +860,6 @@ class ForeachPSGDLRA(C.BaseOpt):
             defaults["rank"] = round(math.log2(sum(p.numel() for p in params)))
             utils.warn_once(f"rank was set to {defaults['rank']}")
 
-        delayed = C.default(delayed, self.delayed)
-        exp_avg_input = C.default(exp_avg_input, self.exp_avg_input)
-        update_clipping = C.default(update_clipping, utils.trust_region_clip_)
-
         super().__init__(
             params,
             defaults,
@@ -632,8 +867,7 @@ class ForeachPSGDLRA(C.BaseOpt):
             gradient_clipping,
             update_clipping,
             False,  #
-            *(C.exp_avg,) * exp_avg_input,  #
-            C.scale_by_delayed_psgd_lra if delayed else C.scale_by_psgd_lra,
+            fns=(*(C.exp_avg,) * exp_avg_input, C.scale_by_delayed_psgd_lra if delayed else C.scale_by_psgd_lra),
         )
 
 
@@ -670,6 +904,7 @@ SignLaProp = ForeachSignLaProp
 DelayedPSGDLRA = ForeachDelayedPSGDLRA
 PSGDLRA = ForeachPSGDLRA
 NewtonPSGDLRA = ForeachNewtonPSGDLRA
+NewtonPSGDKron = ForeachCachedNewtonPSGD
 
 __all__ = [
     "Muon",
@@ -715,4 +950,8 @@ __all__ = [
     "NewtonPSGDLRA",
     "NewtonHybrid2PSGDLRA",
     "NewtonHybrid2PSGDKron",
+    "MSAMLaProp",
+    "NewtonPSGDKron",
+    "ForeachAdamC",
+    "SGD"
 ]

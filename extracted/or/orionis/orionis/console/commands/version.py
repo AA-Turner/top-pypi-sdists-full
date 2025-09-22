@@ -1,3 +1,5 @@
+from typing import List
+from orionis.console.args.argument import CLIArgument
 from orionis.console.base.command import BaseCommand
 from orionis.console.exceptions import CLIOrionisRuntimeError
 from rich.console import Console
@@ -30,6 +32,29 @@ class VersionCommand(BaseCommand):
     # Command description
     description: str = "Displays the current Orionis framework version and metadata, including author, Python requirements, documentation, and repository links."
 
+    async def options(self) -> List[CLIArgument]:
+        """
+        Defines the command-line options available for the `make:command` command.
+
+        This method specifies the arguments that can be passed to the command when it is invoked
+        from the CLI. It includes both required and optional arguments, each represented as a
+        `CLIArgument` instance.
+
+        Returns
+        -------
+        List[CLIArgument]
+            A list of `CLIArgument` objects representing the available command-line options.
+        """
+
+        return [
+            CLIArgument(
+                flags=["--without-console"],
+                type=bool,
+                help="Return only the version string, without console output.",
+                required=False
+            )
+        ]
+
     def handle(self, console: Console) -> str:
         """
         Executes the version command to display the current Orionis framework version and metadata.
@@ -54,6 +79,10 @@ class VersionCommand(BaseCommand):
             with the original exception message.
         """
         try:
+
+            # If the --without-console flag is set, return just the version string
+            if self.argument("without_console", False):
+                return framework.VERSION
 
             # Compose the main information strings using framework metadata
             title = f"[bold yellow]{framework.NAME.capitalize()} Framework[/bold yellow] [white]v{framework.VERSION}[/white]"

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.167.1
+Version: 0.167.2
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
 Requires-Dist: atomicwrites<1.5,>=1.4.1
 Requires-Dist: typing-extensions<4.16,>=4.15.0
 Requires-Dist: tzlocal<5.4,>=5.3.1
-Requires-Dist: whenever<0.9,>=0.8.8
+Requires-Dist: whenever<0.9,>=0.8.9
 Provides-Extra: logging
 Requires-Dist: coloredlogs<15.1,>=15.0.1; extra == 'logging'
 Provides-Extra: test

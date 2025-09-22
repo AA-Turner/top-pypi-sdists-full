@@ -39,9 +39,9 @@ jobs:
       PACKAGE_NAME: ${{ steps.set-package.outputs.package_name }}
       RELEASE_VERSION: ${{ steps.set-package.outputs.release_version }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       id: sp
       with:
         python-version: "3.12"  # for tomlib
@@ -99,12 +99,12 @@ jobs:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: python-package-distributions
         path: dist/
     - name: Publish distribution 📦 to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1.12
+      uses: pypa/gh-action-pypi-publish@release/v1.13
 
   github-release:
     name: Publish GitHub Release
@@ -119,12 +119,12 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: python-package-distributions
         path: dist/
     - name: Sign the dists with Sigstore
-      uses: sigstore/gh-action-sigstore-python@v3.0.0
+      uses: sigstore/gh-action-sigstore-python@v3.0.1
       with:
         inputs: >-
           ./dist/*.tar.gz
@@ -164,12 +164,12 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: python-package-distributions
         path: dist/
     - name: Publish distribution 📦 to TestPyPI
-      uses: pypa/gh-action-pypi-publish@release/v1.12
+      uses: pypa/gh-action-pypi-publish@release/v1.13
       with:
         repository-url: https://test.pypi.org/legacy/
         skip-existing: true

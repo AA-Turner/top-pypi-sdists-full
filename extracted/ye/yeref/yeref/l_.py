@@ -5395,6 +5395,167 @@ l_from_group = {
     "zh": "来自群组",
     "ar": "من المجموعة",
 }
+
+l_hand_msg_len = {
+    'ru': "👩🏽‍💻 <b>Сообщение</b> более {0} символов",
+    'en': "👩🏽‍💻 <b>Message</b> more than {0} characters",
+    'es': "👩🏽‍💻 <b>Mensaje</b> más de {0} caracteres",
+    'fr': "👩🏽‍💻 <b>Message</b> de plus de {0} caractères",
+    'zh': "👩🏽‍💻<b>消息</b>超过 {0} 个字符",
+    'ar': "👩🏽‍💻 <b>الرسالة</b> أكثر من {0} حرف",
+}
+l_hand_msg_timer = {
+    'ru': "👩🏽‍💻 <b>кѻмментарий</b> написан слишком быстро",
+    'en': "👩🏽‍💻 <b>Comment</b> written too quickly",
+    'es': "👩🏽‍💻 <b>Comentario</b> escrito demasiado rápido",
+    'fr': "👩🏽‍💻 <b>Commentaire</b> écrit trop vite",
+    'zh': "👩🏽‍💻<b>评论</b>写得太快",
+    'ar': "👩🏽‍💻 <b>التعليق</b> مكتوب بسرعة كبيرة",
+}
+l_hand_msg_flood = {
+    'ru': "💬 <i>Flood</i>-сообщения",
+    'en': "💬 <i>Flood</i>-messages",
+    'es': "💬 <i>Inundación</i>-mensajes",
+    'fr': "💬 <i>Inondations</i>-messages",
+    'zh': "💬<i>洪水</i>-消息",
+    'ar': "💬<i>الفيضانات</i>-رسائل",
+}
+l_hand_msg_via_bot = {
+    'ru': "🗣 <b>Сообщения</b> <i>от имени бота</i> не разрешены",
+    'en': "🗣 <b>Messages</b> <i>on behalf of a bot</i> are not allowed",
+    'es': "🗣 <b>Mensajes</b> <i>en nombre de un bot</i> no están permitidos",
+    'fr': "🗣 Les <b>Messages</b> <i>de la part d'un bot</i> ne sont pas autorisés",
+    'zh': "🗣 不允许<b>消息</b> <i>代表机器人</i>",
+    'ar': "🗣 <b>الرسائل</b> <i>بالنيابة عن الروبوت</i> غير مسموح بها",
+}
+l_hand_msg_channel = {
+    'ru': "🫥 <b>Сообщения</b> <i>от имени канала</i> не разрешены",
+    'en': "🫥 <b>Messages</b> <i>on behalf of the channel</i> are not allowed",
+    'es': "🫥 <b>Mensajes</b> <i>en nombre del canal</i> no están permitidos",
+    'fr': "🫥 Les <b>Messages</b> <i>au nom de la chaîne</i> ne sont pas autorisés",
+    'zh': "🫥 不允许<b>消息</b> <i>代表频道</i>",
+    'ar': "🫥 <b>الرسائل</b> <i>بالنيابة عن القناة</i> غير مسموح بها",
+}
+l_hand_msg_emoji = {
+    'ru': "🗣 <b>Сообщения</b> <i>c emoji</i> не разрешены",
+    'en': "🗣 <b>Messages</b> <i>with emoji</i> are not allowed",
+    'es': "🗣 <b>Mensajes</b> <i>con emoji</i> no están permitidos",
+    'fr': "🗣 Les <b>Messages</b> <i>avec emoji</i> ne sont pas autorisés",
+    'zh': "🗣 不允许<b>消息</b> <i>带有表情符号</i>",
+    'ar': "🗣 <b>الرسائل</b> <i>التي تحتوي على رموز تعبيرية</i> غير مسموح بها",
+}
+l_hand_msg_http = {
+    'ru': "🔗 <b>Сообщения</b> <i>c внешними ссылками</i> не разрешены",
+    'en': "🔗 <b>Messages</b> <i>with external links</i> are not allowed",
+    'es': "🔗 No se permiten <b>Mensajes</b> <i>con enlaces externos</i>",
+    'fr': "🔗 Les <b>Messages</b> <i>avec des liens externes</i> ne sont pas autorisés",
+    'zh': "🔗 不允许<b>消息</b> <i>带有外部链接</i>",
+    'ar': "🔗 <b>الرسائل</b> <i>ذات الروابط الخارجية</i> غير مسموح بها",
+}
+l_hand_msg_telegram = {
+    'ru': "🔗 <b>Сообщения</b> <i>c telegram-ссылками</i> не разрешены",
+    'en': "🔗 <b>Messages</b> <i>with telegram links</i> are not allowed",
+    'es': "🔗 No se permiten <b>Mensajes</b> <i>con enlaces de Telegram</i>",
+    'fr': "🔗 Les <b>Messages</b> <i>avec des liens de télégramme</i> ne sont pas autorisés",
+    'zh': "🔗 不允许<b>消息</b> <i>带有电报链接</i>",
+    'ar': "🔗 <b>الرسائل</b> <i>التي تحتوي على روابط تيليجرام</i> غير مسموح بها",
+}
+l_hand_msg_forward = {
+    'ru': "🔗 <b>Сообщения</b> <i>c forward-ссылками</i> не разрешены",
+    'en': "🔗 <b>Messages</b> <i>with forward links</i> are not allowed",
+    'es': "🔗 No se permiten <b>Mensajes</b> <i>con enlaces directos</i>",
+    'fr': "🔗 Les <b>Messages</b> <i>avec liens de transfert</i> ne sont pas autorisés",
+    'zh': "🔗 不允许<b>消息</b> <i>带有转发链接</i>",
+    'ar': "🔗 <b>الرسائل</b> <i>ذات الروابط الأمامية</i> غير مسموح بها",
+}
+l_hand_msg_zalgo = {
+    'ru': "文 <b>Сообщения</b> <i>c <a href='https://www.zalgo.org'>zalgo-символами</a></i> не разрешены",
+    'en': "文 <b>Messages</b> <i>c <a href=' https://www.zalgo.org '> zalgo-characters</a></i> are not allowed",
+    'es': "文 <b>Mensajes</b> <i>c <a href=' https://www.zalgo.org '> caracteres-zalgo</a></i> no están permitidos",
+    'fr': "文 <b>Messages</b> <i>c <a href=' https://www.zalgo.org '> les caractères zalgo</a></i> ne sont pas autorisés",
+    'zh': "文 <b>消息</b> <i>c <a href=' https://www.zalgo.org '> zalgo-characters</a></i> 不允许",
+    'ar': "文 <b>الرسائل</b> <i>c <a href=' https://www.zalgo.org '> zalgo-characters</a></i> غير مسموح بها",
+}
+l_hand_msg_symbols = {
+    'ru': "文 <b>Сообщения</b> <i>c 文ب-алфавитами</i> не разрешены",
+    'en': "文 <b>Messages</b> <i>with 文ب-alphabets</i> are not allowed",
+    'es': "文 <b>Mensajes</b> <i>con 文ب-alfabetos</i> no están permitidos",
+    'fr': "文 <b>Les messages</b> <i>avec les alphabets 文ب</i> ne sont pas autorisés",
+    'zh': "不允许使用带有文巴字母的<b>消息</b><i>",
+    'ar': "文 <b>الرسائل</b> <i>التي تحتوي على حروف 文ب</i> غير مسموح بها",
+}
+l_hand_msg_stop = {
+    'ru': "🧾 <b>Сообщение</b> содержит <i>стоп-слова</i>",
+    'en': "🧾 <b>Message</b> contains <i>safe words</i>",
+    'es': "🧾 El <b>Mensaje</b> contiene <i>palabras seguras</i>",
+    'fr': "🧾 <b>Le message</b> contient des <i>mots sûrs</i>",
+    'zh': "🧾<b>消息</b>包含<i>安全词</i>",
+    'ar': "🧾 <b>الرسالة</b> تحتوي على <i>كلمات آمنة</i>",
+}
+l_hand_msg_edit = {
+    'ru': "👥 <b>Редактирование</b> сообщений не разрешено",
+    'en': "👥 <b>Editing</b> messages is not allowed",
+    'es': "👥 No se permite <b>editar</b> mensajes",
+    'fr': "👥 <b>Modifier</b> les messages n'est pas autorisé",
+    'zh': "👥 不允许<b>编辑</b>消息",
+    'ar': "👥 <b>تحرير</b> الرسائل غير مسموح به",
+}
+l_ccomment_button = {
+    'ru': "🪙 Оплата кѻмментов",
+    'en': "☑️☐Off admin access",
+    'es': "☑️☐Fuera del acceso de administrador",
+    'fr': "☑️☐Hors accès administrateur",
+    'zh': "☑️️关闭管理员访问权限",
+    'ar': "☑️☐إيقاف وصول المشرف",
+}
+l_content_types_invite_user_bot = {
+    'ru': "🚶🏽 <b>Приглашение</b> @username/@name_bot не разрешено",
+    'en': "🚶🏽 <b>Invite</b> @username / @name_bot not allowed",
+    'es': "🚶🏽 <b>Invitar</b> @username / @name_bot no permitido",
+    'fr': "🚶🏽 <b>Inviter</b> @username / @name_bot non autorisé",
+    'zh': "🚶🏽 <b>邀请</b> @username / @name_bot不允许",
+    'ar': "🚶🏽 <b>دعوة</b> @username / @name_bot غير مسموح بها",
+}
+l_content_types_invite_user = {
+    'ru': "🚶🏽 <b>Приглашение</b> @username не разрешено",
+    'en': "🚶🏽 <b>Invite</b> @username not allowed",
+    'es': "🚶🏽 <b>Invitar</b> @username no permitido",
+    'fr': "🚶🏽 <b>Inviter</b> @username non autorisé",
+    'zh': "🚶🏽 <b>邀请</b> @username不允许",
+    'ar': "🚶🏽 <b>الدعوة</b> @username غير مسموح به",
+}
+l_content_types_invite_bot = {
+    'ru': "🚶🏽 <b>Приглашение</b> @name_bot не разрешено",
+    'en': "🚶🏽 <b>Invitation</b> @name_bot is not allowed",
+    'es': "🚶🏽 <b>Invitación</b> @name_bot no está permitida",
+    'fr': "🚶🏽 <b>Invitation</b> @name_bot n'est pas autorisé",
+    'zh': "🚶🏽 不允许<b>邀请</b> @name_bot",
+    'ar': "🚶🏽 <b>الدعوة</b> @name_bot غير مسموح بها",
+}
+l_content_types_button = {
+    'ru': "👮🏽 {0}, <b>жми</b> на кнопку, чтобы вс︎тупить в группу",
+    'en': "👮🏽 {0}, <b>click</b> the button to join the group",
+    'es': "👮🏽 {0}, <b>haz clic</b> en el botón para unirte al grupo",
+    'fr': "👮🏽 {0}, <b>cliquez</b> sur le bouton pour rejoindre le groupe",
+    'zh': "👮🏽 {0}，<b>点击</b>按钮加入群组",
+    'ar': "👮🏽 {0}, <b>انقر</b> على الزر للانضمام إلى المجموعة",
+}
+l_content_types_captcha = {
+    'ru': "👮🏽 {0}, выбери <i>правильный вариант</i> ответа, чтобы вс︎тупить в группу:\n\n{1}",
+    'en': "👮🏽 {0}, choose the <i>correct</i> answer to join the group:\n\n{1}",
+    'es': "👮🏽 {0}, elige la respuesta <i>correcta</i> para unirte al grupo:\n\n{1}",
+    'fr': "👮🏽 {0}, choisissez la réponse <i>bonne</i> pour rejoindre le groupe :\n\n{1}",
+    'zh': "👮🏽 {0}，选择<i>正确</i>答案加入群组：\n\n{1}",
+    'ar': "👮🏽 {0}، اختر الإجابة <i>الصحيحة</i> للانضمام إلى المجموعة:\n\n{1}",
+}
+l_hand_msg_FLOOD_USERNAME = {
+    'ru': "💬 <b>Пользователь</b> @{0} изменил <b>name/@username</b>! Возможно, шпион!",
+    'en': "💬 <b>User</b> @{0} changed <b>name/ @username </b>! Possibly a spy!",
+    'es': "💬 ¡El <b>Usuario</b> @{0} cambió <b>nombre/ @username </b>! ¡Posiblemente un espía!",
+    'fr': "💬 <b>Utilisateur</b> @{0} a changé <b>nom/ @username </b> ! Peut-être un espion !",
+    'zh': "💬<b>用户</b>@{0}更改了<b>名称/ @username </b>！可能是间谍！",
+    'ar': "💬 قام <b>المستخدم</b> @{0} بتغيير <b>الاسم/ @username </b>! ربما جاسوس!",
+}
 # endregion
 
 

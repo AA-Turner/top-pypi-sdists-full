@@ -16,10 +16,10 @@ class Hourly(BaseEntity):
     """
 
     path: str = field(
-        default = 'storage/log/hourly.log',
+        default = 'storage/logs/hourly.log',
         metadata = {
             "description": "The file path where the log is stored.",
-            "default": "storage/log/hourly.log"
+            "default": "storage/logs/hourly.log"
         },
     )
 

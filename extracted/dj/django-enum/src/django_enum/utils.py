@@ -16,9 +16,8 @@ from typing import (
     Type,
     TypeVar,
     Union,
+    get_args,
 )
-
-from typing_extensions import get_args
 
 __all__ = [
     "choices",
@@ -321,7 +320,7 @@ def members(enum: Type[E], aliases: bool = True) -> Generator[E, None, None]:
             from enum_properties import SymmetricMixin
 
             if issubclass(enum, SymmetricMixin):
-                for member in enum.__first_class_members__:
+                for member in getattr(enum, "__first_class_members__", []):
                     yield enum[member]  # type: ignore[index]
                 return
         yield from enum.__members__.values()

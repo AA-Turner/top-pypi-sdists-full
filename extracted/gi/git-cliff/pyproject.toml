@@ -16,4 +16,4 @@ classifiers = [
 [tool.maturin]
 bindings = "bin"
 module-name = "git-cliff"
-manifest-path = 'git-cliff\Cargo.toml'
+manifest-path = "git-cliff/Cargo.toml"

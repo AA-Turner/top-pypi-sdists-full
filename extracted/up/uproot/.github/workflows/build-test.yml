@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 30
@@ -35,6 +35,8 @@ jobs:
           environment-name: test-env
           init-shell: bash
           create-args: >-
+            --strict-channel-priority
+            conda-forge/label/python_rc::_python_rc
             python=${{ matrix.python-version }}
 
       - uses: astral-sh/setup-uv@v6
@@ -87,7 +89,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -114,7 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -142,7 +144,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
 

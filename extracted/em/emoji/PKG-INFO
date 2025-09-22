@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: emoji
-Version: 2.14.1
+Version: 2.15.0
 Summary: Emoji for Python
 Author-email: Taehoon Kim <carpedm20@gmail.com>, Kevin Wurster <wursterk@gmail.com>
 Project-URL: homepage, https://github.com/carpedm20/emoji/
@@ -12,13 +12,13 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python
@@ -26,13 +26,13 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Multimedia :: Graphics :: Presentation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: typing_extensions>=4.7.0; python_version < "3.9"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.4.4; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
+Dynamic: license-file
 
 Emoji
 =====

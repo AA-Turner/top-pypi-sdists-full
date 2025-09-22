@@ -54,6 +54,7 @@ from colored import Fore,Back,Style
 from radboy.Of.of import *
 from radboy.Orders import MilkWaterOrder
 import radboy.DB.db as DBB
+import builtins
 
 
 verify=kl11()
@@ -273,7 +274,8 @@ class Main:
 
     ChangeLog='''
     '''
-    def __init__(self,engine,tables,error_log):
+    def __init__(self,engine,tables,error_log,rootdir=None):
+        builtins.ROOTDIR=rootdir
         #fix fields not mean to be None Type
         with Session(ENGINE) as session:
             results=session.query(Entry).filter(Entry.Distress==None).update({"Distress":0})
@@ -824,8 +826,8 @@ this option uses the Entry's Table which is independent of the PairCollection's 
                 print(msg)
             return msg
 
-def quikRn():
-    Main(engine=ENGINE,tables=tables,error_log=Path("error_log.log"))
+def quikRn(rootdir=str(Path().cwd())):
+    Main(engine=ENGINE,tables=tables,error_log=Path("error_log.log"),rootdir=rootdir)
 
 if __name__ == "__main__":
     Main(engine=ENGINE,tables=tables,error_log=Path("error_log.log"))

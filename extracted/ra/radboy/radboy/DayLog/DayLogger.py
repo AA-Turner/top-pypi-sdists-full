@@ -451,6 +451,7 @@ fxtbl - update table with correct columns
             tags=Prompt.__init2__(None,func=FormBuilderMkText,ptext="What do you want to search in DayLog?:",helpText="A Comma Separated List of Tag Names",data="list")
             if tags in ['d',None]:
                 tags=[]
+            print(tags)
             for tag in tags:
                 search=session.query(DayLog).filter(
                     or_(DayLog.Tags.icontains(tag),

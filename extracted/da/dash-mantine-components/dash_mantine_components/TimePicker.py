@@ -441,10 +441,14 @@ Keyword arguments:
         Determines  whether overflow along this axis is checked to
         perform a flip. @,default,True.
 
-    - crossAxis (boolean; optional):
+    - crossAxis (optional):
         The axis that runs along the alignment of the floating
         element. Determines  whether overflow along this axis is
-        checked to perform a flip. @,default,True.
+        checked to perform a flip.  - `True`: Whether to check cross
+        axis overflow for both side and alignment flipping.  -
+        `False`: Whether to disable all cross axis overflow checking.
+        - `'alignment'`: Whether to check cross axis overflow for
+        alignment flipping only. @,default,True.
 
     - rootBoundary (dict; optional):
         The root clipping area in which overflow will be checked.
@@ -623,6 +627,9 @@ Keyword arguments:
     Adds required attribute to the input and a red asterisk on the
     right side of label, `False` by default.
 
+- reverseTimeControlsList (boolean; optional):
+    If set, the time controls list are reversed, default `False`.
+
 - right (string | number; optional)
 
 - rightSection (a list of or a singular dash component, string or number; optional):
@@ -790,7 +797,7 @@ Keyword arguments:
         "PopoverPropsMiddlewaresFlip",
             {
             "mainAxis": NotRequired[bool],
-            "crossAxis": NotRequired[bool],
+            "crossAxis": NotRequired[typing.Union[Literal["alignment"]]],
             "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"], "PopoverPropsMiddlewaresFlipRootBoundary"]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
@@ -914,6 +921,7 @@ Keyword arguments:
         maxDropdownContentHeight: typing.Optional[NumberType] = None,
         scrollAreaProps: typing.Optional[typing.Any] = None,
         timeRangePresets: typing.Optional["TimeRangePresets"] = None,
+        reverseTimeControlsList: typing.Optional[bool] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -1002,9 +1010,9 @@ Keyword arguments:
         attributes: typing.Optional[typing.Any] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'amPmInputLabel', 'amPmLabels', 'amPmSelectProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'darkHidden', 'data-*', 'debounce', 'defaultValue', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'form', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hoursInputLabel', 'hoursInputProps', 'hoursStep', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'max', 'maxDropdownContentHeight', 'mb', 'me', 'mih', 'min', 'minutesInputLabel', 'minutesInputProps', 'minutesStep', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pasteSplit', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'secondsInputLabel', 'secondsInputProps', 'secondsStep', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangePresets', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withDropdown', 'withErrorStyles', 'withSeconds', 'wrapperProps']
+        self._prop_names = ['id', 'amPmInputLabel', 'amPmLabels', 'amPmSelectProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'darkHidden', 'data-*', 'debounce', 'defaultValue', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'form', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hoursInputLabel', 'hoursInputProps', 'hoursStep', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'max', 'maxDropdownContentHeight', 'mb', 'me', 'mih', 'min', 'minutesInputLabel', 'minutesInputProps', 'minutesStep', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pasteSplit', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'reverseTimeControlsList', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'secondsInputLabel', 'secondsInputProps', 'secondsStep', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangePresets', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withDropdown', 'withErrorStyles', 'withSeconds', 'wrapperProps']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'amPmInputLabel', 'amPmLabels', 'amPmSelectProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'darkHidden', 'data-*', 'debounce', 'defaultValue', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'form', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hoursInputLabel', 'hoursInputProps', 'hoursStep', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'max', 'maxDropdownContentHeight', 'mb', 'me', 'mih', 'min', 'minutesInputLabel', 'minutesInputProps', 'minutesStep', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pasteSplit', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'secondsInputLabel', 'secondsInputProps', 'secondsStep', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangePresets', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withDropdown', 'withErrorStyles', 'withSeconds', 'wrapperProps']
+        self.available_properties = ['id', 'amPmInputLabel', 'amPmLabels', 'amPmSelectProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clearButtonProps', 'clearable', 'darkHidden', 'data-*', 'debounce', 'defaultValue', 'description', 'descriptionProps', 'disabled', 'display', 'error', 'errorProps', 'ff', 'flex', 'form', 'format', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'hiddenInputProps', 'hoursInputLabel', 'hoursInputProps', 'hoursStep', 'inputProps', 'inputWrapperOrder', 'inset', 'label', 'labelProps', 'left', 'leftSection', 'leftSectionPointerEvents', 'leftSectionProps', 'leftSectionWidth', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'max', 'maxDropdownContentHeight', 'mb', 'me', 'mih', 'min', 'minutesInputLabel', 'minutesInputProps', 'minutesStep', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'n_submit', 'name', 'opacity', 'p', 'pasteSplit', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'placeholder', 'pointer', 'popoverProps', 'pos', 'pr', 'presets', 'ps', 'pt', 'px', 'py', 'radius', 'readOnly', 'required', 'reverseTimeControlsList', 'right', 'rightSection', 'rightSectionPointerEvents', 'rightSectionProps', 'rightSectionWidth', 'scrollAreaProps', 'secondsInputLabel', 'secondsInputProps', 'secondsStep', 'size', 'style', 'styles', 'ta', 'tabIndex', 'td', 'timeRangePresets', 'top', 'tt', 'unstyled', 'value', 'variant', 'visibleFrom', 'w', 'withAsterisk', 'withDropdown', 'withErrorStyles', 'withSeconds', 'wrapperProps']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

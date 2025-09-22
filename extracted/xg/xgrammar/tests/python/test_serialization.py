@@ -8,6 +8,7 @@ from pydantic import BaseModel, RootModel
 from transformers import AutoTokenizer  # type: ignore
 
 import xgrammar as xgr
+from xgrammar.testing import _is_grammar_accept_string
 
 
 def construct_grammar():
@@ -41,7 +42,7 @@ def construct_compiled_grammar():
 
 def test_get_serialization_version():
     """Test the version of the serialized JSON string."""
-    assert xgr.get_serialization_version() == "v5"
+    assert xgr.get_serialization_version() == "v6"
 
 
 def test_serialize_grammar():
@@ -60,7 +61,7 @@ def test_serialize_grammar():
         "complete_fsm": None,
         "per_rule_fsms": [],
         "allow_empty_rule_ids": [],
-        "__VERSION__": "v5",
+        "__VERSION__": "v6",
     }
     # The fsms are the same one, but the start state and end states are different.
     assert json.loads(serialized) == expected_json
@@ -80,14 +81,14 @@ def test_serialize_grammar_exception():
         "allow_empty_rule_ids": [],
         "complete_fsm": None,
         "per_rule_fsms": [],
-        "__VERSION__": "v5",
+        "__VERSION__": "v6",
     }
 
     expected_json["__VERSION__"] = "v1"  # Change version to trigger error
     with pytest.raises(xgr.DeserializeVersionError):
         xgr.Grammar.deserialize_json(json.dumps(expected_json))
 
-    expected_json["__VERSION__"] = "v5"
+    expected_json["__VERSION__"] = "v6"
     expected_json.pop("rules")  # Remove required field to trigger error
     with pytest.raises(xgr.DeserializeFormatError):
         xgr.Grammar.deserialize_json(json.dumps(expected_json))
@@ -139,7 +140,7 @@ def test_serialize_tokenizer_info():
         '"decoded_vocab":["1","212","a","A","b","\\u00e4\\u00b8\\u0080","-","aBc","abc"],'
         '"sorted_decoded_vocab":[[6,"-"],[3,"A"],[2,"a"],[7,"aBc"],[8,"abc"],[4,"b"],[5,"\\u00e4\\u00b8\\u0080"]],'
         '"trie_subtree_nodes_range":[1,2,5,4,5,6,7],'
-        '"__VERSION__":"v5"}'
+        '"__VERSION__":"v6"}'
     )
     assert json.loads(serialized) == json.loads(expected_json)
 
@@ -220,7 +221,7 @@ def test_serialize_compiled_grammar():
             "add_prefix_space": True,
             "stop_token_ids": [0, 1],
         },
-        "__VERSION__": "v5",
+        "__VERSION__": "v6",
     }
 
     class AdaptiveTokenMask(BaseModel):
@@ -319,6 +320,18 @@ def test_serialize_compiled_grammar_with_hf_tokenizer():
 
     assert matcher.accept_token(tokenizer.eos_token_id)
     assert matcher.is_terminated()
+
+
+def test_serialize_grammar_utf8():
+    """Test Grammar serialization with UTF-8 characters."""
+    grammar = xgr.Grammar.from_ebnf('root ::= "こんにちは" | "😊" | "你好" | "hello" | "\\n"')
+    serialized = grammar.serialize_json()
+    recovered_grammar = xgr.Grammar.deserialize_json(serialized)
+    assert _is_grammar_accept_string(recovered_grammar, "こんにちは")
+    assert _is_grammar_accept_string(recovered_grammar, "😊")
+    assert _is_grammar_accept_string(recovered_grammar, "你好")
+    assert _is_grammar_accept_string(recovered_grammar, "hello")
+    assert _is_grammar_accept_string(recovered_grammar, "\n")
 
 
 if __name__ == "__main__":

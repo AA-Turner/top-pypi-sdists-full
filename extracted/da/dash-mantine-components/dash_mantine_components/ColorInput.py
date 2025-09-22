@@ -380,10 +380,14 @@ Keyword arguments:
         Determines  whether overflow along this axis is checked to
         perform a flip. @,default,True.
 
-    - crossAxis (boolean; optional):
+    - crossAxis (optional):
         The axis that runs along the alignment of the floating
         element. Determines  whether overflow along this axis is
-        checked to perform a flip. @,default,True.
+        checked to perform a flip.  - `True`: Whether to check cross
+        axis overflow for both side and alignment flipping.  -
+        `False`: Whether to disable all cross axis overflow checking.
+        - `'alignment'`: Whether to check cross axis overflow for
+        alignment flipping only. @,default,True.
 
     - rootBoundary (optional):
         The root clipping area in which overflow will be checked.
@@ -651,7 +655,7 @@ Keyword arguments:
         "PopoverPropsMiddlewaresFlip",
             {
             "mainAxis": NotRequired[bool],
-            "crossAxis": NotRequired[bool],
+            "crossAxis": NotRequired[typing.Union[Literal["alignment"]]],
             "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"]]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],

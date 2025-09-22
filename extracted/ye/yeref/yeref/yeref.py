@@ -261,7 +261,7 @@ GROUPP_CTIMER_ = 0
 GROUPP_CWORK_ = ''
 GROUPP_CINVITECNT_ = 1
 GROUPP_CUSERDELAY_ = 1
-GROUPP_CUSER_ = '☐☑'
+GROUPP_CUSER_ = '☑☐☑☐'
 GROUPP_CADMIN_ = '☑☐'
 GROUPP_CPAY_ = '☐☐☐'
 GROUPP_CCOMMENT_ = '☑☑'
@@ -2147,7 +2147,7 @@ allowed_startapp_params = ['fnd', 'sbt', 'don', 'sub', 'pay', 'pst', 'msg', 'ft'
 tids_not_for_trans = [5134596871, 5152320320, 5200969162, 5240041587, 5277505344, 5298580533, 5300792695, 5304873693,
                       5318482236, 5372068352, 5380838469, 5456863561, 5588781655, 5621199443, 5805890320, 5846446387,
                       5850795580, 5868482417, 5951232918, 5962132892, 5969907012]
-GROUP_ANON_TID = 1087968824
+GROUP_ANON_TID = 1087968824     # GroupAnonymousBot
 CHANNEL_BOT_ = 136817688
 ferey_channel_europe = -1001471122743
 ferey_channel_en = -1001833151619
@@ -2189,7 +2189,7 @@ website = 'https://google.com'
 facebook = 'https://www.facebook.com'
 telegram_account = 'https://t.me'
 ferey_telegram_username = 'ferey_support'
-ferey_telegram_demo_bot = 'FereyDemoBot'
+ferey_telegram_demo_bot = 'FereyGroupBot'
 ferey_address = "Estônia, Tāllin, Mäepealse, 2/1"
 ferey_title = "Ferey Inc."
 text_developer_info = (
@@ -2576,8 +2576,7 @@ async def db_select_pg(sql, param=None, db_pool=None, db_config=None):
                     if "WHERE TRG_CONTENT LIKE '%\"isTriggered\": true%'" in sql: pass
                     elif "SELECT NOTICE_ID, NOTICE_TYPE, NOTICE_TXT" in sql: pass
                     elif "<= NOW()" in sql: pass
-                    elif "SELECT CHANNEL_TID, CHANNEL_LZ FROM" in sql: pass
-                    elif "SELECT GROUPP_TID, GROUPP_LZ FROM" in sql: pass
+                    elif "_LZ FROM" in sql: pass
                     else:
                         logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
             else:
@@ -14259,45 +14258,6 @@ async def get_chat_channel(bot, link, SESSION_D, BASE_S):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    return result
-
-
-async def auto_destroy_msg(bot, telegram_bot, chat_id, text, message_id, type_='text', sec=5):
-    result = None
-    try:
-        if not random.choice([0, 1, 1]): return result
-
-        step = 1
-        by = f"<a href='https://t.me/{ferey_telegram_demo_bot}'>by</a>"
-        text = f"{text}\n\n{by} @{telegram_bot} <b>{sec}</b>sec"
-        ix_sec = text.rfind('</b>sec')
-        while text[ix_sec] != '>': ix_sec -= 1
-
-        while sec > 0:
-            try:
-                text = text.replace(f"<b>{sec}</b>sec", f"<b>{sec - 1}</b>sec")
-                sec -= step
-                if type_ == 'text':
-                    await bot.edit_message_text(chat_id=chat_id, text=text, message_id=message_id,
-                                                disable_web_page_preview=True)
-                else:
-                    await bot.edit_message_caption(chat_id=chat_id, message_id=message_id, caption=text)
-                await asyncio.sleep(1)
-            except TelegramRetryAfter as e:
-                logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
-                await asyncio.sleep(e.retry_after + 1)
-            except Exception as e:
-                logger.info(log_ % str(e))
-                await asyncio.sleep(round(random.uniform(1, 2), 2))
-                break
-    except TelegramRetryAfter as e:
-        logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
-        await asyncio.sleep(e.retry_after + 1)
-    except Exception as e:
-        logger.info(e)
-        await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        await bot.delete_message(chat_id, message_id)
     return result
 
 

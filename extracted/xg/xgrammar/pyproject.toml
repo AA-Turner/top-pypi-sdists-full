@@ -1,6 +1,6 @@
 [project]
 name = "xgrammar"
-version = "0.1.24"
+version = "0.1.25"
 description = "Efficient, Flexible and Portable Structured Generation"
 authors = [{ name = "MLC Team" }]
 readme = "README.md"
@@ -78,6 +78,7 @@ sdist.include = [
   "/cpp/**/*.h",
   "/include/**/*",
   "/python/xgrammar/**/*.py",
+  "/python/xgrammar/py.typed",
 
   # Third party files
   "/3rdparty/**/*",

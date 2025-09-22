@@ -105,7 +105,9 @@ class NHCController:
 
         for (_action) in await self._send('{"cmd": "listactions"}'):
             entity = None
-            if (_action["type"] == 1 or _action["type"] == 2):
+            if (_action["type"] == 0):
+                entity = NHCScene(self, _action)
+            elif (_action["type"] == 1 or _action["type"] == 2):
                 entity = NHCLight(self, _action)
             elif (_action["type"] == 3):
                 entity = NHCFan(self, _action)

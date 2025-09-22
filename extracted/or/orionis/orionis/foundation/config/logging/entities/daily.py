@@ -18,10 +18,10 @@ class Daily(BaseEntity):
     """
 
     path: str = field(
-        default = 'storage/log/daily.log',
+        default = 'storage/logs/daily.log',
         metadata = {
             "description": "The file path where the log is stored.",
-            "default": "storage/log/daily.log"
+            "default": "storage/logs/daily.log"
         },
     )
 

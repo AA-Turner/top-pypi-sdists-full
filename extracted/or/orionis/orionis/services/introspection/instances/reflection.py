@@ -279,7 +279,7 @@ class ReflectionInstance(IReflectionInstance):
         bool
             True if the attribute exists
         """
-        return name in self.getAttributes()
+        return name in self.getAttributes() or hasattr(self._instance, name)
 
     def getAttribute(self, name: str, default: Any = None) -> Any:
         """

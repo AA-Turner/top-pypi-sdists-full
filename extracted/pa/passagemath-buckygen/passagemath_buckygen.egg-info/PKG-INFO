@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-buckygen
-Version: 10.6.25
+Version: 10.6.26
 Summary: passagemath: Generation of nonisomorphic fullerenes with buckygen
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aplr
-Version: 10.12.0
+Version: 10.13.0
 Summary: Automatic Piecewise Linear Regression
 Home-page: https://github.com/ottenbreit-data-science/aplr
 Author: Mathias von Ottenbreit
@@ -14,6 +14,9 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.11
+Provides-Extra: plots
+Requires-Dist: pandas; extra == "plots"
+Requires-Dist: matplotlib; extra == "plots"
 
 # APLR
 **Automatic Piecewise Linear Regression**
@@ -28,6 +31,12 @@ To install APLR, use the following command:
 
 ```bash
 pip install aplr
+```
+
+To include dependencies for plotting, use this command instead:
+
+```bash
+pip install aplr[plots]
 ```
 
 ## Availability

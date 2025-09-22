@@ -61,13 +61,15 @@ class ReflectionAbstract(IReflectionAbstract):
             directly inherit from abc.ABC.
         """
 
-        # Check if the provided abstract is a class type, has abstract methods, and directly inherits from ABC
+        # Check if the provided abstract is a class type
         if not isinstance(abstract, type):
             raise ReflectionTypeError(f"Expected a class type for 'abstract', got {type(abstract).__name__!r}")
+        # Check if it has abstract methods
         if not bool(getattr(abstract, '__abstractmethods__', False)):
             raise ReflectionTypeError(f"Provided class '{abstract.__name__}' is not an interface (abstract base class)")
-        if ABC not in abstract.__bases__:
-            raise ReflectionTypeError(f"Provided class '{abstract.__name__}' must directly inherit from abc.ABC")
+        # Check if it ultimately inherits from abc.ABC (directly or indirectly)
+        if not issubclass(abstract, ABC):
+            raise ReflectionTypeError(f"Provided class '{abstract.__name__}' must inherit (directly or indirectly) from abc.ABC")
 
         # If all checks pass, return True
         return True

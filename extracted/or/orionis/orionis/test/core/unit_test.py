@@ -90,6 +90,12 @@ class UnitTest(IUnitTest):
         # Suppress overly verbose asyncio logging during test execution
         logging.getLogger("asyncio").setLevel(logging.ERROR)
 
+        # List of common setup/teardown methods to inspect for debug calls
+        self.__commonMethods = [
+            'setUp', 'tearDown', 'onSetup', 'onTeardown',
+            'asyncSetUp', 'asyncTearDown', 'onAsyncSetup', 'onAsyncTeardown'
+        ]
+
         # Store the application instance for dependency injection and configuration access
         self.__app: IApplication = app
 
@@ -582,13 +588,6 @@ class UnitTest(IUnitTest):
                         target_list = debug_tests if self.__withDebugger(test) else normal_tests
                         target_list.append(self.__resolveTestDependencies(test))
 
-                    # If no tests are found, raise an error
-                    if not flat_tests:
-                        raise OrionisTestValueError(
-                            f"No tests found in module '{test_module.__name__}'. "
-                            "Please ensure that the module contains valid unittest.TestCase classes with test methods."
-                        )
-
                     # Update the progress bar after processing each module
                     progress.advance(task, advance=1)
 
@@ -656,9 +655,8 @@ class UnitTest(IUnitTest):
             # Gather method names to inspect: main test method and common setup/teardown hooks
             rf_instance = ReflectionInstance(test_case)
             method_name = rf_instance.getAttribute("_testMethodName")
-            extra_methods = ["setUp", "tearDown", "onSetup", "onTeardown"]
             method_names_to_check = [method_name] if method_name else []
-            method_names_to_check += [m for m in extra_methods if rf_instance.hasMethod(m)]
+            method_names_to_check += [m for m in self.__commonMethods if rf_instance.hasMethod(m)]
 
             # Inspect each method's source code for debug keywords
             for mname in method_names_to_check:
@@ -884,10 +882,10 @@ class UnitTest(IUnitTest):
         """
         Inject dependencies into a single test case if required, returning a TestSuite containing the resolved test case.
 
-        This method uses reflection to inspect the test method for dependency requirements. If dependencies are resolved,
-        it injects them into the test method. Supports both synchronous and asynchronous test methods: async methods are
-        wrapped to run in an event loop. If dependencies cannot be resolved, the original test case is returned as-is
-        within a TestSuite.
+        This method uses reflection to inspect the test method and common setup/teardown methods for dependency requirements.
+        If dependencies are resolved, it injects them into the test method. Supports both synchronous and asynchronous test
+        methods: async methods are wrapped to run in an event loop. If dependencies cannot be resolved or an error occurs,
+        the original test case is returned as-is within a TestSuite.
 
         Parameters
         ----------
@@ -911,71 +909,87 @@ class UnitTest(IUnitTest):
         - If dependencies are resolved, injects them into the test method.
         - Supports async test methods by running them in an event loop.
         - If dependencies are unresolved or an error occurs, the original test case is returned.
+        - The return value is always a unittest.TestSuite containing either the dependency-injected test case or the original test case.
         """
 
         # Create a new TestSuite to hold the resolved test case
         suite = unittest.TestSuite()
 
         try:
-
             # Use reflection to inspect the test case for dependency requirements
             rf_instance = ReflectionInstance(test_case)
-            method_name = rf_instance.getAttribute("_testMethodName", None)
 
-            # If no method name is found, return the original test case
-            if not method_name:
+            # If reflection fails or method name is missing, return the original test case
+            if not rf_instance.hasAttribute("_testMethodName"):
                 return test_case
 
-            # Get the method dependencies using the dependency injection system
-            dependencies = rf_instance.getMethodDependencies(method_name)
+            # Iterate over the main test method and common setup/teardown methods
+            for method_name in [
+                rf_instance.getAttribute("_testMethodName"),
+                *self.__commonMethods
+            ]:
 
-            # If there are unresolved dependencies, return the original test case
-            if dependencies.unresolved:
-                return test_case
+                # Skip if the method does not exist on the class
+                if not method_name or not rf_instance.hasMethod(method_name):
+                    continue
 
-            # If dependencies are resolved, inject them into the test method
-            if dependencies.resolved:
+                # Obtain the dependencies of the method
+                dependencies = rf_instance.getMethodDependencies(method_name)
 
-                # Get the test case class
-                test_cls = rf_instance.getClass()
+                # Skip if the method has unresolved dependencies
+                if dependencies.unresolved:
+                    continue
 
-                # Create a ReflectionConcrete instance for the test case class
-                rf_concrete = ReflectionConcrete(test_cls)
+                # If dependencies are resolved, inject them into the test method
+                if dependencies.resolved:
 
-                # Get the original test method
-                original_method = rf_concrete.getAttribute(method_name)
+                    # Get the test case class
+                    test_cls = rf_instance.getClass()
 
-                # Resolve the actual arguments to inject
-                resolved_args = self.__app.resolveDependencyArguments(
-                    rf_instance.getClassName(),
-                    dependencies
-                )
+                    # Create a ReflectionConcrete instance for the test case class
+                    rf_concrete = ReflectionConcrete(test_cls)
 
-                # If the test method is asynchronous, wrap it to run in an event loop
-                if asyncio.iscoroutinefunction(original_method):
+                    # Get the original test method
+                    original_method = rf_concrete.getAttribute(method_name)
 
-                    # Define an async wrapper to inject dependencies
-                    async def async_wrapper(self_instance):
-                        return await original_method(self_instance, **resolved_args)
+                    # Resolve the actual arguments to inject
+                    resolved_args = self.__app.resolveDependencyArguments(
+                        rf_instance.getClassName(),
+                        dependencies
+                    )
 
-                    # Wrap with a sync function for unittest compatibility
-                    def sync_wrapper(self_instance):
-                        return asyncio.run(async_wrapper(self_instance))
+                    # If the test method is asynchronous, wrap it to run in an event loop
+                    if asyncio.iscoroutinefunction(original_method):
 
-                    # Bind the wrapped method to the test case instance
-                    bound_method = sync_wrapper.__get__(test_case, test_cls)
+                        # Define an async wrapper to inject dependencies
+                        async def async_wrapper(self_instance):
+                            return await original_method(self_instance, **resolved_args)
 
-                else:
+                        # Wrap with a sync function for unittest compatibility
+                        def sync_wrapper(self_instance):
+                            try:
+                                loop = asyncio.get_running_loop()
+                            except RuntimeError:
+                                loop = None
+                            if loop and loop.is_running():
+                                return loop.create_task(async_wrapper(self_instance))
+                            else:
+                                return asyncio.run(async_wrapper(self_instance))
 
-                    # For synchronous methods, inject dependencies directly
-                    def wrapper(self_instance):
-                        return original_method(self_instance, **resolved_args)
+                        # Bind the wrapped method to the test case instance
+                        bound_method = sync_wrapper.__get__(test_case, test_cls)
 
-                    # Bind the wrapped method to the test case instance
-                    bound_method = wrapper.__get__(test_case, test_cls)
+                    else:
 
-                # Replace the test method with the dependency-injected version
-                rf_instance.setMethod(method_name, bound_method)
+                        # For synchronous methods, inject dependencies directly
+                        def wrapper(self_instance):
+                            return original_method(self_instance, **resolved_args)
+
+                        # Bind the wrapped method to the test case instance
+                        bound_method = wrapper.__get__(test_case, test_cls)
+
+                    # Replace the test method with the dependency-injected version
+                    rf_instance.setMethod(method_name, bound_method)
 
             # Add the (possibly resolved) test case to the suite
             suite.addTest(rf_instance.getInstance())
@@ -984,7 +998,6 @@ class UnitTest(IUnitTest):
             return suite
 
         except Exception:
-
             # On error, return the original test case
             return test_case
 

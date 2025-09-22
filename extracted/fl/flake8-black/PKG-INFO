@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-black
-Version: 0.3.7
+Version: 0.4.0
 Summary: flake8 plugin to call black as a code style validator
 Author: Peter J. A. Cock
 Maintainer-email: "Peter J. A. Cock" <p.j.a.cock@googlemail.com>
@@ -19,11 +19,11 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: flake8>=3
-Requires-Dist: black<25.9.0,>=22.1.0
+Requires-Dist: black>=22.1.0
 Requires-Dist: tomli; python_version < "3.11"
 Provides-Extra: develop
 Requires-Dist: build; extra == "develop"
@@ -100,7 +100,7 @@ you will *not* get an additional ``BLK`` error.
 Installation
 ------------
 
-Python 3.8 or later is required, but ``black`` can be used on Python code
+Python 3.9 or later is required, but ``black`` can be used on Python code
 written for older versions of Python.
 
 You can install ``flake8-black`` using ``pip``, which should install ``flake8``
@@ -194,9 +194,13 @@ Version History
 ======= ============ ===========================================================
 Version Release date Changes
 ------- ------------ -----------------------------------------------------------
+v0.4.0  *Pending*    - Now tested on Python 3.9 through 3.13, and black 23.9.1
+                       (as before) and black 25.9.0 (current latest).
+                     - Support the API change in ``decode_bytes`` in black 25.9.0.
+                     - Error ``BLK997`` does not have the bad TOML filename.
 v0.3.7  2025-09-19   - Now tested on Python 3.8 though 3.13.
-                     - Using `black.Mode` class name in place of legacy alias
-                       `black.FileMode` from beta release era.
+                     - Using ``black.Mode`` class name in place of legacy alias
+                       ``black.FileMode`` from beta release era.
                      - Does not work on black 25.9.0 onwards.
 v0.3.6  2022-12-13   - Use standard library ``tomllib`` on Python 3.11 onwards,
                        contribution from

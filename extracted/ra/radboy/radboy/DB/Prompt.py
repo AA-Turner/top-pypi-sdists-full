@@ -27,17 +27,11 @@ from Crypto.Cipher import AES
 #from Cryptodome.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from decimal import Decimal,localcontext,getcontext
-import biip
-import itertools
 from inputimeout import inputimeout, TimeoutOccurred
 from uuid import uuid1
 import zipfile,pydoc
-import math
-import enum
 from radboy.DB.rad_types import *
-import asyncio
-import hashlib
-import decimal
+import decimal,nanoid,hashlib,asyncio,enum,math,biip,itertools
 
 try:
     import resource
@@ -656,6 +650,18 @@ class Prompt(object):
             else:
                 detectGetOrSet("protect_unassigned",protect_unassigned,setValue=True)
 
+        def restart(parent):
+            try:
+                p=Control(func=FormBuilderMkText,ptext=f"Use current directory as root?[False=default={ROOTDIR}]",helpText="otherwise set root to starting point",data="boolean")
+                if p in [None,'NaN']:
+                    return
+                elif p in [False,'d']:
+                    os.chdir(ROOTDIR)
+
+                os.execv(sys.executable, ['python3'] + sys.argv)
+            except Exception as e:
+                print(e)
+
         def quit_backup(parent):
             protect()
             DL.DayLogger.DayLogger.addTodayP(db.ENGINE)
@@ -728,6 +734,21 @@ class Prompt(object):
                     'exec':lambda:protect_unassigned_(),
                     'desc':'temporarily change default protect_unassigned settings: default == True'
                 },
+                 'restart':{
+                    'cmds':['rs','restart','reboot','rbt'],
+                    'exec':lambda parent=parent:restart(parent),
+                    'desc':"restart the program internally"
+                    },
+                'mkRun':{
+                    'cmds':['mkrun','make run','mkrn'],
+                    'exec':lambda parent=parent:TM.Tasks.TasksMode(parent=parent,engine=db.ENGINE,init_only=True).mkRun(),
+                    'desc':"make run file if it is missing"
+                    },
+                'chkRun':{
+                    'cmds':['check run','chkrun','ckrn'],
+                    'exec':lambda parent=parent:TM.Tasks.TasksMode(parent=parent,engine=db.ENGINE,init_only=True).chRun(),
+                    'desc':"chec if run file is missing"
+                    },
                 'quit':{
                     'cmds':['e','jq','just quit','j quit','j q','exit'],
                     'exec':lambda parent=parent:parent.cleanup_system(parent),
@@ -2382,10 +2403,27 @@ class Prompt(object):
                                 return func(phn,data)
                         elif cmd.lower() in ['h','help']:
                             llo_modes=["dlu.cr","Prompt.lsbld","esu","t.[mksl||qsl||set Shelf||set Display]"]
-                            extra=f'''{Fore.orange_red_1}Dimension Fields {Fore.light_steel_blue}are fields that tell how much space the product is going to take up using the the product itself as the unit of measure
-{Fore.orange_red_1}Location Fields{Fore.light_steel_blue} are fields where the item resides at, will reside at, is coming from etc...
-{Fore.orange_red_1}Count Fields{Fore.light_steel_blue} are fields that define max values that relate to how much goes to the shelf,comes via the Load, how much comes in a Pallet, or Case{Style.reset}
+                            extra=f'''
+[Generation]
+{Fore.grey_70}**{Fore.light_sea_green}'crbc',"checked random barcode"{Fore.light_yellow}- generate a random, but non-local-system existant barcode for input{Style.reset}
+{Fore.grey_70}**{Fore.light_sea_green}'cruid',"checked uid"{Fore.light_yellow}- generate a uid, but non-local-system existant uid for input{Style.reset}
+{Fore.grey_70}**{Fore.light_sea_green}'bcd-gen','bcd-img'{Fore.light_yellow}- generate a custom barcode img from input data possible output is selected from {barcode.PROVIDED_BARCODES}{Style.reset}
+{Fore.grey_70}**{Fore.light_sea_green}'qr-gen','qr-img'{Fore.light_yellow}- generate a custom barcode img from input data possible output is selected{Style.reset}
+{Fore.grey_70}**{Fore.light_sea_green}{','.join(generate_cmds(startcmd=["nano",],endCmd=["id",]))}{Fore.light_yellow} - generate collision resistance nano ids{Style.reset}
+{Fore.grey_70}**{Fore.light_sea_green}'upcify','format upc','fupc'{Fore.light_yellow} Format input text to look '{db.Entry.rebar(None,"TESTTEXTUPCA")}{Style.reset}'
+{Fore.grey_70}**{Fore.light_sea_green}'codify','format code','fcode'{Fore.light_yellow} Format input text to look '{db.Entry.cfmt(None,"TESTTEXT")}{Style.reset}'
+{Fore.grey_70}**{Fore.light_sea_green}'upcify str','upcify.str','upcify-str','format upc str','fupcs'{Fore.light_yellow} Format input text to look and use formatted text as input-text'{db.Entry.rebar(None,"TESTTEXTUPCA")}{Style.reset}'
+{Fore.grey_70}**{Fore.light_sea_green}'codify str','codify.str','codify-str','format code str','fcodes'{Fore.light_yellow} Format input text to look and use formatted text as input-text'{db.Entry.cfmt(None,"TESTTEXT")}{Style.reset}'
+{Fore.grey_70}**{Fore.light_green}'ic2oc','input code to output code'{Fore.light_steel_blue} Convert an input code to its neighboring format for view or input use{Style.reset}
+{Fore.grey_70}**{Fore.light_green}'uniq-rcpt-id','uniq rcpt id','unique_reciept_id','urid','unique reciept id','unique-reciept-id'{Fore.light_steel_blue} Generate Relavent Receipt Id to be searchable in DayLogger{Style.reset}
+{Fore.grey_70}**{Fore.light_green}'text2file'{Fore.light_steel_blue} dump input/returned text to file{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}['dsu','daystring','daystr']{Fore.light_green} print daystring {Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}['dsur','daystring return','dstr r']{Fore.light_green} print and return daystring {Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}['dsup','daystring plain','daystrpln']{Fore.light_green} print daystring as plain text with no colors{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}['dsurp','daystring return plain','dstr r pln']{Fore.light_green} print and return daystring as plain text with no colors{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}['letter','message']{Fore.light_green} Generate a displayable letter from a default format, allowing to return the text as colored, or plain output; if a return is not desired, continue to the last prompt. using curly-braces you may attempt to write small python code to be evaluated and used as text in the message/letter. This includes colors from Fore,Back, and Style.{Style.reset}
 
+[Formulas/Calculators/Utility]
 {Fore.orange_red_1}{Style.underline}Prompt Level CMDS(Access from anywhere But {Fore.light_red}Root){Style.reset}
 {Fore.light_yellow}Don't Use {Fore.grey_70}**{Style.reset}
 {Fore.grey_70}**{Fore.light_green}sft{Fore.light_red}u{Fore.light_steel_blue} - search for text across whole DB and return it as input{Style.reset}
@@ -2394,7 +2432,6 @@ class Prompt(object):
 {Fore.grey_70}**{Fore.light_green}s{Fore.light_red}bld{Fore.light_steel_blue} - search with barcode in all items with InList==True and has a location value above {Fore.light_red}0{Style.reset}
 {Fore.grey_70}**{Fore.light_green}"bldlse","builde","buildlse","build list export ","bld ls exp",'elsbld','export list build','exp ls bld','ebld'{Fore.light_steel_blue} - same as versions without export, but dumps list to {Path(Prompt.bld_file).absolute()}{Style.reset}
 {Fore.grey_70}**{Fore.light_green}'esbld','export search build','export_search_build','exp scan build','exp_scan_bld'{Fore.light_steel_blue} - same as versions without export, but dumps list to {Path(Prompt.bld_file).absolute()}{Style.reset}
-
 {Fore.grey_70}**{Fore.light_green}{','.join(generate_cmds(startcmd=["lsbld","buildls","bldls","bld"],endCmd=["ncrvtxd","nocrv txd","ncrv txd","no crv taxed"]))}{Fore.light_steel_blue} - bldls but displays Entries where 'Tax' has been applied, but no CRV has been applied.{Style.reset}
 {Fore.grey_70}**{Fore.light_green}{','.join(generate_cmds(startcmd=["lsbld","buildls","bldls","bld"],endCmd=["crvntx","crv ntx","crv notax","crv not taxed","crv untaxed"]))}{Fore.light_steel_blue} - bldls but displays Entries where 'CRV' has been applied and where there is No tax.{Style.reset}
 {Fore.grey_70}**{Fore.light_green}"bldls no txcrv","build no tax crv","buildlsnotaxcrv","build list no tax crv","bld ls ntxcrv",'lsbldntxcrv','list build no tax crv','ls bld ntx crv','bldntxcrv'{Fore.light_steel_blue} - bldls but displays Entries where no tax and no crv has been applied{Style.reset}
@@ -2410,60 +2447,73 @@ class Prompt(object):
 {Fore.grey_70}**{Fore.light_green}mlu{Fore.light_steel_blue} - master lookup search for something in {SEARCH_TABLES}{Style.reset}
 {Fore.grey_70}**{Fore.light_green}exp{Fore.light_steel_blue} - product expiration menu{Style.reset}
 {Fore.grey_70}**{Fore.light_green}comm{Fore.light_steel_blue} - send an email message with gmail{Style.reset}
-{Fore.grey_70}**{Fore.light_sea_green}'crbc',"checked random barcode"{Fore.light_yellow}- generate a random, but non-local-system existant barcode for input{Style.reset}
-{Fore.grey_70}**{Fore.light_sea_green}'cruid',"checked uid"{Fore.light_yellow}- generate a uid, but non-local-system existant uid for input{Style.reset}
-{Fore.grey_70}**{Fore.light_sea_green}'bcd-gen','bcd-img'{Fore.light_yellow}- generate a custom barcode img from input data possible output is selected from {barcode.PROVIDED_BARCODES}{Style.reset}
-{Fore.grey_70}**{Fore.light_sea_green}'qr-gen','qr-img'{Fore.light_yellow}- generate a custom barcode img from input data possible output is selected{Style.reset}
-{Fore.grey_70}**{Fore.light_red}u{Fore.light_steel_blue} is for {Fore.light_red}Universally{Fore.light_steel_blue} accessible where this menu is{Style.reset}
-{Fore.grey_70}**{Style.bold}{Fore.spring_green_3a}ts{Fore.light_red}u{Fore.spring_green_3a},j,journal,jrnl{Style.reset} -{Fore.light_steel_blue} Access TouchScan Journal from this prompt{Style.reset}
-{Fore.grey_70}**{Fore.light_red}The Current CMD type/scanned is written to {Fore.light_yellow}{scanout}{Fore.light_red}, so if you are stuck without traditional keyboard output, you can still utilize the Text file as a ClipBoard{Style.reset}
+
 {Fore.grey_70}**{Fore.light_steel_blue}obf msg {Fore.spring_green_3a}encrypted msgs via {db.detectGetOrSet("OBFUSCATED MSG FILE",value="MSG.txt",setValue=False,literal=True)} and Prompt Input{Style.reset}
-{Fore.grey_70}**{Fore.light_salmon_1}Start a line with {Fore.cyan}#ml#{Fore.light_salmon_1} followed by text, where {Fore.light_red}<ENTER>/<RETURN>{Fore.light_salmon_1} will allow for additional lines of input until you end the multi-line input with {Fore.cyan}#ml#{Style.reset}
-{Fore.light_sea_green}Code=="UNASSIGNED_TO_NEW_ITEM" --> {Fore.light_steel_blue} `neu;set field;#select indexes for Code,Name,Price,CaseCount from prompt; type "UNASSIGNED_TO_NEW_ITEM" and hit <ENTER>/<RETURN>;#follow the prompts to fill the Entry Data for those Fields`{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'upcify','format upc','fupc'{Fore.light_steel_blue} Format input text to look '{db.Entry.rebar(None,"TESTTEXTUPCA")}{Style.reset}'
-{Fore.grey_70}**{Fore.light_green}'codify','format code','fcode'{Fore.light_steel_blue} Format input text to look '{db.Entry.cfmt(None,"TESTTEXT")}{Style.reset}'
-{Fore.grey_70}**{Fore.light_green}'upcify str','upcify.str','upcify-str','format upc str','fupcs'{Fore.light_steel_blue} Format input text to look and use formatted text as input-text'{db.Entry.rebar(None,"TESTTEXTUPCA")}{Style.reset}'
-{Fore.grey_70}**{Fore.light_green}'codify str','codify.str','codify-str','format code str','fcodes'{Fore.light_steel_blue} Format input text to look and use formatted text as input-text'{db.Entry.cfmt(None,"TESTTEXT")}{Style.reset}'
 {Fore.grey_70}**{Fore.light_green}{PRICE}{Fore.light_steel_blue} Calculate price information using user provided data for an arbitrary product who Data is not in the Entry table{Style.reset}
 {Fore.grey_70}**{Fore.light_green}{FMLA}{Fore.light_steel_blue} use some pre-built formulas for returning values to the prompt{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'mksl','make shopping list','p-slq','prompt slq','set list qty','slqp','slq-p'{Fore.light_steel_blue} make a list using {Fore.green_3a}slq{Fore.light_steel_blue} from {Fore.orange_red_1}Tasks.{Fore.light_red}TasksMode{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'ic2oc','input code to output code'{Fore.light_steel_blue} Convert an input code to its neighboring format for view or input use{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'uniq-rcpt-id','uniq rcpt id','unique_reciept_id','urid','unique reciept id','unique-reciept-id'{Fore.light_steel_blue} Generate Relavent Receipt Id to be searchable in DayLogger{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'cslf','clear selected location field'{Fore.light_steel_blue} set Entry's with selected field's to Zero, but do not do change InList==False{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'cse','clear selected entry'{Fore.light_steel_blue} clear selected entry{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'fmbh','formbuilder help','form helptext'{Fore.light_steel_blue} print formbuilder helptext{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'text2file'{Fore.light_steel_blue} dump input/returned text to file{Style.reset}
-{Fore.grey_70}**{Fore.light_green}'qc','quick change','q-c','q.c'{Fore.light_steel_blue} use the quick change menu {Fore.orange_red_1}if available{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['simple','smpl'],endCmd=['scanner','scanr','scnnr','scnr'])} {Fore.light_green}a scanner recorder that only records the text,times scanned,and dtoe, and when when time permits, comment.{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['precision','prcsn'],endCmd=['set','st','='])} {Fore.light_green}set Prompt Decimal precision{Style.reset}
 {Fore.grey_70}**{Fore.light_green}'exe','execute','x'{Fore.light_steel_blue} write an inline script and excute it, using {Fore.magenta}#ml#{Fore.light_steel_blue} if multi-line{Fore.orange_red_1}[if available] {Fore.grey_70}**{Fore.green_yellow}to save results for use later, use the function {Fore.light_sea_green}save(result){Fore.green_yellow} where result is the variable containing your result to be used elsewhere.{Style.reset}
 {Fore.grey_70}**{Fore.light_green}'exe-result','execute-result','xr'{Fore.light_steel_blue} return result from inline script save(){Style.reset}
 {Fore.grey_70}**{Fore.light_green}'exe-print','pxr','print exe result'{Fore.light_steel_blue} print result of inline script from save without returning{Style.reset}
-{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_green}'rllo','reverse list lookup order'{Fore.light_green}Reverse the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
-{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_green}'vllo','view list lookup order'{Fore.light_green}View the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
-{Fore.grey_85}** {Fore.light_steel_blue}'fbht','fmbh','formbuilder help','form helptext'{Fore.light_green}FormBuilderHelpText; extra keywords when asked for time and date{Style.reset}
+[Suggested Receipt Directory Structure]
+For Lots of Receipts and the Need for Details
+    {db.receiptsDirectory}/{datetime.now().year}/{datetime.now().month}/{datetime.now().day}/file with image name_containing id from nanoid.txt or receipt_id.txt
+For Moederate Amounts of Receipts 
+    {db.receiptsDirectory}/{datetime.now().year}/{datetime.now().month}//file with image name_containing id from nanoid.txt or receipt_id.txt
+    {db.receiptsDirectory}/{datetime.now().year}/file with image name_containing id from nanoid.txt or receipt_id.txt
+For Low Amounts of Receipts And/Or Fewer Details are needed
+    {db.receiptsDirectory}/
+Musts:
+    -ensure id is visible in the image
+    -enusre receipt is clearly readable
+    -ensure file name contains the id
+------
+- OR -
+------
+
+Use an App Like Google Keep, or Notion, to Store a note with the Title as the NanoId or the Receipt ID. The Receipt MUST be legible.
+ - this has the advantage of being stored where it can be shared easily.
+
+[Reference/Help]
+{Fore.orange_red_1}Dimension Fields {Fore.light_steel_blue}are fields that tell how much space the product is going to take up using the the product itself as the unit of measure
+{Fore.orange_red_1}Location Fields{Fore.light_steel_blue} are fields where the item resides at, will reside at, is coming from etc...
+{Fore.orange_red_1}Count Fields{Fore.light_steel_blue} are fields that define max values that relate to how much goes to the shelf,comes via the Load, how much comes in a Pallet, or Case{Style.reset}
+
+{Fore.grey_70}**{Fore.light_salmon_1}Start a line with {Fore.cyan}#ml#{Fore.light_salmon_1} followed by text, where {Fore.light_red}<ENTER>/<RETURN>{Fore.light_salmon_1} will allow for additional lines of input until you end the multi-line input with {Fore.cyan}#ml#{Style.reset}
+{Fore.light_sea_green}Code=="UNASSIGNED_TO_NEW_ITEM" --> {Fore.light_steel_blue} `neu;set field;#select indexes for Code,Name,Price,CaseCount from prompt; type "UNASSIGNED_TO_NEW_ITEM" and hit <ENTER>/<RETURN>;#follow the prompts to fill the Entry Data for those Fields`{Style.reset}
+{Fore.grey_70}**{Fore.light_red}u{Fore.light_steel_blue} is for {Fore.light_red}Universally{Fore.light_steel_blue} accessible where this menu is{Style.reset}
+{Fore.grey_70}**{Style.bold}{Fore.spring_green_3a}ts{Fore.light_red}u{Fore.spring_green_3a},j,journal,jrnl{Style.reset} -{Fore.light_steel_blue} Access TouchScan Journal from this prompt{Style.reset}
+{Fore.grey_70}**{Fore.light_red}The Current CMD type/scanned is written to {Fore.light_yellow}{scanout}{Fore.light_red}, so if you are stuck without traditional keyboard output, you can still utilize the Text file as a ClipBoard{Style.reset}
+{Fore.grey_70}**{Fore.light_green}'fmbh','formbuilder help','form helptext'{Fore.light_steel_blue} print formbuilder helptext{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{f'{Fore.light_red},{Fore.light_steel_blue}'.join(generate_cmds(startcmd=['units',],endCmd=['']))}{Fore.light_green} list supported units{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{f'{Fore.light_red},{Fore.light_steel_blue}'.join(generate_cmds(startcmd=['units',],endCmd=['r','return','returnable']))}{Fore.light_green} list & return selected supported unit{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{f'{Fore.light_red},{Fore.light_steel_blue}'.join(generate_cmds(startcmd=['lds2','rdts'],endCmd=['',]))}{Fore.light_green} repeable dates,orders,etc...{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}'si-reference','si-ref','si ref','si reference'{Fore.light_green}print si reference chart and continue prompt{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}{','.join(generate_cmds(startcmd=['fake',],endCmd=['phone','ph#','ph. no.','phone number']))}{Fore.light_green}fake phone number{Style.reset}
+{Fore.grey_85}** {Fore.light_steel_blue}'fbht','fmbh','formbuilder help','form helptext'{Fore.light_green}FormBuilderHelpText; extra keywords when asked for time and date{Style.reset}
+{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_green}'rllo','reverse list lookup order'{Fore.light_green}Reverse the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
+{Fore.grey_70}{llo_modes} Modes ONLY **{Fore.light_green}'vllo','view list lookup order'{Fore.light_green}View the ordering used by the List Maker's listing modes for Entry Lookup, i.e. set Shelf,mksl,qsl{Style.reset}
+
+[List Making]
+{Fore.grey_70}**{Fore.light_green}'mksl','make shopping list','p-slq','prompt slq','set list qty','slqp','slq-p'{Fore.light_steel_blue} make a list using {Fore.green_3a}slq{Fore.light_steel_blue} from {Fore.orange_red_1}Tasks.{Fore.light_red}TasksMode{Style.reset}
+{Fore.grey_70}**{Fore.light_green}'cslf','clear selected location field'{Fore.light_steel_blue} set Entry's with selected field's to Zero, but do not do change InList==False{Style.reset}
+{Fore.grey_70}**{Fore.light_green}'cse','clear selected entry'{Fore.light_steel_blue} clear selected entry{Style.reset}
+{Fore.grey_70}**{Fore.light_green}'qc','quick change','q-c','q.c'{Fore.light_steel_blue} use the quick change menu {Fore.orange_red_1}if available{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{f'{Fore.light_red},{Fore.light_steel_blue}'.join(generate_cmds(startcmd=["set inlist","sil"],endCmd=["qtyu","u"]))}{Fore.light_green} set Entry's with InList==True to value, from prompt{Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}['dsu','daystring','daystr']{Fore.light_green} print daystring {Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}['dsur','daystring return','dstr r']{Fore.light_green} print and return daystring {Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}['dsup','daystring plain','daystrpln']{Fore.light_green} print daystring as plain text with no colors{Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}['dsurp','daystring return plain','dstr r pln']{Fore.light_green} print and return daystring as plain text with no colors{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue} ['jcu','just count','just-count','just_count']{Fore.light_green} just count the total lines/items for the reciept{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}['jcu-','just count -','just-count -','just_count -','just count minus','just-count minus','just_count minus']{Fore.light_green} just count the total lines/items for the reciept, accounting for negative quantities{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}['jtu','just total','just-total','just_total']{Fore.light_green} just display the total{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}['jtu-','just total -','just-total -','just_total -','just total minus','just-total minus','just_total minus']{Fore.light_green} just display the total, accounting for negative quantities{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}['set prec','sprec']{Fore.light_green}set the decimal global precision, does not apply to verything, except for lsbld where it does apply{Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}'si-reference','si-ref','si ref','si reference'{Fore.light_green}print si reference chart and continue prompt{Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}{','.join(generate_cmds(startcmd=['fake',],endCmd=['phone','ph#','ph. no.','phone number']))}{Fore.light_green}fake phone number{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{','.join(generate_cmds(startcmd=['util',],endCmd=['tags','tgs']))}{Fore.light_green}tags utility from TaskMode{Style.reset}
+[Return None]
 {Fore.grey_70}** {Fore.light_steel_blue}'None'{Fore.light_red} return None{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}'NAN'{Fore.light_red} return 'NAN' for 'Not a Number'{Style.reset}
+[Checksumming]
 {Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','checksum','cksm'],endCmd=['sha512 ','sha512'])} {Fore.light_green}generate a checksum for TEXT from user{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','diff','eq'],endCmd=['text ','txt'])} {Fore.light_green}compare 2 strings/text and return True or False{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','diff','rules'],endCmd=['encounter-verify','ev'])} {Fore.light_green}confirm an encounter rules{Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}['letter','message']{Fore.light_green} Generate a displayable letter from a default format, allowing to return the text as colored, or plain output; if a return is not desired, continue to the last prompt. using curly-braces you may attempt to write small python code to be evaluated and used as text in the message/letter. This includes colors from Fore,Back, and Style.{Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['simple','smpl'],endCmd=['scanner','scanr','scnnr','scnr'])} {Fore.light_green}a scanner recorder that only records the text,times scanned,and dtoe, and when when time permits, comment.{Style.reset}
-{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['precision','prcsn'],endCmd=['set','st','='])} {Fore.light_green}set Prompt Decimal precision{Style.reset}
     '''
                             print(extra)
                             print(helpText)
@@ -2956,6 +3006,16 @@ with some options:
                         elif cmd.lower() in ['set prec','sprec']:
                             t=TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).setPrec()
                             continue
+                        elif cmd.lower() in [i for i in generate_cmds(startcmd=["nano",],endCmd=["id",])]:
+                            t=TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).nanoid()
+                            if t is not None:
+                                print("returned")
+                                try:
+                                    return func(str(t),data)
+                                except:
+                                    return func(t,data)
+                            else:
+                                continue
                         elif cmd.lower() in ['jcu-','just count -','just-count -','just_count -','just count minus','just-count minus','just_count minus']:
                             bldls(justCount=True,minus=True)
                         elif cmd.lower() in ['jtu','just total','just-total','just_total']:
@@ -2978,6 +3038,8 @@ with some options:
                                     return func(str(t),data)
                                 except:
                                     return func(t,data)
+                            else:
+                                continue
                         elif cmd.lower() in ["bldlse","builde","buildlse","build list export ","bld ls exp",'elsbld','export list build','exp ls bld','ebld']:
                             bldls(bldlse=True)
                         elif cmd.lower() in ['sbld','search build','search_build','scan build','scan_bld']:

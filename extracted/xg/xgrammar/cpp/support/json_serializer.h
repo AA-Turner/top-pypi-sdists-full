@@ -62,7 +62,7 @@ class SerializeVersion {
    * \brief The current serialization version. When the serialization result of any object in
    * XGrammar is changed, this version should be bumped.
    */
-  static constexpr const char kXGrammarSerializeVersion[] = "v5";
+  static constexpr const char kXGrammarSerializeVersion[] = "v6";
 };
 
 /*!
@@ -348,7 +348,9 @@ inline picojson::value AutoSerializeJSONValue(const T& value) {
   } else if constexpr (std::is_floating_point_v<T>) {
     return picojson::value(static_cast<double>(value));
   } else if constexpr (std::is_same_v<T, std::string>) {
-    return picojson::value(value);
+    std::string result;
+    ByteToLatin1(value, &result);
+    return picojson::value(result);
   } else if constexpr (is_std_optional<T>::value) {
     if (value.has_value()) {
       return AutoSerializeJSONValue(*value);

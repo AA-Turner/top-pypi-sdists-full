@@ -1,14 +1,16 @@
+import copy
 import functools
 import math
 import random
-from typing import List, Literal, Optional, Union
+from collections.abc import Iterable as _Iterable
+from typing import Iterable, List, Literal, Optional, Union
 
 import torch
 from torch import Tensor
 
 from . import utils
 
-balance_probability: float = 0.01
+use_default = utils.use_default
 
 
 def _key_in_state(state, key):
@@ -36,12 +38,40 @@ def _guard_in_state(state, key, template_fn):
 
 
 class FunctionTransform:
-    def __init__(self, fn):
+    def __init__(self, fn, names: list[str] | None = None):
+        if names is None:
+            names = []
         self.fn = fn
         self.fn_name = self.get_fn().__name__
+        self.transform_idx = None
+        self.is_initialized = False
+        self.names = names
+
+    def _init(self, state: dict, group: dict, update: Tensor, grad: Tensor, param: Tensor, *args, **kwargs):
+        raise NotImplementedError
+
+    def _call(self, state, group, update, grad, param, vars, *args, **kwargs):
+        raise NotImplementedError
 
     def __call__(self, state, group, update, grad, param, *args, **kwargs):
-        raise NotImplementedError
+        states = [state(p) for p in param]
+        skip_update = False
+        for st, a in zip(states, zip(update, grad, param, *args)):
+            if self.transform_idx not in st.get("is_initialized", set()):
+                try:
+                    self._init(st, group, *a, **kwargs)
+                except SkipUpdate:
+                    skip_update = True
+                except:
+                    raise
+                finally:
+                    if "is_initialized" not in st:
+                        st["is_initialized"] = set()
+                    st["is_initialized"].add(self.transform_idx)
+        if skip_update:
+            raise SkipUpdate from None
+        vars = [[st.get(self.val_name(name), None) for st in states] for name in self.names]
+        return self._call(state, group, update, grad, param, vars, *args, **kwargs)
 
     def get_fn(self):
         if utils.hasattr_none(self.fn, "get_fn"):
@@ -49,7 +79,27 @@ class FunctionTransform:
         return self.fn
 
     def val_name(self, name):
-        return f"{self.fn_name}_{name}"
+        assert self.transform_idx is not None
+        return f"{self.fn_name}_{name}_{self.transform_idx}"
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.fn}, transform_idx={self.transform_idx})"
+
+
+class Branch:
+    def __init__(self, branches: List[List[callable]], merge_fn: callable):
+        self.branches = branches
+        self.merge_fn = merge_fn
+
+    def __call__(self, state, group, update, grad, param):
+        outputs = []
+        for branch in self.branches:
+            branch_update = [torch.clone(u, memory_format=torch.preserve_format) for u in update]
+            branch_update, skip_update = _inner_chain(state, group, branch_update, grad, param, *branch)
+            if skip_update:
+                raise ValueError("Branches should not skip updates")
+            outputs.append(branch_update)
+        return self.merge_fn(outputs)
 
 
 def _zero_guard(state, key, ref, dtype):
@@ -63,49 +113,102 @@ def _storage_dtype(group):
 
 class ZeroGuard(FunctionTransform):
     def __init__(self, fn, names):
-        super().__init__(fn)
-        self.names = names
+        super().__init__(fn, names)
 
-    def __call__(self, state, group, update, grad, param, *args, **kwargs):
-        vars = [
-            [_zero_guard(state(p), self.val_name(name), p, _storage_dtype(group)) for p in param]  #
-            for name in self.names
-        ]
+    def _init(self, state: dict, group: dict, update: Tensor, grad: Tensor, param: Tensor, *args, **kwargs):
+        for name in self.names:
+            _zero_guard(state, self.val_name(name), param, _storage_dtype(group))
+
+    def _call(self, state, group, update, grad, param, vars, *args, **kwargs):
         return self.fn(state, group, update, grad, param, *args, *vars, **kwargs)
+
+
+class PrecondGradAccumGuard(FunctionTransform):
+    def __init__(self, fn):
+        super().__init__(fn, ["precond_grad_accum"])
+        self.steps_taken = 0
+        self.pass_through = None
+
+    def _accum(self, state, new):
+        self.steps_taken += 1
+        utils.stochastic_add_(state, new)
+
+    def _reset(self, state):
+        if self.steps_taken != 0:
+            self.steps_taken = 0
+            utils.zero_(state)
+
+    def _init(self, state: dict, group: dict, update: Tensor, grad: Tensor, param: Tensor, *args, **kwargs):
+        if self.pass_through is None:
+            self.pass_through = not group.get("precond_grad_accum", False)
+        if self.pass_through is False:
+            for name in self.names:
+                _zero_guard(state, self.val_name(name), param, _storage_dtype(group))
+
+    def _call(self, state, group, update, grad, param, vars, *args, **kwargs):
+        base_grad = update if group.get("momentum_into_precond_update", True) else grad
+        if self.pass_through:
+            return self.fn(state, group, update, grad, param, *args, base_grad, **kwargs)
+
+        (vars,) = vars
+        if group["is_preconditioning"]:
+            if self.steps_taken:
+                self._accum(vars, base_grad)
+                utils.stochastic_multiply_(vars, 1 / self.steps_taken)
+            else:
+                vars = base_grad
+        else:
+            self._accum(vars, base_grad)
+            vars = base_grad
+        try:
+            out = self.fn(state, group, update, grad, param, *args, vars, **kwargs)
+        finally:
+            if group["is_preconditioning"]:
+                self._reset(vars)
+
+        return out
 
 
 class CopyGuard(FunctionTransform):
     def __init__(self, fn, index, names):
-        super().__init__(fn)
+        super().__init__(fn, names)
         self.index = index
-        self.names = names
 
-    def __call__(self, state, group, update, grad, param, *args, **kwargs):
+    def _init(self, state: dict, group: dict, update: Tensor, grad: Tensor, param: Tensor, *args, **kwargs):
         val = [update, grad, param, *args][self.index]
-        vars = [
-            [_guard_in_state(state(p), self.val_name(name), lambda: torch.clone(v)) for p, v in zip(param, val)]  #
-            for name in self.names
-        ]
+        for name in self.names:
+            state[self.val_name(name)] = torch.clone(val)
+
+    def _call(self, state, group, update, grad, param, vars, *args, **kwargs):
         return self.fn(state, group, update, grad, param, *args, *vars, **kwargs)
 
 
-class GeneralGuard(FunctionTransform):  # We can't guard against reuse in the general case
+class GeneralGuard(FunctionTransform):
     def __init__(self, fn, names, init_fn, skip_first: bool = True):
-        super().__init__(fn)
-        self.names = names
+        super().__init__(fn, names)
         self.init_fn = init_fn
         self.skip_first = skip_first
+        self.named_to_anonymous = None
+        self.anonymous_to_named = None
 
-    def __call__(self, state, group, update, grad, param, *args, **kwargs):
-        vars = []
-        skip_update = False
-        for p, g, u in zip(param, grad, update):
-            st = state(p)
-            skip_update |= _inplace_guard_(st, self.names, lambda: self.init_fn(st, group, u, g, p, **kwargs))
-            vars.append([st[name] if isinstance(name, str) else st.get(name[0], name[1]) for name in self.names])
-        if skip_update and self.skip_first:
-            raise SkipUpdate
-        return self.fn(state, group, update, grad, param, *args, *zip(*vars), **kwargs)
+    def _map(self, state_fn, param, mapping):
+        for p in param:
+            state = state_fn(p)
+            for name, mapped in mapping.items():
+                if mapped in state:
+                    raise ValueError(f"Name {name} already mapped to {mapped}")
+                if name in state:
+                    state[mapped] = state.pop(name)
+
+    def _init(self, state: dict, group: dict, update: Tensor, grad: Tensor, param: Tensor, *args, **kwargs):
+        self.init_fn(state, group, update, grad, param, **kwargs)
+        for name in self.names:
+            state[self.val_name(name)] = state.pop(name, None)
+        if self.skip_first:
+            raise SkipUpdate from None
+
+    def _call(self, state, group, update, grad, param, vars, *args, **kwargs):
+        return self.fn(state, group, update, grad, param, *args, *vars, **kwargs)
 
 
 class NoState(FunctionTransform):
@@ -124,8 +227,25 @@ class NoStateNoForeach(FunctionTransform):
                 skip_update = True
                 pass
         if skip_update:
-            raise SkipUpdate
+            raise SkipUpdate from None
         return updates
+
+
+class SqueezeGrad(FunctionTransform):
+    def __call__(self, state, group, update, grad, param, *args, **kwargs):
+        original_shapes = [u.shape for u in update]
+        update = [u.squeeze() if u.numel() > 1 else u.view(-1) for u in update]
+        grad = [x.view_as(u) for x, u in zip(grad, update)]
+        param = [x.view_as(u) for x, u in zip(param, update)]
+        args = list(args)
+        for i, a in enumerate(args):
+            if isinstance(a, (list, tuple)) and isinstance(a[0], Tensor):
+                args[i] = [x.view_as(u) for x, u in zip(a, update)]
+        for k, a in kwargs.items():
+            if isinstance(a, (list, tuple)) and isinstance(a[0], Tensor):
+                kwargs[k] = [x.view_as(u) for x, u in zip(a, update)]
+        out = self.fn(state, group, update, grad, param, *args, **kwargs)
+        return [o.view(s) for o, s in zip(out, original_shapes)]
 
 
 def zero_guard(*names):
@@ -158,12 +278,23 @@ def exp_avg(group, update, grad, param, exp_avg):
     return utils.scale_by_exp_avg_(exp_avg, update, utils.beta_debias(utils.get_beta1(group), group["step"]))
 
 
+@copy_guard(2, "init")
+@no_state
+def weight_decay_to_init(group, update, grad, param, init):
+    utils.stochastic_lerp_(param, init, group["weight_decay_to_ema"] * group["lr"])
+    return update
+
+
+def identity(state, group, update, grad, param):
+    return update
+
+
 @zero_guard("exp_avg")
 @no_state
 def weight_decay_to_ema(group, update, grad, param, exp_avg):
     utils.weight_decay_to_ema_(
+        param,
         exp_avg,
-        update,
         utils.beta_debias(group["ema_beta"], group["step"]),
         group["weight_decay_to_ema"] * group["lr"],
     )
@@ -174,8 +305,8 @@ def weight_decay_to_ema(group, update, grad, param, exp_avg):
 @no_state
 def l1_weight_decay_to_ema(group, update, grad, param, exp_avg):
     utils.l1_weight_decay_to_ema_(
+        param,
         exp_avg,
-        update,
         utils.beta_debias(group["ema_beta"], group["step"]),
         group["weight_decay_to_ema"] * group["lr"],
     )
@@ -221,7 +352,27 @@ def update_by_adam(group, update, grad, param, exp_avg, exp_avg_sq):
         group["weight_decay"],
         group["caution"],
     )
-    raise SkipUpdate
+    raise SkipUpdate from None
+
+
+@zero_guard("exp_avg", "exp_avg_sq")
+@no_state
+def update_by_adamc(group, update, grad, param, exp_avg, exp_avg_sq):
+    utils.fused_adam_(
+        param,
+        exp_avg,
+        exp_avg_sq,
+        update,
+        grad,
+        utils.get_beta1(group),
+        utils.get_beta2(group),
+        group["step"],
+        group["lr"],
+        group["eps"],
+        group["lr"] * group["weight_decay"] / group["max_lr"],
+        group["caution"],
+    )
+    raise SkipUpdate from None
 
 
 @zero_guard("exp_avg", "exp_avg_sq")
@@ -246,7 +397,7 @@ def update_by_laprop(group, update, grad, param, exp_avg, exp_avg_sq):
         group["weight_decay"],
         group["caution"],
     )
-    raise SkipUpdate
+    raise SkipUpdate from None
 
 
 @no_state
@@ -271,7 +422,26 @@ def update_by_schedule_free(group, update, grad, param, z):
         group["step"],
         group["weight_decay"],
     )
-    raise SkipUpdate
+    raise SkipUpdate from None
+
+
+@copy_guard(2, "z")
+@zero_guard("exp_avg")
+@no_state
+def update_by_msam(group, update, grad, param, z, exp_avg):
+    utils.msam_(
+        group["lr"],
+        utils.beta_debias(utils.get_beta1(group), group["step"]),
+        param,
+        z,
+        update,
+        grad,
+        exp_avg,
+        group["caution"],
+        group["weight_decay"],
+        group["sam_step_size"],
+    )
+    raise SkipUpdate from None
 
 
 @zero_guard("exp_avg", "exp_avg_sq")
@@ -279,7 +449,7 @@ def update_by_schedule_free(group, update, grad, param, z):
 def update_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
     if group["step"] == 1:
         utils.scale_by_exp_avg_sq_(exp_avg_sq, update, 0, group["eps"])
-        raise SkipUpdate
+        raise SkipUpdate from None
 
     if group["step"] == 2:
         update = utils.promote(update)
@@ -291,7 +461,7 @@ def update_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
             utils.beta_debias(utils.get_beta2(group), group["step"]),
             group["eps"],
         )
-        raise SkipUpdate
+        raise SkipUpdate from None
 
     utils.fused_adopt_(
         param,
@@ -307,7 +477,7 @@ def update_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
         group["weight_decay"],
         group["caution"],
     )
-    raise SkipUpdate
+    raise SkipUpdate from None
 
 
 @zero_guard("exp_avg", "exp_avg_sq")
@@ -315,7 +485,7 @@ def update_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
 def scale_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
     if group["step"] == 1:
         utils.scale_by_exp_avg_sq_(exp_avg_sq, update, 0, group["eps"])
-        raise SkipUpdate
+        raise SkipUpdate from None
 
     if group["step"] == 2:
         update = utils.promote(update)
@@ -327,7 +497,7 @@ def scale_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
             utils.beta_debias(utils.get_beta2(group), group["step"]),
             group["eps"],
         )
-        raise SkipUpdate
+        raise SkipUpdate from None
 
     return utils.adopt(
         update,
@@ -344,10 +514,11 @@ def _init_soap(state, group, update, grad, param, inner: str = ""):
 
 
 def _init_psgd_kron(state, group, update, grad, param, cached: bool = False, prob: Optional[callable] = None):
-    Q, state["exprs"] = utils.init_Q_exprs(
+    Q = utils.init_Q_exprs(
         grad,
         group["precond_init_scale"],
         group["precond_init_scale_scale"],
+        group["precond_init_scale_power"],
         group["max_size_triangular"],
         group["min_ndim_triangular"],
         group["memory_save_mode"],
@@ -356,32 +527,28 @@ def _init_psgd_kron(state, group, update, grad, param, cached: bool = False, pro
         dtype=getattr(torch, group["q_dtype"]),
     )
     state["Q"] = utils.triu_to_line(Q) if group["store_triu_as_line"] else Q
-
+    state["running_lower_bound"] = [torch.zeros((1,), device=q.device, dtype=torch.float64) for q in Q]
+    state["step"] = torch.zeros((), device=param.device, dtype=torch.int64)
+    if group["adaptive"]:
+        state["velocity"] = [torch.zeros((), device=q.device, dtype=q.dtype) for q in Q]
     if not cached:
         return
 
     state["Q_cache"] = [torch.empty_like(q) for q in Q]
 
-    expr = [f"{c.upper()}{c}" if q_.ndim == 2 else c for c, q_ in zip(utils.einsum_base, Q)]
-    expr = ",".join(expr)
-    grad_expr = "".join(c for c, _ in zip(utils.einsum_base, grad.shape))
-    out_expr = "".join(c.upper() if c.upper() in expr else c for c in grad_expr)
-    expr = f"{expr},{grad_expr}->{out_expr}"
-
-    state["cache_expr"] = expr
-
 
 def _init_psgd_lra(state, group, update, grad, param, cached: bool = False, prob: Optional[callable] = None):
     state["U"], state["V"], state["d"] = utils.init_lra(
         grad,
+        group["param_count"],
         group["precond_init_scale"],
         group["precond_init_scale_scale"],
+        group["precond_init_scale_power"],
         group["rank"],
         getattr(param, "hessian_vector", None),
         getattr(param, "vector", None),
         dtype=getattr(torch, group["q_dtype"]),
     )
-    group["preconditioning_step"] = 0
 
 
 def precond_schedule(group, prob: Union[callable, float, None] = None, name: str = "cumulative_prob"):
@@ -402,12 +569,12 @@ def precond_schedule(group, prob: Union[callable, float, None] = None, name: str
 
 @no_state_no_foreach
 def orthogonalize_update(group, update, grad, param, scale_mode: str = "scale"):  # explore scale_mode="graft"
-    if update.dim() == 1:
+    if update.dim() < 2:
         return update
     original_shape = update.shape
     # doing it this way, as tmp and update are not guaranteed to share memory address or layout
     tmp = update.flatten(1, -1)
-    utils.inplace_orthogonal_(tmp, utils.zeroth_power_mode, tmp, scale_mode)
+    utils.inplace_orthogonal_(tmp, out=tmp, scale_mode=scale_mode)
     return tmp.reshape(original_shape)
 
 
@@ -424,7 +591,7 @@ def nesterov_ema(group, updates, grads, params, momentum):  # equivalent to Grok
 
 
 def _store_std(state, group, update, grad, param):
-    state["init_std"] = torch.std(grad, dim=0)
+    state["init_std"] = torch.std(param)
 
 
 @general_guard("init_std", init_fn=_store_std, skip_first=False)
@@ -483,9 +650,7 @@ _optim_fns = {"adam": utils.adam_, "laprop": utils.laprop_}
 @general_guard("Q", "GG", init_fn=_init_soap)
 @no_state
 def scale_by_soap(group, update, grad, param, exp_avg, exp_avg_sq, Q, GG, inner: str = "adam"):
-    update = utils.promote(update)  # Promote to highest precision if needed
-
-    grad_projected = [utils.project(u, q, False) for u, q in zip(update, Q)]
+    grad_projected = [utils.project(utils.promote(u), q, False) for u, q in zip(update, Q)]
     fn = _optim_fns[inner]
     precond = fn(
         exp_avg,
@@ -500,7 +665,7 @@ def scale_by_soap(group, update, grad, param, exp_avg, exp_avg_sq, Q, GG, inner:
 
     for u, q, gg, ea in zip(update, Q, GG, exp_avg):
         utils.update_preconditioner(
-            u,
+            utils.promote(u),
             q,
             gg,
             ea,
@@ -512,35 +677,38 @@ def scale_by_soap(group, update, grad, param, exp_avg, exp_avg_sq, Q, GG, inner:
     return precond
 
 
-def _update_psgd_precond(cached, Q_cache, group, param, grad, Q_mat, Q, exprs, prob: Optional[callable] = None):
+def _update_psgd_precond(
+    cached, Q_cache, group, param, grad, Q, velocity, running_lower_bound, step, prob: Optional[callable] = None
+) -> Optional[Tensor]:
     if prob is None:
         prob = utils.precond_update_prob_schedule()
 
     if not group["is_preconditioning"]:
-        return Q_mat
+        return
 
     if utils.hasattr_none(param, "vector"):
         vector, hessian_vector = param.vector, param.hessian_vector
         del param.vector
         del param.hessian_vector
+    elif group["inverse_free"]:
+        vector, hessian_vector = None, grad
     else:
-        vector, hessian_vector = utils.dampen_grad(grad)
+        vector, hessian_vector = utils.dampen_grad(grad, group["dampening"])
 
-    utils.psgd_update_precond(
-        Q_mat,
-        exprs,
+    precond = utils.psgd_update_precond(
         hessian_vector,
         group["precond_lr"],
         Q,
         group["store_triu_as_line"],
+        velocity,
+        utils.get_beta2(group),
+        group["ortho_method"],
         vector,
+        running_lower_bound,
+        group["lower_bound_beta"],
+        group["precond_update_power_iterations"],
     )
-
-    if grad.dim() > 1 and precond_schedule(group, balance_probability, f"balance_prob_{id(Q)}"):
-        if group["store_triu_as_line"]:
-            utils.psgd_balance_Q([q_ for _, q_ in Q])
-        else:
-            utils.psgd_balance_Q(Q)
+    del vector, hessian_vector
 
     if isinstance(prob, float):
         float_prob = prob
@@ -548,54 +716,45 @@ def _update_psgd_precond(cached, Q_cache, group, param, grad, Q_mat, Q, exprs, p
         float_prob = prob(group.get(f"cumulative_prob_{id(Q)}_prob_step", 1))
     group["is_cached"] = should_use_cache = cached and float_prob < 0.5
 
-    if should_use_cache:  # caching adds extra ops and is not worth the overhead when we precondition at every step
-        return _update_psgd_cache(cached, Q_cache, Q_mat)
-    return Q_mat
+    if precond is not None:
+        return precond
+    if not should_use_cache or not cached:
+        return None  # caching adds extra ops and is not worth the overhead when we precondition at every step
 
-
-def _update_psgd_cache(cached, Q_cache, q):
-    if not cached:
-        return q
-
-    for c_, q_ in zip(Q_cache, q):
+    for c_, q_ in zip(Q_cache, utils.line_to_triu(Q, group["inverse_free"]) if group["store_triu_as_line"] else Q):
         if q_.ndim == 2:
             torch.matmul(q_.T, q_, out=c_)
         else:
             torch.mul(q_, q_, out=c_)
-    return Q_cache
+    return None
 
 
-def _cached_psgd_precond_grad(group, cache_expr, exprs, update, Q_mat, Q_cache, grad):
+def _cached_psgd_precond_grad(group, update, Q, Q_cache, grad):
+    kwargs = {"ea": update, "caution": group["caution"], "grad": grad}
     if group.get("is_cached", False):
-        out = utils.precond_grad_cached_(cache_expr, update, *Q_cache, caution=group["caution"], grad=grad)
+        out = utils.precond_grad_cached_(cached_q=Q_cache, **kwargs)
     else:
-        out = utils.psgd_precond_grad(exprs[-1], update, *Q_mat, caution=group["caution"], grad=grad)
+        out = utils.psgd_precond_grad(
+            preconds=Q, store_triu_as_line=group["store_triu_as_line"], symmetric_output=group["inverse_free"], **kwargs
+        )
     group["caution"] = False  # we already cautioned here - shouldn't do it again
     return out
 
 
-def _fused_cached_psgd_precond_grad(group, grad, param, cache_expr, exprs, update, Q_mat, Q_cache):
+def _fused_cached_psgd_precond_grad(group, grad, param, update, Q, Q_cache):
+    kwargs = {
+        "ea": update,
+        "caution": group["caution"],
+        "grad": grad,
+        "param": param,
+        "lr": group["lr"],
+        "decay": group["weight_decay"],
+    }
     if group.get("is_cached", False):
-        utils.fused_precond_grad_cached_(
-            cache_expr,
-            update,
-            param,
-            group["lr"],
-            grad,
-            group["weight_decay"],
-            group["caution"],
-            *Q_cache,
-        )
+        utils.fused_precond_grad_cached_(cached_q=Q_cache, **kwargs)
     else:
         utils.fused_psgd_precond_grad(
-            exprs[-1],
-            update,
-            param,
-            group["lr"],
-            grad,
-            group["weight_decay"],
-            group["caution"],
-            *Q_mat,
+            preconds=Q, store_triu_as_line=group["store_triu_as_line"], symmetric_output=group["inverse_free"], **kwargs
         )
 
 
@@ -603,7 +762,7 @@ def _update_lra(
     group, U: List[Tensor], V: List[Tensor], d: List[Tensor], params: List[Tensor], grads: List[Tensor], delayed: bool
 ):
     if not group["is_preconditioning"]:
-        return utils.flatten(U, 1), utils.flatten(V, 1), utils.flatten(d)
+        return utils.multi_flatten((U, 1), (V, 1), (d, 0))
 
     if utils.hasattr_none(params[0], "hessian_vector"):
         vector = utils.flatten([p.vector for p in params])
@@ -613,127 +772,121 @@ def _update_lra(
             del p.hessian_vector
     else:
         vector, hessian_vector = utils.dampen_multiple(grads)
-    return utils.update_lra_precond_(U, V, d, vector, hessian_vector, group["eps"], group["precond_lr"], delayed)
+    precond_step = group["precond_step"] = group.get("precond_step", -1) + 1
+    return utils.update_lra_precond_(
+        U, V, d, vector, hessian_vector, group["eps"], group["precond_lr"], delayed, bool(precond_step % 2)
+    )
 
 
+@SqueezeGrad
+@PrecondGradAccumGuard
 @general_guard("U", "V", "d", init_fn=_init_psgd_lra, skip_first=False)
 @no_state
-def scale_by_psgd_lra(group, update, grad, param, U, V, d):
-    u, v, d = _update_lra(group, U, V, d, param, update if group["momentum_into_precond_update"] else grad, False)
+def scale_by_psgd_lra(group, update, grad, param, update_to_precond, U, V, d):
+    u, v, d = _update_lra(group, U, V, d, param, update_to_precond, False)
     return utils.extract_from_flat_update(param, utils.lra_precond(u, v, d, utils.flatten(update)))
 
 
+@SqueezeGrad
+@PrecondGradAccumGuard
 @general_guard("U", "V", "d", init_fn=_init_psgd_lra, skip_first=False)
 @no_state
-def update_by_psgd_lra(group, update, grad, param, U, V, d):
-    u, v, d = _update_lra(group, U, V, d, param, update if group["momentum_into_precond_update"] else grad, False)
-    utils.apply_lra_update(param, update, u, v, d)
-    raise SkipUpdate
+def update_by_psgd_lra(group, update, grad, param, update_to_precond, U, V, d):
+    u, v, d = _update_lra(group, U, V, d, param, update_to_precond, False)
+    utils.apply_lra_update(param, update, u, v, d, group["lr"], group["weight_decay"], group["caution"], grad)
+    raise SkipUpdate from None
 
 
+@SqueezeGrad
+@PrecondGradAccumGuard
 @general_guard("U", "V", "d", init_fn=_init_psgd_lra, skip_first=False)
 @no_state
-def scale_by_delayed_psgd_lra(group, update, grad, param, U, V, d):
-    u, v, d = _update_lra(group, U, V, d, param, update if group["momentum_into_precond_update"] else grad, True)
+def scale_by_delayed_psgd_lra(group, update, grad, param, update_to_precond, U, V, d):
+    u, v, d = _update_lra(group, U, V, d, param, update_to_precond, True)
     return utils.extract_from_flat_update(param, utils.lra_precond(u, v, d, utils.flatten(update)))
 
 
+@SqueezeGrad
+@PrecondGradAccumGuard
 @general_guard("U", "V", "d", init_fn=_init_psgd_lra, skip_first=False)
 @no_state
-def update_by_delayed_psgd_lra(group, update, grad, param, U, V, d):
-    u, v, d = _update_lra(group, U, V, d, param, update if group["momentum_into_precond_update"] else grad, True)
-    utils.apply_lra_update(param, update, u, v, d)
-    raise SkipUpdate
+def update_by_delayed_psgd_lra(group, update, grad, param, update_to_precond, U, V, d):
+    u, v, d = _update_lra(group, U, V, d, param, update_to_precond, True)
+    utils.apply_lra_update(param, update, u, v, d, group["lr"], group["weight_decay"], group["caution"], grad)
+    raise SkipUpdate from None
 
 
-@general_guard("Q", "exprs", ("Q_cache", None), ("cache_expr", None), init_fn=_init_psgd_kron, skip_first=False)
+@SqueezeGrad
+@PrecondGradAccumGuard
+@general_guard("Q", "Q_cache", "velocity", "running_lower_bound", "step", init_fn=_init_psgd_kron, skip_first=False)
 @no_state_no_foreach
 def scale_by_psgd(
     group,
     update,
     grad,
     param,
+    update_to_precond,
     Q,
-    exprs,
     Q_cache,
-    cache_expr: str,
+    velocity: Optional[List[Tensor]],
+    running_lower_bound: List[Tensor],
+    step: Tensor,
     cached: bool = False,
     prob: Optional[callable] = None,
 ):
-    update = update.to(memory_format=torch.contiguous_format)
-    Q_mat = utils.line_to_triu(Q) if group["store_triu_as_line"] else Q
-    Q_mat = _update_psgd_precond(
-        cached,
-        Q_cache,
-        group,
-        param,
-        update if group["momentum_into_precond_update"] else grad,
-        Q_mat,
-        Q,
-        exprs,
-        prob,
-    )
-    return _cached_psgd_precond_grad(group, cache_expr, exprs, update, Q_mat, Q_cache, grad)
+    _update_psgd_precond(cached, Q_cache, group, param, update_to_precond, Q, velocity, running_lower_bound, step, prob)
+    return _cached_psgd_precond_grad(group, update, Q, Q_cache, grad)
 
 
-@general_guard("Q", "exprs", ("Q_cache", None), ("cache_expr", None), init_fn=_init_psgd_kron, skip_first=False)
+@SqueezeGrad
+@PrecondGradAccumGuard
+@general_guard("Q", "Q_cache", "velocity", "running_lower_bound", "step", init_fn=_init_psgd_kron, skip_first=False)
 @no_state_no_foreach
 def scale_by_delayed_psgd(
     group,
     update,
     grad,
     param,
+    update_to_precond,
     Q,
-    exprs,
     Q_cache,
-    cache_expr: str,
+    velocity: Optional[List[Tensor]],
+    running_lower_bound: List[Tensor],
+    step: Tensor,
     cached: bool = False,
     prob: Optional[callable] = None,
 ):
-    Q_mat = utils.line_to_triu(Q) if group["store_triu_as_line"] else Q
-    precond = _cached_psgd_precond_grad(group, cache_expr, exprs, update, Q_mat, Q_cache, grad)
-    _ = _update_psgd_precond(
-        cached,
-        Q_cache,
-        group,
-        param,
-        update if group["momentum_into_precond_update"] else grad,
-        Q_mat,
-        Q,
-        exprs,
-        prob,
+    if group.get("inverse_free", False):
+        precond = None
+    else:
+        precond = _cached_psgd_precond_grad(group, update, Q, Q_cache, grad)
+    new = _update_psgd_precond(
+        cached, Q_cache, group, param, update_to_precond, Q, velocity, running_lower_bound, step, prob
     )
-    return precond
+    return new if precond is None else precond
 
 
-@general_guard("Q", "exprs", ("Q_cache", None), ("cache_expr", None), init_fn=_init_psgd_kron, skip_first=False)
+@SqueezeGrad
+@PrecondGradAccumGuard
+@general_guard("Q", "Q_cache", "velocity", "running_lower_bound", "step", init_fn=_init_psgd_kron, skip_first=False)
 @no_state_no_foreach
 def update_by_psgd(
     group,
     update,
     grad,
     param,
+    update_to_precond,
     Q,
-    exprs,
     Q_cache,
-    cache_expr: str,
+    velocity: Optional[List[Tensor]],
+    running_lower_bound: List[Tensor],
+    step: Tensor,
     cached: bool = False,
     prob: Optional[callable] = None,
 ):
-    Q_mat = utils.line_to_triu(Q) if group["store_triu_as_line"] else Q
-    Q_mat = _update_psgd_precond(
-        cached,
-        Q_cache,
-        group,
-        param,
-        update if group["momentum_into_precond_update"] else grad,
-        Q_mat,
-        Q,
-        exprs,
-        prob,
-    )
-    _fused_cached_psgd_precond_grad(group, update, param, cache_expr, exprs, update, Q_mat, Q_cache)
-    raise SkipUpdate
+    _update_psgd_precond(cached, Q_cache, group, param, update_to_precond, Q, velocity, running_lower_bound, step, prob)
+    _fused_cached_psgd_precond_grad(group, update, param, update, Q, Q_cache)
+    raise SkipUpdate from None
 
 
 @no_state
@@ -741,34 +894,33 @@ def sign(group, update, grad, param, graft: bool = True):
     return utils.sign_(update, graft)
 
 
-@general_guard("Q", "exprs", ("Q_cache", None), ("cache_expr", None), init_fn=_init_psgd_kron, skip_first=False)
+@no_state
+def global_clip(group, update, grad, param, clip_fn: Optional[callable] = None):
+    assert clip_fn is not None
+    return clip_fn(update)
+
+
+@SqueezeGrad
+@PrecondGradAccumGuard
+@general_guard("Q", "Q_cache", "velocity", "running_lower_bound", "step", init_fn=_init_psgd_kron, skip_first=False)
 @no_state_no_foreach
 def update_by_delayed_psgd(
     group,
     update,
     grad,
     param,
+    update_to_precond,
     Q,
-    exprs,
     Q_cache,
-    cache_expr: str,
+    velocity: Optional[List[Tensor]],
+    running_lower_bound: List[Tensor],
+    step: Tensor,
     cached: bool = False,
     prob: Optional[callable] = None,
 ):
-    Q_mat = utils.line_to_triu(Q) if group["store_triu_as_line"] else Q
-    _fused_cached_psgd_precond_grad(group, update, param, cache_expr, exprs, update, Q_mat, Q_cache)
-    _ = _update_psgd_precond(
-        cached,
-        Q_cache,
-        group,
-        param,
-        update if group["momentum_into_precond_update"] else grad,
-        Q_mat,
-        Q,
-        exprs,
-        prob,
-    )
-    raise SkipUpdate
+    _fused_cached_psgd_precond_grad(group, update, param, update, Q, Q_cache)
+    _update_psgd_precond(cached, Q_cache, group, param, update_to_precond, Q, velocity, running_lower_bound, step, prob)
+    raise SkipUpdate from None
 
 
 def palm_beta2(state, group, update, grad, param):
@@ -805,26 +957,63 @@ def chain(state: Union[callable, dict], group, grad, param, *fns):
         utils.update_param_(param, update, group["lr"], group["weight_decay"], caution=group["caution"], grad=grad)
 
 
-def create_branch(branches: List[List[callable]], merge_fn: callable):
-    def _branch(state, group, update, grad, param):
-        outputs = []
-        for branch in branches:
-            branch_update = [torch.clone(u, memory_format=torch.preserve_format) for u in update]
-            branch_update, skip_update = _inner_chain(state, group, branch_update, grad, param, *branch)
-            if skip_update:
-                raise ValueError("Branches should not skip updates")
-            outputs.append(branch_update)
-        return merge_fn(outputs)
+def set_indices(fns: Iterable[callable], retain: bool = True, offset: int = 0):
+    if retain and offset:
+        raise ValueError("offset cannot be retained")
 
-    return _branch
+    def _walk(obj):
+        stack = [obj]
+        while stack:
+            cur = stack.pop()
+            if isinstance(cur, FunctionTransform):
+                yield cur
+                stack.append(cur.fn)
+            elif isinstance(cur, functools.partial):
+                stack.append(cur.func)
+            elif isinstance(cur, Branch):
+                for branch in cur.branches:
+                    stack.extend(branch)
+            elif isinstance(cur, _Iterable) and not isinstance(cur, (str, bytes, bytearray)):
+                stack.extend(cur)
+
+    if retain:
+        offset = max((ft.transform_idx for ft in _walk(fns) if ft.transform_idx is not None), default=-1) + 1
+
+    new_fns = [copy.deepcopy(fn) for fn in fns]
+    for ft in _walk(new_fns):
+        if not retain or ft.transform_idx is None:
+            ft.transform_idx, offset = offset, offset + 1
+
+    return new_fns
 
 
 class ChainOpt(utils.StatefulOptimizer):
     promote: bool = False
+    global_defaults = {
+        "caution": False,
+        "lr": 1,
+        "warmup_steps": 0,
+        "weight_decay": 0,
+        "eps": 1e-8,
+    }
 
     def __init__(self, params, defaults, foreach: bool, *fns):
-        super().__init__(params, defaults, foreach)
-        self.fns = tuple(fns)
+        base = self.global_defaults.copy()
+        base.update({k: v for k, v in defaults.items() if v is not use_default})
+        super().__init__(params, base, foreach)
+        self.fns = fns
+
+    @property
+    def fns(self):
+        return self._fns
+
+    @fns.setter
+    def fns(self, value):
+        self._fns = value
+        self._set_indices(retain=True)
+
+    def _set_indices(self, retain=True):
+        self._fns = set_indices(self.fns, retain)
 
     def _step(self, group):
         if "base_lr" not in group:
@@ -868,7 +1057,6 @@ class ChainOpt(utils.StatefulOptimizer):
         group["step"] = None
 
 
-use_default = object()
 str_or_fn = Union[str, callable, None, Literal[use_default]]
 
 
@@ -931,7 +1119,7 @@ class BaseOpt(ChainOpt):
 
     update_clipping: str_or_fn = None
     The function to use for clipping the outgoing updates before applying them, after all other transformations.
-    This will turn off
+    This will turn off fused updates.
     This is syntactic sugar, equivalent to manually passing the function as the last element of the optimizer chain.
 
     """
@@ -945,11 +1133,11 @@ class BaseOpt(ChainOpt):
         self,
         params,
         defaults,
-        foreach: bool,
-        gradient_clipping: str_or_fn,
-        update_clipping: str_or_fn,
+        foreach: bool = True,
+        gradient_clipping: str_or_fn = None,
+        update_clipping: str_or_fn = None,
         palm: bool = use_default,
-        *fns,
+        fns: Iterable[callable] = (),
         compile_step: bool = use_default,
         promote: bool = use_default,
     ):
@@ -957,6 +1145,7 @@ class BaseOpt(ChainOpt):
             raise ValueError("No functions provided. If that's on purpose (SGD-like), use `identity`")
 
         args, kwargs = None, None
+        fns = tuple(fns)
         fn = fns[-1]
         if isinstance(fn, functools.partial):
             fn, args, kwargs = fn.func, fn.args, fn.keywords
@@ -1020,3 +1209,27 @@ class ScheduleFree(BaseOpt):
                         p32 = utils.promote(p.data)
                         p32.lerp_(end=z, weight=1 - beta1)
                         utils.copy_stochastic_(p.data, p32)
+
+
+class MSAM(BaseOpt):
+    def eval(self):
+        for group in self.param_groups:
+            group["train_mode"] = train_mode = not group.get("train_mode")
+            if not train_mode:
+                for p in group["params"]:
+                    state = self.state_(p)
+                    if "z" in state:
+                        p_copy = p.data.clone()
+                        utils.copy_stochastic_(p.data, state["z"])
+                        utils.copy_stochastic_(state["z"], p_copy)
+
+    def train(self):
+        for group in self.param_groups:
+            group["train_mode"] = train_mode = not group.get("train_mode")
+            if train_mode:
+                for p in group["params"]:
+                    state = self.state_(p)
+                    if "z" in state:
+                        p_copy = p.data.clone()
+                        utils.copy_stochastic_(p.data, state["z"])
+                        utils.copy_stochastic_(state["z"], p_copy)

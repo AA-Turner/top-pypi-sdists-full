@@ -123,41 +123,11 @@ Keyword arguments:
     - black (string; optional):
         Black color.
 
-    - colors (dict; optional):
+    - colors (dict with strings as keys and values of type dict with strings as keys and values of type string; optional):
         Object of colors, key is color name, value is an array of at
         least 10 strings (colors).
 
-        `colors` is a dict with keys:
-
-        - dark (dict with strings as keys and values of type string; optional)
-
-        - gray (dict with strings as keys and values of type string; optional)
-
-        - red (dict with strings as keys and values of type string; optional)
-
-        - pink (dict with strings as keys and values of type string; optional)
-
-        - grape (dict with strings as keys and values of type string; optional)
-
-        - violet (dict with strings as keys and values of type string; optional)
-
-        - indigo (dict with strings as keys and values of type string; optional)
-
-        - blue (dict with strings as keys and values of type string; optional)
-
-        - cyan (dict with strings as keys and values of type string; optional)
-
-        - green (dict with strings as keys and values of type string; optional)
-
-        - lime (dict with strings as keys and values of type string; optional)
-
-        - yellow (dict with strings as keys and values of type string; optional)
-
-        - orange (dict with strings as keys and values of type string; optional)
-
-        - teal (dict with strings as keys and values of type string; optional)
-
-    - primaryShade (optional):
+    - primaryShade (dict; optional):
         Index of theme.colors[color]. Primary shade is used in all
         components to determine which color from theme.colors[color]
         should be used. Can be either a number (0–9) or an object to
@@ -166,6 +136,12 @@ Keyword arguments:
         primaryShade: 6 } // shade 6 is used both for dark and light
         color schemes { primaryShade: { light: 6, dark: 7 } } //
         different shades for dark and light color schemes.
+
+        `primaryShade` is a dict with keys:
+
+        - light (a value equal to: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; optional)
+
+        - dark (a value equal to: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9; optional)
 
     - primaryColor (string; optional):
         Key of `theme.colors`, hex/rgb/hsl values are not supported.
@@ -276,105 +252,33 @@ Keyword arguments:
 
                 - lineHeight (string; optional)
 
-    - radius (dict; optional):
+    - radius (dict with strings as keys and values of type string; optional):
         Object of values that are used to set `border-radius` in all
         components that support it.
-
-        `radius` is a dict with keys:
-
-        - xs (string; optional)
-
-        - sm (string; optional)
-
-        - md (string; optional)
-
-        - lg (string; optional)
-
-        - xl (string; optional)
 
     - defaultRadius (number; optional):
         Key of `theme.radius` or any valid CSS value. Default
         `border-radius` used by most components.
 
-    - spacing (dict; optional):
+    - spacing (dict with strings as keys and values of type string; optional):
         Object of values that are used to set various CSS properties
         that control spacing between elements.
 
-        `spacing` is a dict with keys:
-
-        - xs (string; optional)
-
-        - sm (string; optional)
-
-        - md (string; optional)
-
-        - lg (string; optional)
-
-        - xl (string; optional)
-
-    - fontSizes (dict; optional):
+    - fontSizes (dict with strings as keys and values of type string; optional):
         Object of values that are used to control `font-size` property
         in all components.
 
-        `fontSizes` is a dict with keys:
-
-        - xs (string; optional)
-
-        - sm (string; optional)
-
-        - md (string; optional)
-
-        - lg (string; optional)
-
-        - xl (string; optional)
-
-    - lineHeights (dict; optional):
+    - lineHeights (dict with strings as keys and values of type string; optional):
         Object of values that are used to control `line-height`
         property in `Text` component.
 
-        `lineHeights` is a dict with keys:
-
-        - xs (string; optional)
-
-        - sm (string; optional)
-
-        - md (string; optional)
-
-        - lg (string; optional)
-
-        - xl (string; optional)
-
-    - breakpoints (dict; optional):
+    - breakpoints (dict with strings as keys and values of type string; optional):
         Object of values that are used to control breakpoints in all
         components, values are expected to be defined in em.
 
-        `breakpoints` is a dict with keys:
-
-        - xs (string; optional)
-
-        - sm (string; optional)
-
-        - md (string; optional)
-
-        - lg (string; optional)
-
-        - xl (string; optional)
-
-    - shadows (dict; optional):
+    - shadows (dict with strings as keys and values of type string; optional):
         Object of values that are used to add `box-shadow` styles to
         components that support `shadow` prop.
-
-        `shadows` is a dict with keys:
-
-        - xs (string; optional)
-
-        - sm (string; optional)
-
-        - md (string; optional)
-
-        - lg (string; optional)
-
-        - xl (string; optional)
 
     - respectReducedMotion (boolean; optional):
         Determines whether user OS settings to reduce motion should be
@@ -412,15 +316,20 @@ Keyword arguments:
         Allows adding `classNames`, `styles` and `defaultProps` to any
         component.
 
-        `components` is a dict with keys:
+        `components` is a dict with strings as keys and values of type
+        dict with keys:
 
+        - classNames (boolean | number | string | dict | list; optional)
 
-    - other (dict; optional):
+        - styles (boolean | number | string | dict | list; optional)
+
+        - vars (boolean | number | string | dict | list; optional)
+
+        - defaultProps (boolean | number | string | dict | list; optional)
+
+    - other (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
         Any other properties that you want to access with the theme
         objects.
-
-        `other` is a dict with keys:
-
 
 - withCssVariables (boolean; optional):
     Determines whether theme CSS variables should be added to given
@@ -438,23 +347,11 @@ Keyword arguments:
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'MantineProvider'
-    ThemeColors = TypedDict(
-        "ThemeColors",
+    ThemePrimaryShade = TypedDict(
+        "ThemePrimaryShade",
             {
-            "dark": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "gray": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "red": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "pink": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "grape": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "violet": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "indigo": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "blue": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "cyan": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "green": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "lime": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "yellow": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "orange": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
-            "teal": NotRequired[typing.Dict[typing.Union[str, float, int], str]]
+            "light": NotRequired[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
+            "dark": NotRequired[Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]
         }
     )
 
@@ -541,72 +438,6 @@ Keyword arguments:
         }
     )
 
-    ThemeRadius = TypedDict(
-        "ThemeRadius",
-            {
-            "xs": NotRequired[str],
-            "sm": NotRequired[str],
-            "md": NotRequired[str],
-            "lg": NotRequired[str],
-            "xl": NotRequired[str]
-        }
-    )
-
-    ThemeSpacing = TypedDict(
-        "ThemeSpacing",
-            {
-            "xs": NotRequired[str],
-            "sm": NotRequired[str],
-            "md": NotRequired[str],
-            "lg": NotRequired[str],
-            "xl": NotRequired[str]
-        }
-    )
-
-    ThemeFontSizes = TypedDict(
-        "ThemeFontSizes",
-            {
-            "xs": NotRequired[str],
-            "sm": NotRequired[str],
-            "md": NotRequired[str],
-            "lg": NotRequired[str],
-            "xl": NotRequired[str]
-        }
-    )
-
-    ThemeLineHeights = TypedDict(
-        "ThemeLineHeights",
-            {
-            "xs": NotRequired[str],
-            "sm": NotRequired[str],
-            "md": NotRequired[str],
-            "lg": NotRequired[str],
-            "xl": NotRequired[str]
-        }
-    )
-
-    ThemeBreakpoints = TypedDict(
-        "ThemeBreakpoints",
-            {
-            "xs": NotRequired[str],
-            "sm": NotRequired[str],
-            "md": NotRequired[str],
-            "lg": NotRequired[str],
-            "xl": NotRequired[str]
-        }
-    )
-
-    ThemeShadows = TypedDict(
-        "ThemeShadows",
-            {
-            "xs": NotRequired[str],
-            "sm": NotRequired[str],
-            "md": NotRequired[str],
-            "lg": NotRequired[str],
-            "xl": NotRequired[str]
-        }
-    )
-
     ThemeDefaultGradient = TypedDict(
         "ThemeDefaultGradient",
             {
@@ -619,14 +450,10 @@ Keyword arguments:
     ThemeComponents = TypedDict(
         "ThemeComponents",
             {
-
-        }
-    )
-
-    ThemeOther = TypedDict(
-        "ThemeOther",
-            {
-
+            "classNames": NotRequired[typing.Any],
+            "styles": NotRequired[typing.Any],
+            "vars": NotRequired[typing.Any],
+            "defaultProps": NotRequired[typing.Any]
         }
     )
 
@@ -638,8 +465,8 @@ Keyword arguments:
             "fontSmoothing": NotRequired[bool],
             "white": NotRequired[str],
             "black": NotRequired[str],
-            "colors": NotRequired["ThemeColors"],
-            "primaryShade": NotRequired[typing.Union[Literal[2], Literal[1], Literal[3], Literal[4], Literal[5], Literal[6], Literal[7], Literal[8], Literal[9]]],
+            "colors": NotRequired[typing.Dict[typing.Union[str, float, int], typing.Dict[typing.Union[str, float, int], str]]],
+            "primaryShade": NotRequired[typing.Union[Literal[1], Literal[2], Literal[3], Literal[4], Literal[5], Literal[6], Literal[7], Literal[8], Literal[9], "ThemePrimaryShade"]],
             "primaryColor": NotRequired[str],
             "variantColorResolver": NotRequired["ThemeVariantColorResolver"],
             "autoContrast": NotRequired[bool],
@@ -647,20 +474,20 @@ Keyword arguments:
             "fontFamily": NotRequired[str],
             "fontFamilyMonospace": NotRequired[str],
             "headings": NotRequired["ThemeHeadings"],
-            "radius": NotRequired["ThemeRadius"],
+            "radius": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
             "defaultRadius": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
-            "spacing": NotRequired["ThemeSpacing"],
-            "fontSizes": NotRequired["ThemeFontSizes"],
-            "lineHeights": NotRequired["ThemeLineHeights"],
-            "breakpoints": NotRequired["ThemeBreakpoints"],
-            "shadows": NotRequired["ThemeShadows"],
+            "spacing": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
+            "fontSizes": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
+            "lineHeights": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
+            "breakpoints": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
+            "shadows": NotRequired[typing.Dict[typing.Union[str, float, int], str]],
             "respectReducedMotion": NotRequired[bool],
             "cursorType": NotRequired[Literal["default", "pointer"]],
             "defaultGradient": NotRequired["ThemeDefaultGradient"],
             "activeClassName": NotRequired[str],
             "focusClassName": NotRequired[str],
-            "components": NotRequired["ThemeComponents"],
-            "other": NotRequired["ThemeOther"]
+            "components": NotRequired[typing.Dict[typing.Union[str, float, int], "ThemeComponents"]],
+            "other": NotRequired[typing.Dict[typing.Union[str, float, int], typing.Any]]
         }
     )
 

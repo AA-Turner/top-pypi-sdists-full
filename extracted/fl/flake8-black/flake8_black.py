@@ -19,9 +19,21 @@ from flake8 import utils as stdin_utils
 from flake8 import LOG
 
 
-__version__ = "0.3.7"
+__version__ = "0.4.0"
 
 black_prefix = "BLK"
+
+
+try:
+    black.decode_bytes(b"")
+except TypeError:
+    # TypeError: decode_bytes() missing required argument 'mode' (pos 2)
+    decode_bytes_wrapper = black.decode_bytes
+else:
+    # Probably running older than black 25.9.0
+    def decode_bytes_wrapper(src, mode):
+        """Proxy wrapper for backward compatibility."""
+        return black.decode_bytes(src)
 
 
 def find_diff_start(old_src, new_src):
@@ -202,22 +214,23 @@ class BlackStyleChecker:
         try:
             if self.filename in self.STDIN_NAMES:
                 self.filename = "stdin"
-                source = stdin_utils.stdin_get_value()
+                raw_source = stdin_utils.stdin_get_value().encode("utf-8")
             else:
                 with open(self.filename, "rb") as buf:
-                    source, _, _ = black.decode_bytes(buf.read())
+                    raw_source = buf.read()
         except Exception as e:
-            source = ""
+            raw_source = ""
             msg = "900 Failed to load file: %s" % e
 
-        if not source and not msg:
+        if not raw_source and not msg:
             # Empty file (good)
             return
-        elif source:
+        elif raw_source:
             # Call black...
             try:
                 file_mode = self._file_mode
                 file_mode.is_pyi = self.filename and self.filename.endswith(".pyi")
+                source, _, _ = decode_bytes_wrapper(raw_source, file_mode)
                 new_code = black.format_file_contents(
                     source, mode=file_mode, fast=False
                 )
@@ -225,8 +238,10 @@ class BlackStyleChecker:
                 return
             except black.InvalidInput:
                 msg = "901 Invalid input."
-            except BadBlackConfig as err:
-                msg = "997 Invalid TOML file: %s" % err
+            except (BadBlackConfig, tomllib.TOMLDecodeError):
+                # Seems in black 25.9.0 the TOMLDecodeError is triggered while
+                # finding project root, not trivial to get the path
+                msg = "997 Invalid TOML file"
             except Exception as err:
                 msg = "999 Unexpected exception: %r" % err
             else:

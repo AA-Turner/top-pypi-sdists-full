@@ -95,6 +95,8 @@ from .RadioCard import RadioCard
 from .RadioGroup import RadioGroup
 from .RadioGroupContext import RadioGroupContext
 from .RadioIndicator import RadioIndicator
+from .ScrollArea import ScrollArea
+from .ScrollAreaAutosize import ScrollAreaAutosize
 from .RangeSlider import RangeSlider
 from .Slider import Slider
 from .Stepper import Stepper
@@ -147,7 +149,6 @@ from .Pagination import Pagination
 from .Paper import Paper
 from .Rating import Rating
 from .RingProgress import RingProgress
-from .ScrollArea import ScrollArea
 from .SegmentedControl import SegmentedControl
 from .SemiCircleProgress import SemiCircleProgress
 from .SimpleGrid import SimpleGrid
@@ -166,6 +167,7 @@ from .DatePicker import DatePicker
 from .DatePickerInput import DatePickerInput
 from .DateTimePicker import DateTimePicker
 from .DatesProvider import DatesProvider
+from .MiniCalendar import MiniCalendar
 from .MonthPickerInput import MonthPickerInput
 from .TimeGrid import TimeGrid
 from .TimeInput import TimeInput
@@ -186,6 +188,7 @@ from .NavigationProgress import NavigationProgress
 from .NavigationProgressProvider import NavigationProgressProvider
 from .RichTextEditor import RichTextEditor
 from .RichTextEditor import RichTextEditor
+from .DirectionProvider import DirectionProvider
 from .MantineProvider import MantineProvider
 from .TypographyStylesProvider import TypographyStylesProvider
 
@@ -287,6 +290,8 @@ __all__ = [
     "RadioGroup",
     "RadioGroupContext",
     "RadioIndicator",
+    "ScrollArea",
+    "ScrollAreaAutosize",
     "RangeSlider",
     "Slider",
     "Stepper",
@@ -339,7 +344,6 @@ __all__ = [
     "Paper",
     "Rating",
     "RingProgress",
-    "ScrollArea",
     "SegmentedControl",
     "SemiCircleProgress",
     "SimpleGrid",
@@ -358,6 +362,7 @@ __all__ = [
     "DatePickerInput",
     "DateTimePicker",
     "DatesProvider",
+    "MiniCalendar",
     "MonthPickerInput",
     "TimeGrid",
     "TimeInput",
@@ -378,6 +383,7 @@ __all__ = [
     "NavigationProgressProvider",
     "RichTextEditor",
     "RichTextEditor",
+    "DirectionProvider",
     "MantineProvider",
     "TypographyStylesProvider"
 ]

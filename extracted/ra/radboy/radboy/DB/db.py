@@ -297,6 +297,14 @@ str(uuid1()):{
                 bt.mkdir(parents=True)
             with open(bt/Path("__bootable__.py"),"wb") as bootfile:
                 bootfile.write(b'')
+
+            content=f'''#!/usr/bin/env python3
+from pathlib import Path
+ROOTDIR=str(Path().cwd())
+from radboy import RecordMyCodes as rmc
+rmc.quikRn(rootdir=ROOTDIR)'''
+            with open(bt/Path('Run.py'),'w') as out:
+                out.write(content)
         except Exception as e:
             print(e,repr(e),str(e))
 
@@ -5951,3 +5959,9 @@ except Exception as e:
     print(e)
     TaxRate.__table__.drop(ENGINE)
     TaxRate.metadata.create_all(ENGINE)
+
+receiptsDirectory=detectGetOrSet("ReceiptsDirectory","Receipts",setValue=False,literal=True)
+if receiptsDirectory:
+    receiptsDirectory=Path(receiptsDirectory)
+    if not receiptsDirectory.exists():
+        receiptsDirectory.mkdir(parents=True)

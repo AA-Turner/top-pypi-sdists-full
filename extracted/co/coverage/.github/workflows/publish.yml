@@ -17,7 +17,7 @@ defaults:
 env:
   # PYVERSIONS: changing the list of versions will change the number of
   # expected distributions. This must match the same number in kit.yml.
-  EXPECTED: 88
+  EXPECTED: 104
 
 permissions:
   contents: read
@@ -54,8 +54,8 @@ jobs:
     name: "Publish to Test PyPI"
     if: ${{ github.event.action == 'publish-testpypi' }}
     permissions:
-      id-token: write
-      attestations: write
+      id-token: write       # needed for actions/attest-build-provenance
+      attestations: write   # needed for actions/attest-build-provenance
     runs-on: "ubuntu-latest"
     environment:
       name: "testpypi"
@@ -81,12 +81,12 @@ jobs:
           files=$(ls dist 2>/dev/null | wc -l) && [ "$files" -eq $EXPECTED ] || exit 1
 
       - name: "Generate attestations"
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with:
           subject-path: "dist/*"
 
       - name: "Publish dists to Test PyPI"
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
         with:
           repository-url: https://test.pypi.org/legacy/
 
@@ -94,8 +94,8 @@ jobs:
     name: "Publish to PyPI"
     if: ${{ github.event.action == 'publish-pypi' }}
     permissions:
-      id-token: write
-      attestations: write
+      id-token: write       # needed for actions/attest-build-provenance
+      attestations: write   # needed for actions/attest-build-provenance
     runs-on: "ubuntu-latest"
     environment:
       name: "pypi"
@@ -121,9 +121,9 @@ jobs:
           files=$(ls dist 2>/dev/null | wc -l) && [ "$files" -eq $EXPECTED ] || exit 1
 
       - name: "Generate attestations"
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
         with:
           subject-path: "dist/*"
 
       - name: "Publish dists to PyPI"
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0

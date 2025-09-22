@@ -65,6 +65,7 @@ class InstanceTemplateSpec(google.protobuf.message.Message):
     QPU_FIELD_NUMBER: builtins.int
     AWS_SUPPORTED_FIELD_NUMBER: builtins.int
     GCP_SUPPORTED_FIELD_NUMBER: builtins.int
+    AZURE_SUPPORTED_FIELD_NUMBER: builtins.int
     id: builtins.str
     display_name: builtins.str
     order: builtins.int
@@ -75,6 +76,7 @@ class InstanceTemplateSpec(google.protobuf.message.Message):
     qpu: builtins.float
     aws_supported: builtins.bool
     gcp_supported: builtins.bool
+    azure_supported: builtins.bool
     def __init__(
         self,
         *,
@@ -87,9 +89,10 @@ class InstanceTemplateSpec(google.protobuf.message.Message):
         qpu: builtins.float = ...,
         aws_supported: builtins.bool = ...,
         gcp_supported: builtins.bool = ...,
+        azure_supported: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["pod_compute_resources", b"pod_compute_resources"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["aws_supported", b"aws_supported", "display_name", b"display_name", "enabled", b"enabled", "gcp_supported", b"gcp_supported", "id", b"id", "instance_type", b"instance_type", "order", b"order", "pod_compute_resources", b"pod_compute_resources", "qpu", b"qpu"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["aws_supported", b"aws_supported", "azure_supported", b"azure_supported", "display_name", b"display_name", "enabled", b"enabled", "gcp_supported", b"gcp_supported", "id", b"id", "instance_type", b"instance_type", "order", b"order", "pod_compute_resources", b"pod_compute_resources", "qpu", b"qpu"]) -> None: ...
 
 global___InstanceTemplateSpec = InstanceTemplateSpec
 

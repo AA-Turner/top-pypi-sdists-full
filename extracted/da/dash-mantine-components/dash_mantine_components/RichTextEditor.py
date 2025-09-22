@@ -564,6 +564,34 @@ Keyword arguments:
         }
     )
 
+    Extensions_BackgroundColor = TypedDict(
+        "Extensions_BackgroundColor",
+            {
+
+        }
+    )
+
+    Extensions_FontFamily = TypedDict(
+        "Extensions_FontFamily",
+            {
+
+        }
+    )
+
+    Extensions_FontSize = TypedDict(
+        "Extensions_FontSize",
+            {
+
+        }
+    )
+
+    Extensions_LineHeight = TypedDict(
+        "Extensions_LineHeight",
+            {
+
+        }
+    )
+
     Extensions_Color = TypedDict(
         "Extensions_Color",
             {
@@ -588,6 +616,10 @@ Keyword arguments:
             "TableHeader": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_TableHeader"]],
             "Placeholder": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_Placeholder"]],
             "Image": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_Image"]],
+            "BackgroundColor": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_BackgroundColor"]],
+            "FontFamily": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_FontFamily"]],
+            "FontSize": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_FontSize"]],
+            "LineHeight": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_LineHeight"]],
             "Color": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_Color"]]
         }
     )
@@ -671,7 +703,7 @@ Keyword arguments:
         debounce: typing.Optional[typing.Union[NumberType]] = None,
         n_blur: typing.Optional[NumberType] = None,
         variant: typing.Optional[Literal["default", "subtle"]] = None,
-        extensions: typing.Optional[typing.Sequence[typing.Union[Literal["StarterKit"], Literal["Underline"], Literal["Link"], Literal["Superscript"], Literal["Subscript"], Literal["Highlight"], Literal["TextAlign"], Literal["TextStyle"], Literal["Table"], Literal["TableCell"], Literal["TableRow"], Literal["TableHeader"], Literal["Placeholder"], Literal["Image"], Literal["Color"]]]] = None,
+        extensions: typing.Optional[typing.Sequence[typing.Union[Literal["StarterKit"], Literal["Underline"], Literal["Link"], Literal["Superscript"], Literal["Subscript"], Literal["Highlight"], Literal["TextAlign"], Literal["TextStyle"], Literal["Table"], Literal["TableCell"], Literal["TableRow"], Literal["TableHeader"], Literal["Placeholder"], Literal["Image"], Literal["BackgroundColor"], Literal["FontFamily"], Literal["FontSize"], Literal["LineHeight"], Literal["Color"]]]] = None,
         toolbar: typing.Optional["Toolbar"] = None,
         withCodeHighlightStyles: typing.Optional[bool] = None,
         withTypographyStyles: typing.Optional[bool] = None,

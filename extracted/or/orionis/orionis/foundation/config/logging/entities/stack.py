@@ -10,10 +10,10 @@ class Stack(BaseEntity):
     """
 
     path: str = field(
-        default = 'storage/log/stack.log',
+        default = 'storage/logs/stack.log',
         metadata = {
             "description": "The file path where the log is stored.",
-            "default": "storage/log/stack.log"
+            "default": "storage/logs/stack.log"
         },
     )
 

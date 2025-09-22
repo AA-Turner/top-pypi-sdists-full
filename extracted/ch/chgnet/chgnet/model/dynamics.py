@@ -10,7 +10,12 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from ase import Atoms, units
-from ase.calculators.calculator import Calculator, all_changes, all_properties
+from ase.calculators.calculator import (
+    BaseCalculator,
+    Calculator,
+    all_changes,
+    all_properties,
+)
 from ase.md.npt import NPT
 from ase.md.nptberendsen import Inhomogeneous_NPTBerendsen, NPTBerendsen, NVTBerendsen
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution, Stationary
@@ -33,6 +38,8 @@ if TYPE_CHECKING:
     from ase.optimize.optimize import Optimizer
     from typing_extensions import Self
 
+    from chgnet import PredTask
+
 # We would like to thank M3GNet develop team for this module
 # source: https://github.com/materialsvirtuallab/m3gnet
 
@@ -51,7 +58,7 @@ OPTIMIZERS = {
 class CHGNetCalculator(Calculator):
     """CHGNet Calculator for ASE applications."""
 
-    implemented_properties = ("energy", "forces", "stress", "magmoms")
+    implemented_properties = ("energy", "forces", "stress", "magmoms", "energies")
 
     def __init__(
         self,
@@ -59,8 +66,9 @@ class CHGNetCalculator(Calculator):
         *,
         use_device: str | None = None,
         check_cuda_mem: bool = False,
-        stress_weight: float | None = 1 / 160.21766208,
+        stress_weight: float = units.GPa,  # GPa to eV/A^3
         on_isolated_atoms: Literal["ignore", "warn", "error"] = "warn",
+        return_site_energies: bool = False,
         **kwargs,
     ) -> None:
         """Provide a CHGNet instance to calculate various atomic properties using ASE.
@@ -80,6 +88,7 @@ class CHGNetCalculator(Calculator):
             on_isolated_atoms ('ignore' | 'warn' | 'error'): how to handle Structures
                 with isolated atoms.
                 Default = 'warn'
+            return_site_energies (bool): whether to return the energy of each atom
             **kwargs: Passed to the Calculator parent class.
         """
         super().__init__(**kwargs)
@@ -95,6 +104,7 @@ class CHGNetCalculator(Calculator):
             self.model = model.to(self.device)
         self.model.graph_converter.set_isolated_atom_response(on_isolated_atoms)
         self.stress_weight = stress_weight
+        self.return_site_energies = return_site_energies
         print(f"CHGNet will run on {self.device}")
 
     @classmethod
@@ -121,6 +131,7 @@ class CHGNetCalculator(Calculator):
         atoms: Atoms | None = None,
         properties: list | None = None,
         system_changes: list | None = None,
+        task: PredTask = "efsm",
     ) -> None:
         """Calculate various properties of the atoms using CHGNet.
 
@@ -130,6 +141,8 @@ class CHGNetCalculator(Calculator):
                 Default is all properties.
             system_changes (list | None): The changes made to the system.
                 Default is all changes.
+            task (PredTask): The task to perform. One of "e", "ef", "em", "efs", "efsm".
+                Default = "efsm"
         """
         properties = properties or all_properties
         system_changes = system_changes or all_changes
@@ -143,19 +156,29 @@ class CHGNetCalculator(Calculator):
         structure = AseAtomsAdaptor.get_structure(atoms)
         graph = self.model.graph_converter(structure)
         model_prediction = self.model.predict_graph(
-            graph.to(self.device), task="efsm", return_crystal_feas=True
+            graph.to(self.device),
+            task=task,
+            return_crystal_feas=True,
+            return_site_energies=self.return_site_energies,
         )
 
         # Convert Result
-        factor = 1 if not self.model.is_intensive else structure.composition.num_atoms
-        self.results.update(
-            energy=model_prediction["e"] * factor,
-            forces=model_prediction["f"],
-            free_energy=model_prediction["e"] * factor,
-            magmoms=model_prediction["m"],
-            stress=model_prediction["s"] * self.stress_weight,
-            crystal_fea=model_prediction["crystal_fea"],
+        extensive_factor = len(structure) if self.model.is_intensive else 1
+        key_map = dict(
+            e=("energy", extensive_factor),
+            f=("forces", 1),
+            m=("magmoms", 1),
+            s=("stress", self.stress_weight),
         )
+        self.results |= {
+            long_key: model_prediction[key] * factor
+            for key, (long_key, factor) in key_map.items()
+            if key in model_prediction
+        }
+        self.results["free_energy"] = self.results["energy"]
+        self.results["crystal_fea"] = model_prediction["crystal_fea"]
+        if self.return_site_energies:
+            self.results["energies"] = model_prediction["site_energies"]
 
 
 class StructOptimizer:
@@ -166,7 +189,7 @@ class StructOptimizer:
         model: CHGNet | CHGNetCalculator | None = None,
         optimizer_class: Optimizer | str | None = "FIRE",
         use_device: str | None = None,
-        stress_weight: float = 1 / 160.21766208,
+        stress_weight: float = units.GPa,
         on_isolated_atoms: Literal["ignore", "warn", "error"] = "warn",
     ) -> None:
         """Provide a trained CHGNet model and an optimizer to relax crystal structures.
@@ -430,6 +453,7 @@ class MolecularDynamics:
         crystal_feas_logfile: str | None = None,
         append_trajectory: bool = False,
         on_isolated_atoms: Literal["ignore", "warn", "error"] = "warn",
+        return_site_energies: bool = False,
         use_device: str | None = None,
     ) -> None:
         """Initialize the MD class.
@@ -494,6 +518,7 @@ class MolecularDynamics:
             on_isolated_atoms ('ignore' | 'warn' | 'error'): how to handle Structures
                 with isolated atoms.
                 Default = 'warn'
+            return_site_energies (bool): whether to return the energy of each atom
             use_device (str): the device for the MD run
                 Default = None
         """
@@ -510,13 +535,14 @@ class MolecularDynamics:
             Stationary(atoms)
 
         self.atoms = atoms
-        if isinstance(model, CHGNetCalculator):
+        if isinstance(model, Calculator | BaseCalculator):
             self.atoms.calc = model
         else:
             self.atoms.calc = CHGNetCalculator(
                 model=model,
                 use_device=use_device,
                 on_isolated_atoms=on_isolated_atoms,
+                return_site_energies=return_site_energies,
             )
 
         if taut is None:
@@ -762,7 +788,7 @@ class EquationOfState:
         model: CHGNet | CHGNetCalculator | None = None,
         optimizer_class: Optimizer | str | None = "FIRE",
         use_device: str | None = None,
-        stress_weight: float = 1 / 160.21766208,
+        stress_weight: float = units.GPa,
         on_isolated_atoms: Literal["ignore", "warn", "error"] = "error",
     ) -> None:
         """Initialize a structure optimizer object for calculation of bulk modulus.
@@ -814,9 +840,6 @@ class EquationOfState:
             verbose (bool): Whether to print the output of the ASE optimizer.
                 Default = False
             **kwargs: Additional parameters for the optimizer.
-
-        Returns:
-            Bulk Modulus (float)
         """
         if isinstance(atoms, Atoms):
             atoms = AseAtomsAdaptor.get_structure(atoms)
@@ -848,7 +871,7 @@ class EquationOfState:
         self.bm.fit()
         self.fitted = True
 
-    def get_bulk_modulus(self, unit: str = "eV/A^3") -> float:
+    def get_bulk_modulus(self, unit: Literal["eV/A^3", "GPa"] = "eV/A^3") -> float:
         """Get the bulk modulus of from the fitted Birch-Murnaghan equation of state.
 
         Args:
@@ -856,7 +879,10 @@ class EquationOfState:
                 Default = "eV/A^3"
 
         Returns:
-            Bulk Modulus (float)
+            float: Bulk Modulus
+
+        Raises:
+            ValueError: If the equation of state is not fitted.
         """
         if self.fitted is False:
             raise ValueError(
@@ -866,7 +892,7 @@ class EquationOfState:
             return self.bm.b0
         if unit == "GPa":
             return self.bm.b0_GPa
-        raise NotImplementedError("unit has to be eV/A^3 or GPa")
+        raise ValueError("unit has to be eV/A^3 or GPa")
 
     def get_compressibility(self, unit: str = "A^3/eV") -> float:
         """Get the bulk modulus of from the fitted Birch-Murnaghan equation of state.

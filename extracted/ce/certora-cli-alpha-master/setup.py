@@ -3,11 +3,11 @@ import setuptools
 
 setuptools.setup(
     name="certora-cli-alpha-master",
-    version="20250919.19.48.946980",
+    version="20250921.10.23.315706",
     author="Certora",
     author_email="support@certora.com",
     description="Runner for the Certora Prover",
-    long_description="Commit 74537f6.                    Build and Run scripts for executing the Certora Prover on Solidity smart contracts.",
+    long_description="Commit eaf15fa.                    Build and Run scripts for executing the Certora Prover on Solidity smart contracts.",
     long_description_content_type="text/markdown",
     url="https://pypi.org/project/certora-cli-alpha-master",
     packages=setuptools.find_packages(),

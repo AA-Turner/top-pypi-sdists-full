@@ -1565,9 +1565,8 @@ def test_email_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "email"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( ( [a-zA-Z0-9_!#$%&'*+/=?^`{|}~-]+ ( "." [a-zA-Z0-9_!#$%&'*+/=?^`{|}~-]+ )* ) """
-        r"""| "\\" "\"" ( "\\" [ -~] | [ !#-[\]-~] )* "\\" "\"" ) "@" ( [A-Za-z0-9] ( [\-A-Za-z0-9]* [A-Za-z0-9] )? ) """
-        r"""( ( "." [A-Za-z0-9] [\-A-Za-z0-9]* [A-Za-z0-9] )* ) "\""
+        r"""string ::= "\"" ( ( [a-zA-Z0-9_!#$%&'*+/=?^`{|}~-]+ ( "." [a-zA-Z0-9_!#$%&'*+/=?^`{|}~-]+ )* ) | "\\" "\"" ( "\\" [ -~] | [ !#-[\]-~] )* "\\" "\"" ) "@" ( [A-Za-z0-9] ( [\-A-Za-z0-9]* [A-Za-z0-9] )? ) ( ( "." [A-Za-z0-9] [\-A-Za-z0-9]* [A-Za-z0-9] )* ) "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1591,7 +1590,8 @@ def test_date_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "date"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( [0-9]{4} "-" ( "0" [1-9] | "1" [0-2] ) "-" ( "0" [1-9] | [1-2] [0-9] | "3" [01] ) ) "\""
+        r"""string ::= "\"" ( [0-9]{4} "-" ( "0" [1-9] | "1" [0-2] ) "-" ( "0" [1-9] | [1-2] [0-9] | "3" [01] ) ) "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1627,7 +1627,8 @@ def test_time_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "time"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( [01] [0-9] | "2" [0-3] ) ":" [0-5] [0-9] ":" ( [0-5] [0-9] | "6" "0" ) ( "." [0-9]+ )? ( "Z" | [+-] ( [01] [0-9] | "2" [0-3] ) ":" [0-5] [0-9] ) "\""
+        r"""string ::= "\"" ( [01] [0-9] | "2" [0-3] ) ":" [0-5] [0-9] ":" ( [0-5] [0-9] | "6" "0" ) ( "." [0-9]+ )? ( "Z" | [+-] ( [01] [0-9] | "2" [0-3] ) ":" [0-5] [0-9] ) "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1667,7 +1668,8 @@ def test_duration_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "duration"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" "P" ( ( [0-9]+ "D" | [0-9]+ "M" ( [0-9]+ "D" )? | [0-9]+ "Y" ( [0-9]+ "M" ( [0-9]+ "D" )? )? ) ( "T" ( [0-9]+ "S" | [0-9]+ "M" ( [0-9]+ "S" )? | [0-9]+ "H" ( [0-9]+ "M" ( [0-9]+ "S" )? )? ) )? | "T" ( [0-9]+ "S" | [0-9]+ "M" ( [0-9]+ "S" )? | [0-9]+ "H" ( [0-9]+ "M" ( [0-9]+ "S" )? )? ) | [0-9]+ "W" ) "\""
+        r"""string ::= "\"" "P" ( ( [0-9]+ "D" | [0-9]+ "M" ( [0-9]+ "D" )? | [0-9]+ "Y" ( [0-9]+ "M" ( [0-9]+ "D" )? )? ) ( "T" ( [0-9]+ "S" | [0-9]+ "M" ( [0-9]+ "S" )? | [0-9]+ "H" ( [0-9]+ "M" ( [0-9]+ "S" )? )? ) )? | "T" ( [0-9]+ "S" | [0-9]+ "M" ( [0-9]+ "S" )? | [0-9]+ "H" ( [0-9]+ "M" ( [0-9]+ "S" )? )? ) | [0-9]+ "W" ) "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1734,15 +1736,8 @@ def test_ipv6_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "ipv6"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( ( [0-9a-fA-F]{1,4} ":" ){7,7} [0-9a-fA-F]{1,4} | ( [0-9a-fA-F]{1,4} ":" ){1,7} ":" """
-        r"""| ( [0-9a-fA-F]{1,4} ":" ){1,6} ":" [0-9a-fA-F]{1,4} | ( [0-9a-fA-F]{1,4} ":" ){1,5} ( ":" [0-9a-fA-F]{1,4} ){1,2} """
-        r"""| ( [0-9a-fA-F]{1,4} ":" ){1,4} ( ":" [0-9a-fA-F]{1,4} ){1,3} | ( [0-9a-fA-F]{1,4} ":" ){1,3} """
-        r"""( ":" [0-9a-fA-F]{1,4} ){1,4} | ( [0-9a-fA-F]{1,4} ":" ){1,2} ( ":" [0-9a-fA-F]{1,4} ){1,5} | """
-        r"""[0-9a-fA-F]{1,4} ":" ( ( ":" [0-9a-fA-F]{1,4} ){1,6} ) | ":" ( ( ":" [0-9a-fA-F]{1,4} ){1,7} | ":" ) """
-        r"""| ":" ":" ( "f" "f" "f" "f" ( ":" "0"{1,4} ){0,1} ":" ){0,1} ( ( "2" "5" [0-5] | ( "2" [0-4] """
-        r"""| "1"{0,1} [0-9] ){0,1} [0-9] ) "." ){3,3} ( "2" "5" [0-5] | ( "2" [0-4] | "1"{0,1} [0-9] ){0,1} [0-9] ) """
-        r"""| ( [0-9a-fA-F]{1,4} ":" ){1,4} ":" ( ( "2" "5" [0-5] | ( "2" [0-4] | "1"{0,1} [0-9] ){0,1} [0-9] ) "." ){3,3} """
-        r"""( "2" "5" [0-5] | ( "2" [0-4] | "1"{0,1} [0-9] ){0,1} [0-9] ) ) "\""
+        r"""string ::= "\"" ( ( [0-9a-fA-F]{1,4} ":" ){7,7} [0-9a-fA-F]{1,4} | ( [0-9a-fA-F]{1,4} ":" ){1,7} ":" | ( [0-9a-fA-F]{1,4} ":" ){1,6} ":" [0-9a-fA-F]{1,4} | ( [0-9a-fA-F]{1,4} ":" ){1,5} ( ":" [0-9a-fA-F]{1,4} ){1,2} | ( [0-9a-fA-F]{1,4} ":" ){1,4} ( ":" [0-9a-fA-F]{1,4} ){1,3} | ( [0-9a-fA-F]{1,4} ":" ){1,3} ( ":" [0-9a-fA-F]{1,4} ){1,4} | ( [0-9a-fA-F]{1,4} ":" ){1,2} ( ":" [0-9a-fA-F]{1,4} ){1,5} | [0-9a-fA-F]{1,4} ":" ( ( ":" [0-9a-fA-F]{1,4} ){1,6} ) | ":" ( ( ":" [0-9a-fA-F]{1,4} ){1,7} | ":" ) | ":" ":" ( "f" "f" "f" "f" ( ":" "0"{1,4} ){0,1} ":" ){0,1} ( ( "2" "5" [0-5] | ( "2" [0-4] | "1"{0,1} [0-9] ){0,1} [0-9] ) "." ){3,3} ( "2" "5" [0-5] | ( "2" [0-4] | "1"{0,1} [0-9] ){0,1} [0-9] ) | ( [0-9a-fA-F]{1,4} ":" ){1,4} ":" ( ( "2" "5" [0-5] | ( "2" [0-4] | "1"{0,1} [0-9] ){0,1} [0-9] ) "." ){3,3} ( "2" "5" [0-5] | ( "2" [0-4] | "1"{0,1} [0-9] ){0,1} [0-9] ) ) "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1771,7 +1766,8 @@ def test_ipv4_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "ipv4"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( ( "2" "5" [0-5] | "2" [0-4] [0-9] | [0-1]? [0-9]? [0-9] ) "." ){3} ( "2" "5" [0-5] | "2" [0-4] [0-9] | [0-1]? [0-9]? [0-9] ) "\""
+        r"""string ::= "\"" ( ( "2" "5" [0-5] | "2" [0-4] [0-9] | [0-1]? [0-9]? [0-9] ) "." ){3} ( "2" "5" [0-5] | "2" [0-4] [0-9] | [0-1]? [0-9]? [0-9] ) "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1809,7 +1805,8 @@ def test_hostname_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "hostname"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( [a-z0-9] ( [a-z0-9-]* [a-z0-9] )? ) ( "." [a-z0-9] ( [a-z0-9-]* [a-z0-9] )? )* "\""
+        r"""string ::= "\"" ( [a-z0-9] ( [a-z0-9-]* [a-z0-9] )? ) ( "." [a-z0-9] ( [a-z0-9-]* [a-z0-9] )? )* "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1841,7 +1838,8 @@ def test_uuid_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "uuid"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" [0-9A-Fa-f]{8} "-" [0-9A-Fa-f]{4} "-" [0-9A-Fa-f]{4} "-" [0-9A-Fa-f]{4} "-" [0-9A-Fa-f]{12} "\""
+        r"""string ::= "\"" [0-9A-Fa-f]{8} "-" [0-9A-Fa-f]{4} "-" [0-9A-Fa-f]{4} "-" [0-9A-Fa-f]{4} "-" [0-9A-Fa-f]{12} "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1876,12 +1874,8 @@ def test_uri_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "uri"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" [a-zA-Z] [a-zA-Z+.-]* ":" ( "/" "/" ( ( [a-zA-Z0-9_.~!$&'()*+,;=:-] | "%" """
-        r"""[0-9A-Fa-f] [0-9A-Fa-f] )* "@" )? ( [a-zA-Z0-9_.~!$&'()*+,;=-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* """
-        r"""( ":" [0-9]* )? ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* | "/"? ( """
-        r"""( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )+ ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] """
-        r"""| "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* )? ) ( "\?" ( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] """
-        r"""[0-9A-Fa-f] )* )? ( "#" ( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )? "\""
+        r"""string ::= "\"" [a-zA-Z] [a-zA-Z+.-]* ":" ( "/" "/" ( ( [a-zA-Z0-9_.~!$&'()*+,;=:-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* "@" )? ( [a-zA-Z0-9_.~!$&'()*+,;=-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* ( ":" [0-9]* )? ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* | "/"? ( ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )+ ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* )? ) ( "\?" ( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )? ( "#" ( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )? "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1916,14 +1910,8 @@ def test_uri_reference_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "uri-reference"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( "/" "/" ( ( [a-zA-Z0-9_.~!$&'()*+,;=:-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] """
-        r""")* "@" )? ( [a-zA-Z0-9_.~!$&'()*+,;=-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* ( ":" [0-9]* )? """
-        r"""( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* | "/" ( """
-        r"""( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )+ ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] """
-        r"""| "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* )? | ( [a-zA-Z0-9_.~!$&'()*+,;=@-] | "%" """
-        r"""[0-9A-Fa-f] [0-9A-Fa-f] )+ ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* )? """
-        r"""( "\?" ( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )? ( "#" """
-        r"""( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )? "\""
+        r"""string ::= "\"" ( "/" "/" ( ( [a-zA-Z0-9_.~!$&'()*+,;=:-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* "@" )? ( [a-zA-Z0-9_.~!$&'()*+,;=-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* ( ":" [0-9]* )? ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* | "/" ( ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )+ ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* )? | ( [a-zA-Z0-9_.~!$&'()*+,;=@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )+ ( "/" ( [a-zA-Z0-9_.~!$&'()*+,;=:@-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )* )? ( "\?" ( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )? ( "#" ( [a-zA-Z0-9_.~!$&'()*+,;=:@/\?-] | "%" [0-9A-Fa-f] [0-9A-Fa-f] )* )? "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1962,11 +1950,8 @@ def test_uri_template_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "uri-template"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( ( [!#-$&(-;=\?-[\]_a-z~] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) | "{" """
-        r"""( [+#./;\?&=,!@|] )? ( [a-zA-Z0-9_] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) ( "."? """
-        r"""( [a-zA-Z0-9_] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) )* ( ":" [1-9] [0-9]? [0-9]? [0-9]? """
-        r"""| "*" )? ( "," ( [a-zA-Z0-9_] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) ( "."? ( [a-zA-Z0-9_] """
-        r"""| "%" [0-9A-Fa-f] [0-9A-Fa-f] ) )* ( ":" [1-9] [0-9]? [0-9]? [0-9]? | "*" )? )* "}" )* "\""
+        r"""string ::= "\"" ( ( [!#-$&(-;=\?-[\]_a-z~] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) | "{" ( [+#./;\?&=,!@|] )? ( [a-zA-Z0-9_] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) ( "."? ( [a-zA-Z0-9_] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) )* ( ":" [1-9] [0-9]? [0-9]? [0-9]? | "*" )? ( "," ( [a-zA-Z0-9_] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) ( "."? ( [a-zA-Z0-9_] | "%" [0-9A-Fa-f] [0-9A-Fa-f] ) )* ( ":" [1-9] [0-9]? [0-9]? [0-9]? | "*" )? )* "}" )* "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -1990,7 +1975,8 @@ def test_json_pointer_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "json-pointer"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( "/" ( [\0-.] | [0-}] | [\x7f-\U0010ffff] | "~" [01] )* )* "\""
+        r"""string ::= "\"" ( "/" ( [\0-.] | [0-}] | [\x7f-\U0010ffff] | "~" [01] )* )* "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -2017,7 +2003,8 @@ def test_relative_json_pointer_format(instance: str, accepted: bool):
     schema = {"type": "string", "format": "relative-json-pointer"}
 
     expected_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" ( "0" | [1-9] [0-9]* ) ( "#" | ( "/" ( [\0-.] | [0-}] | [\x7f-\U0010ffff] | "~" [01] )* )* ) "\""
+        r"""string ::= "\"" ( "0" | [1-9] [0-9]* ) ( "#" | ( "/" ( [\0-.] | [0-}] | [\x7f-\U0010ffff] | "~" [01] )* )* ) "\""
+root ::= string
 """
     )
     check_schema_with_grammar(schema, expected_grammar)
@@ -2029,7 +2016,8 @@ def test_min_max_length():
     schema = {"type": "string", "minLength": 1, "maxLength": 10}
 
     ebnf_grammar = basic_json_rules_ebnf + (
-        r"""root ::= "\"" [^"\\\r\n]{1,10} "\""
+        r"""string ::= "\"" [^"\\\r\n]{1,10} "\""
+root ::= string
 """
     )
 
@@ -2053,7 +2041,8 @@ def test_type_array():
 
     ebnf_grammar = basic_json_rules_ebnf + (
         r"""root_integer ::= ( ( [1-9] | "1" "0" ) )
-root_string ::= "\"" [^"\\\r\n]{1,10} "\""
+string ::= "\"" [^"\\\r\n]{1,10} "\""
+root_string ::= string
 root ::= root_integer | root_string
 """
     )
@@ -2183,6 +2172,114 @@ def test_generate_float_regex():
         _generate_float_regex(-0.000001, 0.000001)
         == r"^(-0.000001|0.000001|-0\.000000\d{0,0}|0\.000000\d{0,0})$"
     )
+
+
+def test_limited_whitespace_cnt():
+    expected_grammar = r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9])) (=(basic_string_sub))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=(basic_string_sub_repeat_1 basic_string_sub_repeat_2 [,}\]:]))
+basic_string ::= (("\"" basic_string_sub)) (=(root_repeat_1_3 root_repeat_2_3 "}"))
+root ::= (("{" root_repeat_1 root_repeat_2 "\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+basic_string_sub_repeat_1 ::= ("" | ([ \n\t])) (=(basic_string_sub_repeat_2))
+basic_string_sub_repeat_2 ::= ("" | ([ \n\t]))
+root_repeat_1 ::= ("" | ([ \n\t])) (=(root_repeat_2))
+root_repeat_2 ::= ("" | ([ \n\t])) (=("\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+root_repeat_1_1 ::= ("" | ([ \n\t])) (=(root_repeat_2_1))
+root_repeat_2_1 ::= ("" | ([ \n\t])) (=(":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+root_repeat_1_2 ::= ("" | ([ \n\t])) (=(root_repeat_2_2))
+root_repeat_2_2 ::= ("" | ([ \n\t])) (=(basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+root_repeat_1_3 ::= ("" | ([ \n\t])) (=(root_repeat_2_3))
+root_repeat_2_3 ::= ("" | ([ \n\t])) (=("}"))
+"""
+    schema = {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}
+    grammar = xgr.Grammar.from_json_schema(schema, any_whitespace=True, max_whitespace_cnt=2)
+
+    assert grammar is not None
+    assert str(grammar) == expected_grammar
+    assert _is_grammar_accept_string(grammar, '{  "key"  :  "value"  }')
+    assert _is_grammar_accept_string(grammar, '{"key":"value"}')
+    assert not _is_grammar_accept_string(grammar, '{   "key"  :  "value"   }')
+    assert not _is_grammar_accept_string(grammar, '{    "key"  :  "value"    }')
+
+
+def test_limited_whitespace_compile():
+    expected_grammar = r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9])) (=(basic_string_sub))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=(basic_string_sub_repeat_1 basic_string_sub_repeat_2 [,}\]:]))
+basic_string ::= (("\"" basic_string_sub)) (=(root_repeat_1_3 root_repeat_2_3 "}"))
+root ::= (("{" root_repeat_1 root_repeat_2 "\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+basic_string_sub_repeat_1 ::= ("" | ([ \n\t])) (=(basic_string_sub_repeat_2))
+basic_string_sub_repeat_2 ::= ("" | ([ \n\t]))
+root_repeat_1 ::= ("" | ([ \n\t])) (=(root_repeat_2))
+root_repeat_2 ::= ("" | ([ \n\t])) (=("\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+root_repeat_1_1 ::= ("" | ([ \n\t])) (=(root_repeat_2_1))
+root_repeat_2_1 ::= ("" | ([ \n\t])) (=(":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+root_repeat_1_2 ::= ("" | ([ \n\t])) (=(root_repeat_2_2))
+root_repeat_2_2 ::= ("" | ([ \n\t])) (=(basic_string root_repeat_1_3 root_repeat_2_3 "}"))
+root_repeat_1_3 ::= ("" | ([ \n\t])) (=(root_repeat_2_3))
+root_repeat_2_3 ::= ("" | ([ \n\t])) (=("}"))
+"""
+    schema = {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}
+    tokenizer_info = xgr.TokenizerInfo([])
+    compiler = xgr.GrammarCompiler(tokenizer_info)
+    compiled_grammar = compiler.compile_json_schema(
+        schema, any_whitespace=True, max_whitespace_cnt=2
+    )
+    assert compiled_grammar is not None
+    grammar = compiled_grammar.grammar
+    assert str(grammar) == expected_grammar
+    assert grammar is not None
+    assert _is_grammar_accept_string(grammar, '{  "key"  :  "value"  }')
+    assert _is_grammar_accept_string(grammar, '{"key":"value"}')
+    assert not _is_grammar_accept_string(grammar, '{   "key"  :  "value"   }')
+    assert not _is_grammar_accept_string(grammar, '{    "key"  :  "value"    }')
+
+
+def test_utf8_in_enum():
+    schema = {"type": "string", "enum": ["こんにちは", "😊", "你好", "hello", "\n"]}
+    grammar = xgr.Grammar.from_json_schema(schema)
+    assert _is_grammar_accept_string(grammar, '"こんにちは"')
+    assert _is_grammar_accept_string(grammar, '"😊"')
+    assert _is_grammar_accept_string(grammar, '"你好"')
+    assert _is_grammar_accept_string(grammar, '"hello"')
+    assert _is_grammar_accept_string(grammar, '"\\n"')
+
+
+def test_utf8_string_in_const():
+    schema = {"const": "常数constじょうすう\n\r\t"}
+    grammar = xgr.Grammar.from_json_schema(schema)
+    assert _is_grammar_accept_string(grammar, '"常数constじょうすう\\n\\r\\t"')
+
+
+def test_utf8_object_array_in_enum():
+    schema = {
+        "type": "object",
+        "enum": [
+            {"key": "こんにちは"},
+            {"key": "😊"},
+            {"key": "你好"},
+            {"key": "hello"},
+            {"key": "\n"},
+            [123, "こんにちは", "😊", "你好", "hello", "\n"],
+        ],
+    }
+    grammar = xgr.Grammar.from_json_schema(schema)
+    assert _is_grammar_accept_string(grammar, '{"key":"こんにちは"}')
+    assert _is_grammar_accept_string(grammar, '{"key":"😊"}')
+    assert _is_grammar_accept_string(grammar, '{"key":"你好"}')
+    assert _is_grammar_accept_string(grammar, '{"key":"hello"}')
+    assert _is_grammar_accept_string(grammar, '{"key":"\\n"}')
+    assert _is_grammar_accept_string(grammar, '[123,"こんにちは","😊","你好","hello","\\n"]')
+
+
+def test_utf8_object_const():
+    schema = {"type": "object", "const": {"key": "こんにちは常数constじょうすう\n\r\t"}}
+    grammar = xgr.Grammar.from_json_schema(schema)
+    assert _is_grammar_accept_string(grammar, '{"key":"こんにちは常数constじょうすう\\n\\r\\t"}')
+
+
+def test_utf8_array_const():
+    schema = {"type": "array", "const": ["こんにちは", "😊", "你好", "hello", "\n"]}
+    grammar = xgr.Grammar.from_json_schema(schema)
+    assert _is_grammar_accept_string(grammar, '["こんにちは","😊","你好","hello","\\n"]')
 
 
 if __name__ == "__main__":

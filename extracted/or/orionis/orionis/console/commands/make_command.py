@@ -87,9 +87,6 @@ class MakeCommand(BaseCommand):
 
         try:
 
-            # Print a new line to separate output
-            self.newLine()
-
             # Retrieve the 'name' argument (required) and 'signature' argument (optional, with default)
             name: str = self.argument("name")
             signature: str = self.argument("signature", "custom:command")
@@ -132,9 +129,6 @@ class MakeCommand(BaseCommand):
                     file.write(stub)
                 file_path = file_path.relative_to(app.path('root'))
                 self.info(f"Console command [{file_path}] created successfully.")
-
-            # Print a new line to separate output
-            self.newLine()
 
         except Exception as e:
 

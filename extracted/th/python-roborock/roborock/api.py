@@ -18,12 +18,11 @@ from .exceptions import (
 from .roborock_future import RoborockFuture
 from .roborock_message import (
     RoborockMessage,
-    RoborockMessageProtocol,
 )
 from .util import get_next_int
 
 _LOGGER = logging.getLogger(__name__)
-KEEPALIVE = 60
+KEEPALIVE = 70
 
 
 class RoborockClient(ABC):
@@ -78,12 +77,6 @@ class RoborockClient(ABC):
             return False
         return True
 
-    async def validate_connection(self) -> None:
-        if not self.should_keepalive():
-            self._logger.info("Resetting Roborock connection due to keepalive timeout")
-            await self.async_disconnect()
-        await self.async_connect()
-
     async def _wait_response(self, request_id: int, queue: RoborockFuture) -> Any:
         try:
             response = await queue.async_get(self.queue_timeout)
@@ -97,9 +90,7 @@ class RoborockClient(ABC):
 
     def _async_response(self, request_id: int, protocol_id: int = 0) -> Any:
         queue = RoborockFuture(protocol_id)
-        if request_id in self._waiting_queue and not (
-            request_id == 2 and protocol_id == RoborockMessageProtocol.PING_REQUEST
-        ):
+        if request_id in self._waiting_queue:
             new_id = get_next_int(10000, 32767)
             self._logger.warning(
                 "Attempting to create a future with an existing id %s (%s)... New id is %s. "

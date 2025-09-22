@@ -1,4 +1,3 @@
-from datetime import datetime
 from orionis.console.contracts.base_scheduler import IBaseScheduler
 from orionis.console.contracts.schedule import ISchedule
 from orionis.console.entities.scheduler_error import SchedulerError
@@ -8,15 +7,6 @@ from orionis.console.entities.scheduler_shutdown import SchedulerShutdown
 from orionis.console.entities.scheduler_started import SchedulerStarted
 
 class BaseScheduler(IBaseScheduler):
-
-    # Pause Global Scheduler at a specific time
-    PAUSE_AT: datetime = None
-
-    # Resume Global Scheduler at a specific time
-    RESUME_AT: datetime = None
-
-    # Finalize Global Scheduler at a specific time
-    FINALIZE_AT: datetime = None
 
     async def tasks(self, schedule: ISchedule):
         """
@@ -41,9 +31,7 @@ class BaseScheduler(IBaseScheduler):
         The method should define the tasks, their execution intervals, and any additional
         properties or constraints required for the tasks.
         """
-
-        # Raise an error to enforce implementation in subclasses
-        raise NotImplementedError("Subclasses must implement the tasks method.")
+        pass
 
     async def onStarted(self, event: SchedulerStarted, schedule: ISchedule):
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-lrslib
-Version: 10.6.25
+Version: 10.6.26
 Summary: passagemath: Reverse search for vertex enumeration and convex hulls with lrslib
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors

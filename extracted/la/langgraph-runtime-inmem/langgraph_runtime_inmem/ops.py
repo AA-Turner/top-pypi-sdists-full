@@ -1720,6 +1720,9 @@ class Threads(Authenticated):
             stream_modes: list[ThreadStreamMode],
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the thread output."""
+            from langgraph_api.utils.stream_codec import (
+                decode_stream_message,
+            )
 
             def should_filter_event(event_name: str, message_bytes: bytes) -> bool:
                 """Check if an event should be filtered out based on stream_modes."""
@@ -1737,8 +1740,6 @@ class Threads(Authenticated):
                     except (orjson.JSONDecodeError, TypeError):
                         pass
                 return True
-
-            from langgraph_api.serde import json_loads
 
             stream_manager = get_stream_manager()
             seen_runs: set[UUID] = set()
@@ -1768,35 +1769,26 @@ class Threads(Authenticated):
 
                         # Yield sorted events
                         for message, run_id in all_events:
-                            data = json_loads(message.data)
-                            event_name = data["event"]
-                            message_content = data["message"]
+                            decoded = decode_stream_message(
+                                message.data, channel=message.topic
+                            )
+                            event_bytes = decoded.event_bytes
+                            message_bytes = decoded.message_bytes
 
-                            if event_name == "control":
-                                if message_content == b"done":
+                            if event_bytes == b"control":
+                                if message_bytes == b"done":
                                     event_bytes = b"metadata"
                                     message_bytes = orjson.dumps(
                                         {"status": "run_done", "run_id": run_id}
                                     )
-                                    # Filter events based on stream_modes
-                                    if not should_filter_event(
-                                        "metadata", message_bytes
-                                    ):
-                                        yield (
-                                            event_bytes,
-                                            message_bytes,
-                                            message.id,
-                                        )
-                            else:
-                                event_bytes = event_name.encode()
-                                message_bytes = base64.b64decode(message_content)
-                                # Filter events based on stream_modes
-                                if not should_filter_event(event_name, message_bytes):
-                                    yield (
-                                        event_bytes,
-                                        message_bytes,
-                                        message.id,
-                                    )
+                            if not should_filter_event(
+                                event_bytes.decode("utf-8"), message_bytes
+                            ):
+                                yield (
+                                    event_bytes,
+                                    message_bytes,
+                                    message.id,
+                                )
 
                     # Listen for live messages from all queues
                     while True:
@@ -1813,40 +1805,27 @@ class Threads(Authenticated):
                                 message = await asyncio.wait_for(
                                     queue.get(), timeout=0.2
                                 )
-                                data = json_loads(message.data)
-                                event_name = data["event"]
-                                message_content = data["message"]
+                                decoded = decode_stream_message(
+                                    message.data, channel=message.topic
+                                )
+                                event = decoded.event_bytes
+                                event_name = event.decode("utf-8")
+                                payload = decoded.message_bytes
 
-                                if event_name == "control":
-                                    if message_content == b"done":
-                                        # Extract run_id from topic
-                                        topic = message.topic.decode()
-                                        run_id = topic.split("run:")[1].split(":")[0]
-                                        event_bytes = b"metadata"
-                                        message_bytes = orjson.dumps(
-                                            {"status": "run_done", "run_id": run_id}
-                                        )
-                                        # Filter events based on stream_modes
-                                        if not should_filter_event(
-                                            "metadata", message_bytes
-                                        ):
-                                            yield (
-                                                event_bytes,
-                                                message_bytes,
-                                                message.id,
-                                            )
-                                else:
-                                    event_bytes = event_name.encode()
-                                    message_bytes = base64.b64decode(message_content)
-                                    # Filter events based on stream_modes
+                                if event == b"control" and payload == b"done":
+                                    topic = message.topic.decode()
+                                    run_id = topic.split("run:")[1].split(":")[0]
+                                    meta_event = b"metadata"
+                                    meta_payload = orjson.dumps(
+                                        {"status": "run_done", "run_id": run_id}
+                                    )
                                     if not should_filter_event(
-                                        event_name, message_bytes
+                                        "metadata", meta_payload
                                     ):
-                                        yield (
-                                            event_bytes,
-                                            message_bytes,
-                                            message.id,
-                                        )
+                                        yield (meta_event, meta_payload, message.id)
+                                else:
+                                    if not should_filter_event(event_name, payload):
+                                        yield (event, payload, message.id)
 
                             except TimeoutError:
                                 continue
@@ -1882,18 +1861,12 @@ class Threads(Authenticated):
             message: bytes,
         ) -> None:
             """Publish a thread-level event to the thread stream."""
-            from langgraph_api.serde import json_dumpb
+            from langgraph_api.utils.stream_codec import STREAM_CODEC
 
             topic = f"thread:{thread_id}:stream".encode()
 
             stream_manager = get_stream_manager()
-            # Send to thread stream topic
-            payload = json_dumpb(
-                {
-                    "event": event,
-                    "message": message,
-                }
-            )
+            payload = STREAM_CODEC.encode(event, message)
             await stream_manager.put_thread(
                 str(thread_id), Message(topic=topic, data=payload)
             )
@@ -2065,6 +2038,7 @@ class Runs(Authenticated):
         This method should be called as a context manager by a worker executing a run.
         """
         from langgraph_api.asyncio import SimpleTaskGroup, ValueEvent
+        from langgraph_api.utils.stream_codec import STREAM_CODEC
 
         stream_manager = get_stream_manager()
         # Get control queue for this run (normal queue is created during run creation)
@@ -2084,10 +2058,10 @@ class Runs(Authenticated):
             )
             await stream_manager.put(run_id, thread_id, control_message)
 
-            # Signal done to all subscribers
+            # Signal done to all subscribers using stream codec
             stream_message = Message(
                 topic=f"run:{run_id}:stream".encode(),
-                data={"event": "control", "message": b"done"},
+                data=STREAM_CODEC.encode("control", b"done"),
             )
             await stream_manager.put(
                 run_id, thread_id, stream_message, resumable=resumable
@@ -2658,7 +2632,8 @@ class Runs(Authenticated):
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the run output."""
             from langgraph_api.asyncio import create_task
-            from langgraph_api.serde import json_dumpb, json_loads
+            from langgraph_api.serde import json_dumpb
+            from langgraph_api.utils.stream_codec import decode_stream_message
 
             queue = stream_channel
             try:
@@ -2673,13 +2648,12 @@ class Runs(Authenticated):
                         run_id, thread_id, last_event_id
                     ):
                         data, id = message.data, message.id
-
-                        data = json_loads(data)
-                        mode = data["event"]
-                        message = data["message"]
+                        decoded = decode_stream_message(data, channel=message.topic)
+                        mode = decoded.event_bytes.decode("utf-8")
+                        payload = decoded.message_bytes
 
                         if mode == "control":
-                            if message == b"done":
+                            if payload == b"done":
                                 return
                         elif (
                             not stream_mode
@@ -2692,7 +2666,7 @@ class Runs(Authenticated):
                                 and mode.startswith("messages")
                             )
                         ):
-                            yield mode.encode(), base64.b64decode(message), id
+                            yield mode.encode(), payload, id
                             logger.debug(
                                 "Replayed run event",
                                 run_id=str(run_id),
@@ -2706,13 +2680,12 @@ class Runs(Authenticated):
                             # Wait for messages with a timeout
                             message = await asyncio.wait_for(queue.get(), timeout=0.5)
                             data, id = message.data, message.id
-
-                            data = json_loads(data)
-                            mode = data["event"]
-                            message = data["message"]
+                            decoded = decode_stream_message(data, channel=message.topic)
+                            mode = decoded.event_bytes.decode("utf-8")
+                            payload = decoded.message_bytes
 
                             if mode == "control":
-                                if message == b"done":
+                                if payload == b"done":
                                     break
                             elif (
                                 not stream_mode
@@ -2725,13 +2698,13 @@ class Runs(Authenticated):
                                     and mode.startswith("messages")
                                 )
                             ):
-                                yield mode.encode(), base64.b64decode(message), id
+                                yield mode.encode(), payload, id
                                 logger.debug(
                                     "Streamed run event",
                                     run_id=str(run_id),
                                     stream_mode=mode,
                                     message_id=id,
-                                    data=message,
+                                    data=payload,
                                 )
                         except TimeoutError:
                             # Check if the run is still pending
@@ -2794,18 +2767,13 @@ class Runs(Authenticated):
             resumable: bool = False,
         ) -> None:
             """Publish a message to all subscribers of the run stream."""
-            from langgraph_api.serde import json_dumpb
+            from langgraph_api.utils.stream_codec import STREAM_CODEC
 
             topic = f"run:{run_id}:stream".encode()
 
             stream_manager = get_stream_manager()
-            # Send to all queues subscribed to this run_id
-            payload = json_dumpb(
-                {
-                    "event": event,
-                    "message": message,
-                }
-            )
+            # Send to all queues subscribed to this run_id using protocol frame
+            payload = STREAM_CODEC.encode(event, message)
             await stream_manager.put(
                 run_id, thread_id, Message(topic=topic, data=payload), resumable
             )

@@ -461,7 +461,7 @@ Keyword arguments:
             "type": NotRequired[Literal["auto", "scroll", "always", "hover", "never"]],
             "scrollHideDelay": NotRequired[NumberType],
             "scrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["xy"]]],
-            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"]]],
+            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["present"]]],
             "overscrollBehavior": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["auto"], Literal["none"], Literal["contain"]]],
             "className": NotRequired[str],
             "style": NotRequired[typing.Union[typing.Any]],

@@ -9,9 +9,10 @@ import torch
 
 import xgrammar as xgr
 from xgrammar.testing import (
-    _bool_mask_to_bitmask,
     _get_masked_tokens_from_bitmask,
     _is_single_token_bitmask,
+    bitmask_to_bool_mask,
+    bool_mask_to_bitmask,
 )
 
 _is_cuda_available = torch.cuda.is_available()
@@ -37,7 +38,7 @@ token_mask_sizes = (1024, 32000, 32001, 32011)
 @pytest.mark.parametrize("index", (0, 1))
 def test_get_masked_tokens_from_bitmask(token_mask_size: int, index: int):
     bool_mask = torch.randint(0, 2, (2, token_mask_size), dtype=torch.bool)
-    bitmask = _bool_mask_to_bitmask(bool_mask)
+    bitmask = bool_mask_to_bitmask(bool_mask)
     expected = torch.where(~bool_mask[index])[0].tolist()
     assert _get_masked_tokens_from_bitmask(bitmask, token_mask_size, index) == expected
 
@@ -49,13 +50,13 @@ def test_is_single_token_bitmask():
     token_id = 100
 
     bool_mask = torch.zeros(batch, vocab_size, dtype=torch.bool)
-    bitmask = _bool_mask_to_bitmask(bool_mask)
+    bitmask = bool_mask_to_bitmask(bool_mask)
     assert _is_single_token_bitmask(bitmask, vocab_size, batch_index) == (False, -1)
     bool_mask[batch_index, token_id] = True
-    bitmask = _bool_mask_to_bitmask(bool_mask)
+    bitmask = bool_mask_to_bitmask(bool_mask)
     assert _is_single_token_bitmask(bitmask, vocab_size, batch_index) == (True, token_id)
     bool_mask[batch_index, token_id + 1] = True
-    bitmask = _bool_mask_to_bitmask(bool_mask)
+    bitmask = bool_mask_to_bitmask(bool_mask)
     assert _is_single_token_bitmask(bitmask, vocab_size, batch_index) == (False, -1)
 
 
@@ -228,7 +229,7 @@ def test_apply_token_bitmask_inplace_kernel_large(
             bool_mask.scatter_(1, masked_positions, False)
             assert (bool_mask.sum(dim=-1) + masked_cnt == vocab_size).all().item()
 
-    bitmask = _bool_mask_to_bitmask(bool_mask)
+    bitmask = bool_mask_to_bitmask(bool_mask)
 
     batch_indices = torch.arange(0, batch_size, stride, dtype=torch.int32)
 
@@ -237,7 +238,7 @@ def test_apply_token_bitmask_inplace_kernel_large(
         logits_expected[batch_indices], ~bool_mask[batch_indices], float("-inf")
     )
 
-    bitmask = _bool_mask_to_bitmask(bool_mask)
+    bitmask = bool_mask_to_bitmask(bool_mask)
     if impl in ["cuda", "triton", "torch_compile"]:
         logits_gpu = logits.to("cuda")
         bitmask_gpu = bitmask.to("cuda")
@@ -339,7 +340,7 @@ def test_apply_token_bitmask_inplace_indices(
 
     logits = torch.ones(logits_batch_size, vocab_size, dtype=torch.float32)
     bool_mask = torch.zeros(bitmask_batch_size, vocab_size, dtype=torch.bool)
-    bitmask = _bool_mask_to_bitmask(bool_mask)
+    bitmask = bool_mask_to_bitmask(bool_mask)
 
     logits_expected = logits.clone()
     logits_expected[indices] = torch.masked_fill(
@@ -355,6 +356,37 @@ def test_apply_token_bitmask_inplace_indices(
         assert impl == "cpu"
         kernel(logits, bitmask, indices=indices)
         torch.testing.assert_close(logits, logits_expected)
+
+
+def test_bitmask_to_boolmask():
+    # 0xFFFF0000, 0x0000FFFF
+    bitmask = torch.tensor([[-65536, 65535]], dtype=torch.int32)
+    expected = torch.tensor(
+        [[False] * 16, [True] * 16, [True] * 16, [False] * 16], dtype=torch.bool
+    ).reshape(1, -1)
+    bool_mask = bitmask_to_bool_mask(bitmask)
+    assert torch.equal(bool_mask, expected)
+
+    bool_mask_50 = bitmask_to_bool_mask(bitmask, vocab_size=50)
+    expected_50 = expected[:, :50]
+    assert torch.equal(bool_mask_50, expected_50)
+
+
+batch__size__vocab__size = [
+    (4, 1000),
+    (1, 1024),
+    (16, 1024),
+    # not a multiple of 16.
+    (3, 817),
+]
+
+
+@pytest.mark.parametrize("batch_size, vocab_size", batch__size__vocab__size)
+def test_bool_mask_bitmask_roundtrip(batch_size: int, vocab_size: int):
+    bool_mask = torch.randint(0, 2, (batch_size, vocab_size), dtype=torch.bool)
+    bitmask = bool_mask_to_bitmask(bool_mask)
+    bool_mask_converted = bitmask_to_bool_mask(bitmask, vocab_size=vocab_size)
+    assert torch.equal(bool_mask, bool_mask_converted)
 
 
 if __name__ == "__main__":

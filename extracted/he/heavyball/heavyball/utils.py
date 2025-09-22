@@ -1,28 +1,29 @@
+import collections
 import contextlib
 import functools
 import gc
 import inspect
 import math
+import pickle
 import random
 import re
 import string
 import warnings
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import torch
 from torch import Tensor
-from torch._dynamo import config
 from torch._dynamo.exc import TorchDynamoException
 from torch.backends import cudnn, opt_einsum
+from torch.nn import functional as F
 from torch.utils._pytree import tree_map
-
-config.cache_size_limit = 2**16
 
 compile_mode = "max-autotune-no-cudagraphs"
 dynamic = False
 compile_mode_recommended_to_none = None
-zeroth_power_mode = "qr"  # 'qr' is baseline, 'newtonschulz' converges better and faster
+zeroth_power_mode = "newtonschulz"
+precise_zeroth_power_mode = "qr"  # or svd
 tiny_bf16 = torch.finfo(torch.bfloat16).tiny
 _cudnn_double_backward_pattern = re.compile(
     r"the derivative for .* is not implemented\. Double backwards .* To run double backwards"
@@ -66,6 +67,16 @@ def decorator_knowngood(func: Callable, fullgraph: bool = True):
 
 
 einsum_base = string.ascii_lowercase
+
+
+@decorator_knowngood
+def compiled_einsum(expr, *args):
+    """
+    this is necessary to avoid the slowdown introduced by uncompiled einsum
+    uncompiled einsum is twice as slow if we add three 1-sized dimensions
+    for more, see https://gist.github.com/ClashLuke/a9530f1b9ba4e525369e2dba48528957
+    """
+    return torch.einsum(expr, *args)
 
 
 @decorator_knowngood
@@ -122,6 +133,47 @@ def schedule_free_(
     return weight_sum
 
 
+@decorator_knowngood
+def _compilable_msam(
+    lr: Tensor,
+    beta1: Tensor,
+    param: List[Tensor],
+    z: List[Tensor],
+    update: List[Tensor],
+    grad: List[Tensor],
+    exp_avg: List[Tensor],
+    caution: bool,
+    decay: Tensor,
+    sam_step_size: Tensor,
+):
+    exp_avg32 = _lerp(exp_avg, update, beta1)
+    for u_, g_, z_, p_ in zip(exp_avg32, grad, z, param):
+        u_ = u_.view_as(z_)
+        z32_ = promote(z_)
+        if caution:
+            u_ = _compilable_cautioning(promote(g_), u_)
+        z32_ = z32_ * (1 - decay * lr) + u_ * -lr
+        copy_stochastic_(z_, z32_)
+        copy_stochastic_(p_, z32_ + u_ / u_.norm().clamp(min=1e-8) * -sam_step_size)
+
+
+def msam_(
+    lr: float,
+    beta1: float,
+    param: List[Tensor],
+    z: List[Tensor],
+    update: List[Tensor],
+    grad: List[Tensor],
+    exp_avg: List[Tensor],
+    caution: bool,
+    weight_decay: float,
+    sam_step_size: float,
+):
+    param, z, update, grad, exp_avg = list_guard(param, z, update, grad, exp_avg)
+    lr, beta1, weight_decay, sam_step_size = scalar_guard(lr, beta1, weight_decay, sam_step_size, exp_avg[0])
+    _compilable_msam(lr, beta1, param, z, update, grad, exp_avg, caution, weight_decay, sam_step_size)
+
+
 def append_or_extend(base, new):
     if isinstance(new, list):
         base.extend(new)
@@ -161,7 +213,7 @@ def dim_merger(grad, max_precond_dim, split: bool = False):
     new_shape = [grad.shape[0], *new_shape[::-1]]
     new_grad = grad.reshape(new_shape)
     if not split:
-        return new_grad
+        return new_grad.to(memory_format=torch.contiguous_format).contiguous()
 
     grads = [new_grad]
     for i, sh in reversed(list(enumerate(new_shape[:]))):
@@ -172,7 +224,7 @@ def dim_merger(grad, max_precond_dim, split: bool = False):
             continue
         grads = [a for g in grads for a in g.split(max_precond_dim, dim=i)]
     if len(grads) == 1:
-        return new_grad
+        return new_grad.to(memory_format=torch.contiguous_format).contiguous()
     new_grads = []
     for g in grads:
         append_or_extend(new_grads, dim_merger(g, max_precond_dim, split))
@@ -189,14 +241,14 @@ def eps_sqrt(item, eps):
 
 @decorator_knowngood
 def _compilable_exp_avg_sq_(
-    state: List[Tensor], grad: List[Tensor], beta2: Tensor, eps: Tensor, out: List[Optional[Tensor]]
+    state: List[Tensor], grad: List[Tensor], beta2: Tensor, eps: Tensor, out: None | List[None | Tensor]
 ):
     g32 = promote(grad)
     s32 = _lerp(state, torch._foreach_mul(g32, g32), beta2)
 
     denom = [eps_sqrt(d, eps) for d in s32]
 
-    if out[0] is None:
+    if out is None or out[0] is None:
         return denom
 
     copy_stochastic_list_(out, denom)
@@ -265,8 +317,8 @@ def adaptive_gradient_clipping_(
 def is_compiling():
     try:
         return torch.compiler.is_compiling()
-    except TorchDynamoException:
-        return True
+    except (TorchDynamoException, AttributeError):
+        return False
 
 
 def set_(dst: Tensor, src: Tensor):
@@ -279,16 +331,29 @@ def clean():
 
 
 def _ignore_warning(msg):
-    warnings.filterwarnings("ignore", f".*{msg}.*")
+    warnings.filterwarnings("ignore", f".*{re.escape(msg)}.*")
 
 
-def set_torch(benchmark_limit: int = 32, einsum_strategy: str = "auto"):
+def set_torch(benchmark_limit: int = 32, einsum_strategy: str = "auto-hq"):
+    import opt_einsum as _opt_einsum
+
     cudnn.benchmark = True
     cudnn.deterministic = False
     cudnn.benchmark_limit = benchmark_limit
     torch.use_deterministic_algorithms(False)
     torch.set_float32_matmul_precision("high")  # highest: FP32, high: TF32, medium: bf16
-    opt_einsum.set_flags(True, einsum_strategy)
+    opt_einsum.set_flags(True)
+    if einsum_strategy == "heavyball":
+        opt_einsum.strategy = "auto-hq"
+        choices = _opt_einsum.paths._AUTO_HQ_CHOICES
+        for max_val, fn in ((20, _opt_einsum.paths.dynamic_programming), (64, 512), (128, 256)):
+            if isinstance(fn, int):
+                fn = functools.partial(_opt_einsum.path_random.random_greedy, max_repeats=fn)
+            for i in range(max(choices.keys()), max_val):
+                if i not in choices:
+                    choices[i] = fn
+    else:
+        opt_einsum.strategy = einsum_strategy
 
     # Torch calls these for 2nd-order optimization in HeavyBall, but they are explicitly handled.
     _ignore_warning(
@@ -297,32 +362,39 @@ def set_torch(benchmark_limit: int = 32, einsum_strategy: str = "auto"):
     _ignore_warning(
         "We recommend using autograd.grad when creating the graph to avoid this. If you have to use this function, make sure to reset the .grad fields of your parameters to None after use to break the cycle and avoid the leak"
     )
+    _ignore_warning(
+        "The .grad attribute of a Tensor that is not a leaf Tensor is being accessed. Its .grad attribute won't be populated during autograd.backward(). If you indeed want the .grad field to be populated for a non-leaf Tensor, use .retain_grad() on the non-leaf Tensor. If you access the non-leaf Tensor by mistake, make sure you access the leaf Tensor instead."
+    )
 
 
-@decorator
+@decorator_knowngood
 def zeropower_via_newtonschulz5(G, steps=5, eps=1e-7):
-    assert len(G.shape) == 2
-    a, b, c = (3.4445, -4.7750, 2.0315)
-    X = G.to(torch.bfloat16 if G.dtype != torch.float64 else G.dtype)  # Preserve float64 if present
-    X /= X.norm() + eps  # ensure top singular value <= 1
-    if G.size(0) > G.size(1):
-        X = X.T
-    for _ in range(steps):
-        A = X @ X.T
-        B = b * A + c * A @ A  # adapted from suggestion by @jxbz, @leloykun, and @YouJiacheng
+    assert (
+        G.ndim >= 2
+    )  # batched Muon implementation by @scottjmaddox, and put into practice in the record by @YouJiacheng
+    assert steps == 5
+    X = G if G.dtype == torch.float64 else stochastic_round_(G)
+    if G.size(-2) > G.size(-1):
+        X = X.mT
+
+    stochastic_multiply_(X, G.norm(dim=(-2, -1)) + eps)  # ensure top singular value <= 1
+    # Perform the NS iterations
+    for a, b, c in [
+        (4.0848, -6.8946, 2.9270),
+        (3.9505, -6.3029, 2.6377),
+        (3.7418, -5.5913, 2.3037),
+        (2.8769, -3.1427, 1.2046),
+        (2.8366, -3.0525, 1.2012),
+    ]:
+        A = X @ X.mT
+        B = (
+            b * A + c * A @ A
+        )  # quintic computation strategy adapted from suggestion by @jxbz, @leloykun, and @YouJiacheng
         X = a * X + B @ X
-    if G.size(0) > G.size(1):
-        X = X.T
+
+    if G.size(-2) > G.size(-1):
+        X = X.mT
     return X.to(G.dtype)
-
-
-def ortho(x):
-    if zeroth_power_mode == "qr":
-        return torch.linalg.qr(x).Q
-    if zeroth_power_mode == "svd":
-        u, _s, v = torch.linalg.svd(x)
-        return u @ v.T
-    raise NotImplementedError(f"Unknown zeroth_power_mode: {zeroth_power_mode}")
 
 
 @decorator_knowngood
@@ -377,7 +449,7 @@ def _compilable_grafting(magnitude, direction):
 
 
 @decorator_knowngood
-def inplace_orthogonal_(x: Tensor, mode: str, out: Tensor, scale_mode: str):
+def _compilable_orthogonal_(x: Tensor, mode: str, out: Tensor | None, scale_mode: str):
     if mode == "newtonschulz" or x.shape[0] != x.shape[1]:
         y = zeropower_via_newtonschulz5(x, 5)
     elif mode == "qr":
@@ -395,7 +467,14 @@ def inplace_orthogonal_(x: Tensor, mode: str, out: Tensor, scale_mode: str):
         y = _compilable_grafting(x, y)
     else:
         raise NotImplementedError(f"Unknown scale_mode: {scale_mode}")
+    if out is None:
+        return y
+
     set_(out, y)
+
+
+def inplace_orthogonal_(x: Tensor, mode: str | None = None, out: Tensor | None = None, scale_mode: str = "none"):
+    return _compilable_orthogonal_(x, mode or zeroth_power_mode, out, scale_mode)
 
 
 @decorator_knowngood
@@ -413,6 +492,10 @@ def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], exp_avg: Optiona
     :param Q: List of current eigenbases (updated in-place to Q_new).
     :param exp_avg: Exponential moving average in the old eigenspace (updated in-place if provided).
     """
+    if exp_avg.dim() == 0:  # preconditioning doesn't make sense here
+        Q.clear()
+        return
+
     if isinstance(Q, list) and not Q:
         return
 
@@ -430,10 +513,10 @@ def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], exp_avg: Optiona
         q_old = promote(q.data)
 
         tmp = m @ q_old
-        est_eig = torch.einsum("ij,ij->j", q_old, tmp)
+        est_eig = compiled_einsum("ij,ij->j", q_old, tmp)
         sort_idx = torch.argsort(est_eig, descending=True)
 
-        tmp[:, sort_idx], _ = torch.linalg.qr(tmp[:, sort_idx])
+        tmp[:, sort_idx] = inplace_orthogonal_(tmp[:, sort_idx], precise_zeroth_power_mode)
         new_qs.append(tmp)
 
     if exp_avg is None:
@@ -453,7 +536,7 @@ def get_orthogonal_matrix_QR(GG: List[Tensor], Q: List[Tensor], exp_avg: Optiona
     out_str = "".join([o if o in to_shampoo else i for i, o in zip(in_str, out_str)])
 
     subscripts = f"{in_str},{from_shampoo},{to_shampoo}->{out_str}"
-    exp_avg_new = torch.einsum(
+    exp_avg_new = compiled_einsum(
         subscripts, exp_avg, *[q for q in Q if q is not None], *[q for q in new_qs if q is not None]
     )
     copy_stochastic_(exp_avg, exp_avg_new)
@@ -487,10 +570,16 @@ def get_orthogonal_matrix(mat, max_eps: float = 1e-3, min_eps: float = 1e-30):
             except torch.OutOfMemoryError:
                 if m.device.type == "cpu":
                     raise
-                else:
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize(m.device)
+                clean()
+                m = m.cpu()
+            except RuntimeError as e:
+                if torch.cuda.is_available() and ("CUDA" in str(e) or "illegal memory access" in str(e)):
+                    torch.cuda.synchronize(m.device)
+                    clean()
                     m = m.cpu()
-            except RuntimeError:  # failed to compute eigenvalues
-                if m.dtype != torch.double:
+                elif m.dtype != torch.double:
                     m = m.double()
                 elif eps < max_eps:
                     eps = eps ** (2 / 3)
@@ -568,6 +657,19 @@ def scalar_guard(*args):
     return out
 
 
+def broadcastable_list_guard(*xs):
+    xs = list_guard(*xs)
+    for x in xs:
+        if isinstance(x[0], Tensor):
+            ref = x[0]
+            break
+    else:
+        raise ValueError("No tensor-valued input given")
+    xs = [x if isinstance(x[0], Tensor) else list_guard(scalar_guard(*x, ref)) for x in xs]
+    max_len = max(len(x) for x in xs)
+    return [x if len(x) > 1 else x * max_len for x in xs]
+
+
 @decorator_knowngood
 def _compilable_stochastic_add_(x: List[Tensor], y: List[Tensor], alpha: Union[float, int, Tensor]):
     for x_, y_ in zip(x, y):
@@ -576,8 +678,8 @@ def _compilable_stochastic_add_(x: List[Tensor], y: List[Tensor], alpha: Union[f
         copy_stochastic_(x_, x32 + y32 * alpha)
 
 
-def stochastic_add_(x: List[Tensor], y: List[Tensor], alpha: Union[float, int, Tensor] = 1):
-    x, y = list_guard(x, y)
+def stochastic_add_(x: List[Tensor] | Tensor, y: List[Tensor] | Tensor, alpha: Union[float, int, Tensor] = 1):
+    x, y = broadcastable_list_guard(x, y)
     alpha = scalar_guard(alpha, x[0])
     _compilable_stochastic_add_(x, y, alpha)
 
@@ -590,8 +692,10 @@ def _compilable_stochastic_add_divide_(x: List[Tensor], y: List[Tensor], alpha: 
         copy_stochastic_(x_, (x32 + y32 * alpha) / divisor)
 
 
-def stochastic_add_divide_(x: List[Tensor], y: List[Tensor], alpha: Union[float, int, Tensor] = 1, divisor: float = 1):
-    x, y = list_guard(x, y)
+def stochastic_add_divide_(
+    x: List[Tensor] | Tensor, y: List[Tensor] | Tensor, alpha: Union[float, int, Tensor] = 1, divisor: float = 1
+):
+    x, y = broadcastable_list_guard(x, y)
     alpha, divisor = scalar_guard(alpha, divisor, x[0])
     _compilable_stochastic_add_divide_(x, y, alpha, divisor)
 
@@ -604,8 +708,8 @@ def _compilable_stochastic_multiply_(x: List[Tensor], y: List[Tensor]):
         copy_stochastic_(x_, x32 * y32)
 
 
-def stochastic_multiply_(x: List[Tensor], y: List[Tensor]):
-    x, y = list_guard(x, y)
+def stochastic_multiply_(x: List[Tensor] | Tensor, y: List[Tensor] | Tensor):
+    x, y = broadcastable_list_guard(x, y)
     _compilable_stochastic_multiply_(x, y)
 
 
@@ -624,7 +728,7 @@ def update_ggt(grad, GG, max_precond_dim, precondition_1d, beta):
         b = einsum_base[idx]
         g0 = einsum_base[: grad.dim()]
         g1 = g0.replace(b, b.upper())
-        outer_product = torch.einsum(f"{g0},{g1}->{b + b.upper()}", grad, grad)
+        outer_product = compiled_einsum(f"{g0},{g1}->{b + b.upper()}", grad, grad)
         stochastic_lerp_(m, outer_product, 1 - beta)
 
 
@@ -706,7 +810,7 @@ def project(grad, Q, back: bool):
     preconditioners = ",".join([(g + g.upper())[:: -1 if back else 1] for m, g in zip(Q, param) if m is not None])
     if preconditioners:
         out = "".join([c.upper() if c.upper() in preconditioners else c for c in param])
-        out = torch.einsum(f"{param},{preconditioners}->{out}", promote(grad), *[q for q in Q if q is not None])
+        out = compiled_einsum(f"{param},{preconditioners}->{out}", promote(grad), *[q for q in Q if q is not None])
         grad = out.to(grad.dtype)
     return grad
 
@@ -714,24 +818,28 @@ def project(grad, Q, back: bool):
 @contextlib.contextmanager
 def patch_backward():
     @contextlib.contextmanager
-    def _inner(module):
+    def patch_module(module):
         original = module.backward
+        try:
+            signature = inspect.signature(original)
 
-        signature = inspect.signature(original)
+            @functools.wraps(original)
+            def patched_backward(*args, **kwargs):
+                new_kwargs = signature.bind(*args)
+                new_kwargs.apply_defaults()
+                new_kwargs = new_kwargs.arguments
+                new_kwargs.update(kwargs)
+                new_kwargs["create_graph"] = True
+                return original(**new_kwargs)
 
-        def patched_backward(*args, **kwargs):
-            new_kwargs = signature.bind(*args)
-            new_kwargs.apply_defaults()
-            new_kwargs = new_kwargs.arguments
-            new_kwargs.update(kwargs)
-            new_kwargs["create_graph"] = True
-            return original(**new_kwargs)
+            module.backward = patched_backward
+            yield
+        finally:
+            module.backward = original
 
-        module.backward = patched_backward
-        yield
-        module.backward = original
-
-    with _inner(torch.Tensor), _inner(torch.autograd):
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(patch_module(torch.Tensor))
+        stack.enter_context(patch_module(torch.autograd))
         yield
 
 
@@ -741,6 +849,13 @@ def hasattr_none(obj, name):
 
 class ExactHVPFailed(ValueError):
     pass
+
+
+use_default = object()
+
+
+def _tensor_key(x: Tensor):
+    return x.data_ptr(), x.numel(), x.dtype, x.device
 
 
 class StatefulOptimizer(torch.optim.Optimizer):
@@ -755,7 +870,7 @@ class StatefulOptimizer(torch.optim.Optimizer):
     compile_step: bool = False
     hessian_approx: bool = False
     precond_schedule: Union[Callable, float, None] = None
-    stochastic_schedule: bool = False
+    stochastic_schedule: bool | Literal[use_default] = use_default
     finite_differences: bool = False
     fallback_to_finite_differences: bool = True
     _fallback_enabled: bool = False
@@ -765,18 +880,62 @@ class StatefulOptimizer(torch.optim.Optimizer):
         super().__init__(params, {**defaults, "foreach": foreach})
         self.use_ema = use_ema
         self.mapping = {}
-        self._inner_group = {"stochastic_schedule": self.stochastic_schedule}
-        self._precond_rng = random.Random(0x12312)
+        self.mapping_inverse = {}
+
+        if self.stochastic_schedule is use_default:
+            stochastic_schedule = None
+            for group in self.param_groups:
+                new = group.get("stochastic_schedule", stochastic_schedule)
+                if stochastic_schedule is not None and new != stochastic_schedule:
+                    raise ValueError("All parameter groups must have the same stochastic_schedule.")
+                stochastic_schedule = new
+            self.stochastic_schedule = stochastic_schedule
+
+        self.inner_group = {"stochastic_schedule": self.stochastic_schedule}
+        self.precond_rng = random.Random(0x12312)
         self._is_preconditioning = None
 
         if self.hessian_approx and self.compile_step:
             raise ValueError("Hessian approximation can't be used with compile_step.")
 
+        self.register_state_dict_post_hook(StatefulOptimizer._store_stats)
+        self.register_load_state_dict_pre_hook(StatefulOptimizer._load_stats)
+
+    def _store_stats(self, state_dict: dict[str, any]):
+        state_dict["heavyball"] = {
+            "inner_group": self.inner_group,
+            "precond_rng": pickle.dumps(self.precond_rng),
+            "use_ema": self.use_ema,
+            "ema_decay": self.ema_decay,
+            "compile_step": self.compile_step,
+            "hessian_approx": self.hessian_approx,
+            "precond_schedule": pickle.dumps(self.precond_schedule),
+            "stochastic_schedule": self.stochastic_schedule,
+            "fallback_to_finite_differences": self.fallback_to_finite_differences,
+            "_fallback_enabled": self._fallback_enabled,
+            "hvp_interval": self.hvp_interval,
+        }
+
+    def _load_stats(self, state_dict):
+        sd = state_dict.pop("heavyball", {})
+        for k, v in sd.items():
+            if k in ("precond_rng", "precond_schedule"):
+                v = pickle.loads(v)
+            setattr(self, k, v)
+
     def get_groups(self, group):
         return [group]
 
-    def state_(self, arg: Tensor):
-        return self.state[arg]
+    @functools.lru_cache(maxsize=None)
+    def state_(self, arg: Tensor, fail: bool = True):
+        if not fail and arg not in self.mapping:
+            return {}
+        if _tensor_key(arg) not in self.mapping_inverse:
+            self._init_mapping()
+        state_param, index = self.mapping_inverse[_tensor_key(arg)]
+        if state_param not in self.state:
+            self.state[state_param] = collections.defaultdict(dict)
+        return self.state[state_param][index]
 
     def mars_correct_list(self, group, p_list, g_list, mars_gamma, beta):
         for p, g in zip(p_list, g_list):
@@ -785,6 +944,18 @@ class StatefulOptimizer(torch.optim.Optimizer):
                 state["mars_old_grad"] = torch.zeros_like(g)
         old_gs = [self.state_(p)["mars_old_grad"] for p in p_list]
         mars_correction(g_list, old_gs, mars_gamma, beta)
+
+    def _init_mapping(self, group: dict | None = None):
+        if group is None:
+            for group in self.param_groups:
+                self._init_mapping(group)
+            return
+
+        for p in group["params"]:
+            if p not in self.mapping:
+                self.mapping[p] = p_views = merge_group(group, p)
+                for i, pv in enumerate(p_views):
+                    self.mapping_inverse[_tensor_key(pv)] = (p, i)
 
     def split_p_and_g_in_group(
         self,
@@ -805,10 +976,9 @@ class StatefulOptimizer(torch.optim.Optimizer):
                 yield p, grad
                 continue
 
-            if p in self.mapping:
-                p_views = self.mapping[p]
-            else:
-                self.mapping[p] = p_views = merge_group(group, p)
+            self.mapping[p] = p_views = merge_group(group, p)
+            for i, pv in enumerate(p_views):
+                self.mapping_inverse[_tensor_key(pv)] = (p, i)
 
             vector = getattr(p, "vector", None)
             hessian_vector = getattr(p, "hessian_vector", None)
@@ -957,8 +1127,8 @@ class StatefulOptimizer(torch.optim.Optimizer):
                 raise ValueError("Hessian approximation requires a closure.")
             return None
 
-        step = self._inner_group["total_hvp_steps"] = self._inner_group.get("total_hvp_steps", 0) + 1
-        if not hessian_approx or step % self.hvp_interval == 0:
+        step = self.inner_group["total_hvp_steps"] = self.inner_group.get("total_hvp_steps", 0) + 1
+        if not hessian_approx or (step - 1) % self.hvp_interval == 0:  # hvp in 0th step for better precond init
             with torch.enable_grad():
                 loss = closure()
             return loss
@@ -997,12 +1167,14 @@ class StatefulOptimizer(torch.optim.Optimizer):
         if self.precond_schedule is None:
             self._is_preconditioning = False
         else:
-            self._is_preconditioning = psgd_should_update(self._inner_group, self.precond_schedule, self._precond_rng)
+            self._is_preconditioning = psgd_should_update(self.inner_group, self.precond_schedule, self.precond_rng)
         loss = self._handle_closure(closure)
 
         # we assume that parameters are constant and that there are no excessive recompiles
         with torch.no_grad(), torch._dynamo.utils.disable_cache_limit():
             for group in self.param_groups:
+                if "param_count" not in group:
+                    group["param_count"] = sum(p.numel() for p in group["params"])
                 group["is_preconditioning"] = self._is_preconditioning
                 self._step(group)
                 if self.use_ema:
@@ -1105,7 +1277,7 @@ def fused_adam_(
     caution: bool,
 ):
     y, exp_avg, exp_avg_sq, grad = list_guard(y, exp_avg, exp_avg_sq, grad)
-    beta1, beta2, step, lr = scalar_guard(beta1, beta2, step, lr, y[0])
+    beta1, beta2, step, lr, decay = scalar_guard(beta1, beta2, step, lr, decay, y[0])
     _fused_compilable_adam_(y, exp_avg, exp_avg_sq, update, grad, beta1, beta2, step, decay, lr, eps, caution)
 
 
@@ -1184,7 +1356,7 @@ def fused_laprop_(
     eps: float = 1e-8,
 ):
     exp_avg, exp_avg_sq, grad, y = list_guard(exp_avg, exp_avg_sq, grad, y)
-    beta1, beta2, step, lr, eps = scalar_guard(beta1, beta2, step, lr, eps, exp_avg[0])
+    beta1, beta2, step, lr, eps, decay = scalar_guard(beta1, beta2, step, lr, eps, decay, exp_avg[0])
     _fused_compilable_laprop_(y, exp_avg, exp_avg_sq, update, grad, beta1, beta2, step, lr, decay, caution, eps)
 
 
@@ -1203,7 +1375,7 @@ def _fused_compilable_adopt_(y, update, grad, exp_avg_sq, exp_avg, beta1, beta2,
 
 def fused_adopt_(y, update, grad, exp_avg_sq, exp_avg, beta1, beta2, step, lr, eps, decay, caution):
     exp_avg, exp_avg_sq, grad, y = list_guard(exp_avg, exp_avg_sq, grad, y)
-    beta1, beta2, step, lr = scalar_guard(beta1, beta2, step, lr, exp_avg[0])
+    beta1, beta2, step, lr, decay = scalar_guard(beta1, beta2, step, lr, decay, exp_avg[0])
     _fused_compilable_adopt_(y, update, grad, exp_avg_sq, exp_avg, beta1, beta2, step, lr, eps, decay, caution)
 
 
@@ -1233,11 +1405,15 @@ def stochastic_round_list_(ref: List[Tensor], source: List[Tensor]):
 
 
 @decorator_knowngood
-def stochastic_round_(ref: Tensor, source: Tensor):
-    if source.dtype == torch.bfloat16 or ref.dtype == source.dtype:
-        return source
-    if ref.dtype != torch.bfloat16:
-        return source.to(ref.dtype)
+def stochastic_round_(ref: Tensor, source: Tensor | None = None):
+    if source is not None:
+        if source.dtype == torch.bfloat16 or ref.dtype == source.dtype:
+            return source
+        if ref.dtype != torch.bfloat16:
+            return source.to(ref.dtype)
+    else:
+        source = ref
+    source = source.float()
     result = torch.randint_like(source, dtype=torch.int32, low=0, high=(1 << 16))
     result.add_(source.view(dtype=torch.int32))
     result.bitwise_and_(-65536)  # -65536 = FFFF0000 as a signed int32
@@ -1306,83 +1482,115 @@ def stable_exp(x: Tensor):
     return torch.where(x > 0, 1 / (-x).exp(), x.exp())
 
 
+def _lse_mean(x: Tensor, pow: float, eps: float) -> Tensor:
+    # ln(mean(x ** pow) ** (1 / pow / 2))
+    normalization = math.log(x.numel())
+    x = x.double()
+    x = x.abs()
+    x = x.clamp(min=eps)
+    x = x.log()
+    x = x * pow
+    x = x.flatten()
+    x = x.logsumexp(dim=0)  # log(sum(exp( log(x) * P ) - more stable than sum(x ** P)
+    x = x - normalization  # sum -> mean (divide by x.numel() in log space)
+    return x / pow / 2
+
+
 @decorator_knowngood
 def mean_root(x: torch.Tensor, pow: float, eps=1e-12):
     # 1 / (mean(x ** pow) ** (1 / pow / 2))
-    log_x = x.double().abs().clamp(min=eps).log()
-    log_mean_x_pow = (log_x * pow).logsumexp(dim=0) - math.log(x.numel())
-    return stable_exp(-log_mean_x_pow / pow / 2)
+    return stable_exp(-_lse_mean(x, pow, eps))
 
 
 @decorator_knowngood
 def divided_root(x: torch.Tensor, y: torch.Tensor, pow0: float, pow1: float, eps=1e-12):
     # mean(x ** pow0) ** (1 / pow0 / 2) / mean(y ** pow1) ** (1 / pow1 / 2)
-    log_x = x.double().abs().clamp(min=eps).log()
-    log_y = y.double().abs().clamp(min=eps).log()
-
-    x_normed = (log_x * pow0).logsumexp(dim=0) - math.log(x.numel())
-    x_normed = x_normed / pow0 / 2
-
-    y_normed = (log_y * pow1).logsumexp(dim=0) - math.log(y.numel())
-    y_normed = y_normed / pow1 / 2
-
-    return stable_exp(x_normed - y_normed)
+    return stable_exp(_lse_mean(x, pow0, eps) - _lse_mean(y, pow1, eps))
 
 
-def precond_init_scale(scale, scale_scale, grad, hessian_vector, vector, scale_max: float = 1e6):
+class PrecondInitError(ValueError):
+    pass
+
+
+def precond_init_scale(scale, scale_scale, scale_power, grad, hessian_vector, vector, scale_max: float = 100):
     automatic_scale = True
     manual_hint = " Set it manually using `precond_init_scale=0.1`"
+    scale_scale = 1 if scale_scale is None else scale_scale
 
     if scale is not None:
         automatic_scale = False
         warn_once(
             "It's recommended to use precond_init_scale=None (default since 1.7.x), which uses advanced heuristics."
         )
-        if scale_scale is not None and scale_scale != 1:
+        if scale_scale != 1:
             warn_once(
-                "precond_init_scale_scale multiplies the precond_init_scale by a constant factor. With a fixed precond_init_scale, you should explicitly multiply it into the precond_init_scale."
+                "precond_init_scale_scale multiplies the precond_init_scale by a constant factor. With a fixed precond_init_scale, you should explicitly fuse it."
+            )
+        if scale_power is not None:
+            warn_once(
+                "precond_init_scale_power is used to compute precond_init_scale ** precond_init_scale_power. With a fixed precond_init_scale, you should explicitly fuse it."
             )
     elif hessian_vector is None:
         scale = mean_root(grad, 4) * scale_scale
     else:
         scale = divided_root(vector, hessian_vector, 2, 4) * scale_scale
 
+    if automatic_scale:
+        scale_power = 0.5 if scale_power is None else scale_power
+        scale = scale**scale_power
+
     if isinstance(scale, torch.Tensor):
         scale = scale.item()  # slow, but necessary
 
     if np.isfinite(scale):
-        if scale > scale_max or scale < 1 / scale_max:  # fallthrough to later checks
+        if scale > scale_max:  # fallthrough to later checks
             warn_once(f"The computed precond_init_scale {scale} is outside of the expected range.{manual_hint}")
         else:
             return scale
 
     if not automatic_scale:
-        raise ValueError("The manually set precond_init_scale is not finite")
+        raise PrecondInitError("The manually set precond_init_scale is not finite")
 
     for x in (grad, hessian_vector, vector):
         if x is None:
             continue
-        if torch.allclose(x, torch.zeros_like(x)).item():
-            raise ValueError(f"Grad or HVP is all 0s, causing NaNs in precond_init_scale computation.{manual_hint}")
+        if torch.allclose(x, torch.zeros_like(x)):
+            raise PrecondInitError(
+                f"Grad or HVP is all 0s, causing NaNs in precond_init_scale computation.{manual_hint}"
+            )
         if not torch.isfinite(x).all().item():
-            raise ValueError("Grad or HVP is not finite")
+            raise PrecondInitError("Grad or HVP is not finite")
 
     if np.isfinite(scale):
         return scale
 
-    raise ValueError(f"Computed precond_init_scale is not finite.{manual_hint}")
+    raise PrecondInitError(f"Computed precond_init_scale is not finite.{manual_hint}")
 
 
-def init_lra(grad, scale, scale_scale, rank, hessian_vector, vector, dtype=None):
-    scale = precond_init_scale(scale, scale_scale, grad, hessian_vector, vector)
-    U = torch.randn((*grad.shape, rank), dtype=dtype, device=grad.device)
-    V = torch.randn((*grad.shape, rank), dtype=dtype, device=grad.device)
+def init_lra(
+    grad, param_count, scale, scale_scale, scale_power, rank, hessian_vector, vector, dtype=None, eps: float = 10
+):
+    # "+10 to 1) avoid /0; 2) make sure that norm(U*V') << 1 even when rank_of_approximation=1" from @lixilinx at
+    # https://github.com/lixilinx/psgd_torch/blob/590cd3f125552998ed20028be096652540e2a200/preconditioned_stochastic_gradient_descent.py#L829C11-L829C14
+    scale = precond_init_scale(scale, scale_scale, scale_power, grad, hessian_vector, vector)
+    uv_scale = (param_count * (rank + eps)) ** -0.5
+    U = torch.randn((*grad.shape, rank), dtype=dtype, device=grad.device) * uv_scale
+    V = torch.randn((*grad.shape, rank), dtype=dtype, device=grad.device) * uv_scale
     d = torch.full_like(grad, scale, dtype=dtype, device=grad.device)
     return U, V, d
 
 
 def init_Q_exprs(
-    grad, scale, scale_scale, max_size, min_ndim_triangular, memory_save_mode, hessian_vector, vector, dtype=None
+    grad,
+    scale,
+    scale_scale,
+    scale_power,
+    max_size,
+    min_ndim_triangular,
+    memory_save_mode,
+    hessian_vector,
+    vector,
+    dtype=None,
 ):
     """
     For a scalar or tensor `grad`, we initialize its preconditioner Q and
@@ -1391,21 +1599,13 @@ def init_Q_exprs(
     precond init scale computation from
     https://github.com/lixilinx/psgd_torch/blob/1943e66596111e78157ca1b72b31c1dfdf0653ef/preconditioned_stochastic_gradient_descent.py#L2208-L2227
     """
-    scale = precond_init_scale(scale, scale_scale, grad, hessian_vector, vector)
-    letters = string.ascii_lowercase + string.ascii_uppercase
+    scale = precond_init_scale(scale, scale_scale, scale_power, grad, hessian_vector, vector)
     dtype = dtype if dtype is not None else grad.dtype
     shape = grad.shape
 
     if len(shape) == 0:  # scalar
         Q = [scale * torch.ones_like(grad, dtype=dtype)]
-        exprA = ",->"
-        exprGs = [",->"]
-        exprP = ",,->"
-        return [Q, (exprA, tuple(exprGs), exprP)]
-
-    # Tensor
-    if len(shape) > 13:
-        raise ValueError(f"Got tensor with dim {len(grad.shape)}; Einstein runs out of letters!")
+        return Q
 
     scale = scale ** (1 / len(shape))
 
@@ -1418,6 +1618,9 @@ def init_Q_exprs(
         sorted_shape = sorted(shape)
         if len(shape) >= 2 and sorted_shape[-1] > sorted_shape[-2]:
             dim_diag[_max_idx(shape)] = True
+    elif memory_save_mode == "one_triu":
+        shape_ranks = np.argsort(np.argsort(shape))  # ranks
+        dim_diag = (shape_ranks != 0).tolist()  # only triu the smallest
     elif memory_save_mode == "all_diag":
         dim_diag = [True for _ in shape]
     else:
@@ -1427,66 +1630,90 @@ def init_Q_exprs(
         )
 
     Q = []
-    piece1A, piece2A, piece3A = ([], "", "")
-    exprGs = []
-    piece1P, piece2P, piece3P, piece4P = ([], [], "", "")
     for i, (size, dim_d) in enumerate(zip(shape, dim_diag)):
         if size == 1 or size > max_size or len(shape) < min_ndim_triangular or dim_d:
             # use diagonal matrix as preconditioner for this dim
             Q.append(scale * torch.ones(size, dtype=promote(dtype), device=grad.device))
-
-            piece1A.append(letters[i])
-            piece2A = piece2A + letters[i]
-            piece3A = piece3A + letters[i]
-            piece1 = "".join([(letters[i + 13] if j == i else letters[j]) for j in range(len(shape))])
-            subscripts = piece1 + "," + piece1 + "->" + letters[i + 13]
-            exprGs.append(subscripts)
-            piece1P.append(letters[i + 13])
-            piece2P.append(letters[i + 13])
-            piece3P = piece3P + letters[i + 13]
-            piece4P = piece4P + letters[i + 13]
         else:
             # use triangular matrix as preconditioner for this dim
             Q.append(scale * torch.eye(size, dtype=dtype, device=grad.device))
-            piece1A.append(letters[i] + letters[i + 13])
-            piece2A = piece2A + letters[i + 13]
-            piece3A = piece3A + letters[i]
-            piece1 = "".join([(letters[i + 13] if j == i else letters[j]) for j in range(len(shape))])
-            piece2 = "".join([(letters[i + 26] if j == i else letters[j]) for j in range(len(shape))])
-            subscripts = piece1 + "," + piece2 + "->" + letters[i + 13] + letters[i + 26]
-            exprGs.append(subscripts)
-            a, b, c = (letters[i], letters[i + 13], letters[i + 26])
-            piece1P.append(a + b)
-            piece2P.append(a + c)
-            piece3P = piece3P + c
-            piece4P = piece4P + b
-
-    exprA = ",".join(piece1A) + "," + piece2A + "->" + piece3A
-    exprP = ",".join(piece1P) + "," + ",".join(piece2P) + "," + piece3P + "->" + piece4P
-    return [Q, (exprA, tuple(exprGs), exprP)]
+    return Q
 
 
-@decorator
-def psgd_balance_Q(Q_in):
-    norms = torch.stack([q.norm(float("inf")) for q in Q_in])
-    geometric_mean = norms.log().mean().exp()
-    norms = geometric_mean / norms
-    torch._foreach_mul_(Q_in, list(norms))
+@decorator_knowngood
+def psgd_balance_Q(Q):
+    norms = [promote(q.norm(float("inf"))).log() for q in Q]
+    geometric_mean = sum([n for n in norms]) / len(Q)
+    for q, n in zip(Q, norms):
+        q *= (geometric_mean - n).exp()
 
 
-@decorator
-def psgd_balance_lra(U: Tensor, V: Tensor):
-    u_norm = promote(torch.linalg.vector_norm(U))
-    v_norm = promote(torch.linalg.vector_norm(V))
-    scale = (u_norm / v_norm) ** 0.5
-    U.div_(scale)
-    V.mul_(scale)
+@decorator_knowngood
+def _lra_flatten_and_balance(U: List[Tensor], V: List[Tensor], d: List[Tensor]):
+    u_norm = sum(u.square().sum().double() for u in U)
+    v_norm = sum(v.square().sum().double() for v in V)
+    scale = (u_norm / v_norm) ** 0.25  # sqrt of L2 norms; sqrt, as it's 2 factors
+    scale = torch.where(torch.logical_and(torch.isfinite(scale), scale > 1e-6), scale, 1)
+    stochastic_multiply_(U, [1 / scale] * len(U))
+    stochastic_multiply_(V, [scale] * len(V))
+    return multi_flatten((U, 1), (V, 1), (d, 0))
 
 
 @decorator
 def low_rank_mm(U: Tensor, V: Tensor, x: Tensor) -> Tensor:
     dtype = min_dtype([U, V, x])
-    return x + torch.einsum("br,gr,g->b", U.to(dtype), V.to(dtype), x.to(dtype)).to(x.dtype)
+    return x + compiled_einsum("br,gr,g->b", U.to(dtype), V.to(dtype), x.to(dtype)).to(x.dtype)
+
+
+@decorator_knowngood
+def _compilable_d_step(
+    d: Tensor,
+    d_orig: List[Tensor],
+    invQtv: Tensor,
+    vector: Tensor,
+    inverse_precond_vector: Tensor,
+    hessian_vector: Tensor,
+    precond_hessian_vector: Tensor,
+    eps: Tensor,
+    step: Tensor,
+    delayed: bool,
+):
+    precond_hessian_vector = promote(precond_hessian_vector)
+    hessian_vector = promote(hessian_vector)
+    vector = promote(vector)
+    inverse_precond_vector = promote(inverse_precond_vector)
+    invQtv = promote(invQtv)
+    inverse_precond_vector = invQtv - inverse_precond_vector
+
+    nablaD = promote(d).square() * precond_hessian_vector * hessian_vector - vector * inverse_precond_vector
+
+    """
+    1) Sketching
+        1.1) multiply, square, etc. in high precision (to avoid numerical errors + doesn't increase cost)
+        1.2) reduced-precision selection of largest element (halves memory traffic)
+    2) Computation
+        2.1) select relevant indices
+        2.2) redo 1.1 in double precision for scalar values
+        2.3) return high-precision normalized step-size
+    overall, this should REDUCE the cost of the operation compared to baseline (-> less memory traffic) while
+    improving precision
+    """
+    a0 = promote(d) * precond_hessian_vector
+    a1 = vector
+    b0 = inverse_precond_vector / promote(d)
+    b1 = hessian_vector
+
+    divisor = (a0.square() + a1.square()) * (b0.square() + b1.square())
+    idx = divisor.bfloat16().flatten().argmax()
+    a = a0.index_select(0, idx).double().square() + a1.index_select(0, idx).double().square()
+    b = b0.index_select(0, idx).double().square() + b1.index_select(0, idx).double().square()
+    divisor = (a * b).sqrt().clamp(min=eps)
+    step = -step / divisor
+
+    # fused update(s)
+    apply_flat_add(d_orig, nablaD, step)
+    if not delayed:
+        copy_stochastic_(d, promote(d) - nablaD * step)
 
 
 def update_lra_precond_(
@@ -1498,13 +1725,14 @@ def update_lra_precond_(
     eps: float,
     step: float,
     delayed: bool,
+    precond_u: bool,
 ):
     """
     Adapted from https://github.com/lixilinx/psgd_torch/blob/6dbea94915679d08a289928e6431b6ce07931aaf/preconditioned_stochastic_gradient_descent.py#L657
     """
     U_orig, V_orig, d_orig = U, V, d
 
-    U, V, d = flatten(U, 1), flatten(V, 1), flatten(d)
+    U, V, d = _lra_flatten_and_balance(U, V, d)
 
     dtype = min_dtype([U, V, vector, hessian_vector])
     U, V, vector, hessian_vector = U.to(dtype), V.to(dtype), vector.to(dtype), hessian_vector.to(dtype)
@@ -1512,10 +1740,10 @@ def update_lra_precond_(
     eps = scalar_guard(eps, vector)
 
     Qh = low_rank_mm(U, V, d * hessian_vector)
-    Ph = d * low_rank_mm(V, U, Qh)
+    Ph = low_rank_mm(V, U, Qh)
     rank = U.size(1)
 
-    VtU = torch.einsum("br,bn->rn", V, U)  # (rank, rank)
+    VtU = compiled_einsum("br,bn->rn", V, U)  # (rank, rank)
     I = torch.eye(rank, dtype=VtU.dtype, device=VtU.device)
     IpVtU = I + VtU
     invQtv = vector / d
@@ -1533,47 +1761,39 @@ def update_lra_precond_(
         return U.to(U_orig[0].dtype), V.to(V_orig[0].dtype), d.to(d_orig[0].dtype)
 
     invQtv = invQtv - V @ torch.linalg.lu_solve(LU, pivots, (U.T @ invQtv).view(-1, 1), adjoint=True).flatten()
-    invPv = invQtv - U @ torch.linalg.lu_solve(LU, pivots, (V.T @ invQtv).view(-1, 1)).flatten()
-    invPv = invPv / d
+    invPv = U @ torch.linalg.lu_solve(LU, pivots, (V.T @ invQtv).view(-1, 1)).flatten()
 
-    nablaD = Ph * hessian_vector - vector * invPv
-    divisor = (Ph.square() + vector.square()) * (hessian_vector.square() + invPv.square())
-    divisor = divisor.add(eps).sqrt().max()
-    d_step = step / divisor
-
-    apply_flat_add(d_orig, d * nablaD, -d_step)
+    eps, step = scalar_guard(eps, step, vector)
+    _compilable_d_step(d, d_orig, invQtv, vector, invPv, hessian_vector, Ph, eps, step, delayed)
 
     a, b = Qh, invQtv
 
-    precond_u = random.random() < 0.5  # update either U or V, not both at the same time
     precond = V if precond_u else U
-    atV = torch.einsum("b,br->r", a, precond)  # o == one
-    btV = torch.einsum("b,br->r", b, precond)
-    atVVt = torch.einsum("r,br->b", atV, precond)
-    btVVt = torch.einsum("r,br->b", btV, precond)
-    precond_step = step / (a.norm() * atVVt.norm() + b.norm() * btVVt.norm() + eps)
+    atV = compiled_einsum("b,br->r", a, precond)  # o == one
+    btV = compiled_einsum("b,br->r", b, precond)
+    atVVt = compiled_einsum("r,br->b", atV, precond)
+    btVVt = compiled_einsum("r,br->b", btV, precond)
+    precond_step = step / (a.norm() * atVVt.norm() + b.norm() * btVVt.norm()).clamp(min=eps)
     if precond_u:
-        a = torch.einsum("b,r,rg->bg", a, atV, IpVtU)
-        b = torch.einsum("b,r,rg->bg", b, btV, IpVtU)
+        a = compiled_einsum("b,r,rg->bg", a, atV, IpVtU)
+        b = compiled_einsum("b,r,rg->bg", b, btV, IpVtU)
     else:
-        a = a + torch.einsum("br,r->b", V, atV)
-        b = b + torch.einsum("br,r->b", V, btV)
-        a = torch.einsum("b,r->br", a, atV)
-        b = torch.einsum("b,r->br", b, btV)
+        a = a + compiled_einsum("br,r->b", V, atV)
+        b = b + compiled_einsum("br,r->b", V, btV)
+        a = compiled_einsum("b,r->br", a, atV)
+        b = compiled_einsum("b,r->br", b, btV)
     apply_flat_add(U_orig if precond_u else V_orig, b - a, precond_step)
-
     if not delayed:
-        stochastic_add_([d], [d * nablaD], -d_step)
         stochastic_add_([U if precond_u else V], [b - a], precond_step)
     return U.to(U_orig[0].dtype), V.to(V_orig[0].dtype), d.to(d_orig[0].dtype)
 
 
-def lra_precond(U, V, d, g):
+def lra_precond(U: Tensor, V: Tensor, d: Tensor, g: Tensor):
     """
     As-is from https://github.com/lixilinx/psgd_torch/blob/6dbea94915679d08a289928e6431b6ce07931aaf/preconditioned_stochastic_gradient_descent.py#L744
     """
-    g = low_rank_mm(U, V, d * g)
-    return d * low_rank_mm(V, U, g)
+    new_g = low_rank_mm(U, V, d * g)
+    return d * low_rank_mm(V, U, new_g)
 
 
 @decorator_knowngood
@@ -1584,14 +1804,40 @@ def dampen_grad(g: Tensor, damp: float = 2**-13):
 
 
 @decorator_knowngood
-def apply_lra_update(params: List[Tensor], update: Tensor, U: Tensor, V: Tensor, d: Tensor):
-    update = lra_precond(U, V, d, update)
+def _compilable_lra_update_(
+    params: List[Tensor],
+    update: List[Tensor],
+    U: Tensor,
+    V: Tensor,
+    d: Tensor,
+    lr: Tensor,
+    decay: Tensor,
+    caution: bool,
+    grads: List[Tensor],
+):
+    update = lra_precond(U, V, d, flatten(update))
     start = 0
     update = update.flatten()
-    for p in params:
+    for p, g in zip(params, grads):
         size = p.numel()
-        copy_stochastic_(p, update[start : start + size].view_as(p))
+        update_param_(p, update[start : start + size].view_as(p), lr, decay, caution, g)
         start += size
+
+
+def apply_lra_update(
+    params: List[Tensor],
+    update: Tensor,
+    U: Tensor,
+    V: Tensor,
+    d: Tensor,
+    lr: float,
+    decay: float,
+    caution: bool,
+    grads: List[Tensor],
+):
+    params, grads = list_guard(params, grads)
+    lr, decay = scalar_guard(lr, decay, params[0])
+    _compilable_lra_update_(params, update, U, V, d, lr, decay, caution, grads)
 
 
 @decorator_knowngood
@@ -1602,6 +1848,12 @@ def apply_flat_update(params: List[Tensor], update: Tensor):
         size = p.numel()
         copy_stochastic_(p, update[start : start + size].view_as(p))
         start += size
+
+
+@decorator_knowngood
+def zero_(x: List[Tensor]):
+    for i in x:
+        i.zero_()
 
 
 @decorator_knowngood
@@ -1629,7 +1881,12 @@ def extract_from_flat_update(params: List[Tensor], update: Tensor):
 @decorator_knowngood
 def flatten(x: List[Tensor], remaining: int = 0) -> Tensor:
     last_dim = x[0].shape[-remaining:] if remaining else []
-    return torch.cat([i.reshape(-1, *last_dim) for i in x], 0)
+    return torch.cat([i.reshape(-1, *last_dim) for i in x if i.numel()], 0)
+
+
+@decorator_knowngood
+def multi_flatten(*xs: Tuple[List[Tensor], int]):
+    return [flatten(x, i) for x, i in xs]
 
 
 @decorator_knowngood
@@ -1645,149 +1902,564 @@ def dampen_multiple(g: List[Tensor], damp: float = 2**-13):
 
 def casted_einsum(expr: str, *args: Tensor) -> Tensor:
     md = min_dtype(args)
-    return torch.einsum(expr, *[a.to(md) for a in args]).to(args[-1].dtype)
+    return compiled_einsum(expr, *[a.to(md) for a in args]).to(args[-1].dtype)
 
 
 @decorator_knowngood
 def _psgd_calc_scalars_(Qs: List[Tensor], conjB: Tensor):
     triangular_qs = []
+    conjB = promote(conjB)
     for i, q in enumerate(Qs):
         q = promote(q)
         if q.dim() <= 1:
-            shape = [1] * conjB.ndim
-            shape[i] = -1
-            conjB /= q.view(shape)
+            if conjB.ndim == 0:
+                conjB = conjB / q
+            else:
+                shape = [1] * conjB.ndim
+                shape[i] = -1
+                conjB = conjB / q.view(shape)
         else:
             triangular_qs.append((i, q))
-    return triangular_qs
+    return triangular_qs, conjB
 
 
 @decorator_knowngood
-def _reshape_conjB(solved: Tensor, original_shape: List[int], last_dim: int, new_shape: int):
+def _reshape_conjB(solved: Tensor, transposed_shape: List[int], original_shape: List[int], last_dim: int, new_dim: int):
+    solved = solved.reshape(transposed_shape)
+    solved = solved.transpose(-1, last_dim)
     solved = solved.reshape(original_shape)
-    solved.transpose(last_dim, -1)
-    return solved.reshape(new_shape).contiguous()
+    solved = solved.transpose(-1, new_dim)
+    return solved.contiguous(), solved.shape
 
 
-def psgd_calc_A_and_conjB(exprA, G, Q, conjB):  # conjB ("V", "vector") == randn during hvp/whitening
-    order = G.dim()
-    if order > 1:
-        conjB = conjB.view_as(G).permute(*range(1, order), 0)
-    conjB = conjB.to(promote(G.dtype))
+def ndim_tuple(Q: list[Tensor]) -> tuple:
+    return tuple(q.ndim for q in Q)
+
+
+def psgd_calc_A_and_conjB(G: Tensor, Q, conjB: Tensor | None):  # conjB ("V", "vector") == randn during hvp/whitening
+    if conjB is None:
+        conjB = torch.randn_like(G)
+    exprA = cached_precond_grad_expr(ndim_tuple(Q), G.ndim)  # calcA expr and cached precond expr are the same
     A = casted_einsum(exprA, *Q, G)
     solve = torch.compiler.disable(torch.linalg.solve_triangular)
-    original_shape = conjB.shape
+    transposed_shape = original_shape = conjB.shape
     prev_i = -1
-    for i, tri_q in _psgd_calc_scalars_(Q, conjB):
-        conjB = _reshape_conjB(conjB, original_shape, prev_i, [-1, tri_q.size(0)])
+    qs, conjB = _psgd_calc_scalars_(Q, conjB)
+    for i, tri_q in qs:
+        conjB, transposed_shape = _reshape_conjB(conjB, transposed_shape, original_shape, prev_i, i)
         prev_i = i
         conjB = solve(tri_q, conjB, upper=True, left=False)
-    conjB = _reshape_conjB(conjB, original_shape, prev_i, original_shape)
+    conjB, _ = _reshape_conjB(conjB, transposed_shape, original_shape, prev_i, -1)
     return A, conjB
 
 
 @decorator_knowngood
-def _max_select(to_index: Tensor, to_argmax: Tensor):
-    idx = to_argmax.argmax()
-    return to_index.index_select(1, idx).flatten().contiguous()
+def _random_projection(x: Tensor, scale: Optional[Tensor]):
+    if scale is None:
+        scale = x.norm(float("inf")).clamp(min=1e-8)
+    k = 2 ** math.ceil(math.log2(math.log2(min(x.shape))))  # next-largest-power-of-2 of log2-of-size
+    norm = x.square().sum(0)
+    indices = torch.topk(norm, k, largest=True).indices
+    return x.index_select(1, indices).contiguous() / scale, scale
 
 
-def psgd_lb(A: Tensor, max_abs: Tensor):
-    A /= max_abs
-    x = _max_select(A, torch.einsum("ij,ij->j", A, A))
-    x = torch.einsum("i,ij->j", x, A)
-    x /= x.norm()
-    x = torch.einsum("j,kj->k", x, A)
-    x = x.norm()
-    x *= max_abs
-    return x
-
-
-@decorator_knowngood
-def _subtract_from_line_(state: Tensor, term: Tensor):
-    stochastic_add_([state], [triu_to_line([term])[0][1]], -1)
-
-
-@decorator_knowngood
-def _prescale_term_(term1: Tensor, fac: Tensor, norm: Tensor, lower_bound: Tensor):
-    out = term1.float().triu() * fac
-    out = out / torch.where(norm > 0, lower_bound, norm).clamp(tiny_bf16)
-    copy_stochastic_(term1, out)
+def max_singular_value_exact(A, use_lobpcg: bool = False):
+    try:
+        if use_lobpcg:
+            A = A @ A.T
+            eigval, _ = torch.compiler.disable(torch.lobpcg)(A, k=1, largest=True)
+            return eigval[0].sqrt()
+        else:
+            return torch.linalg.svd(promote(A), driver="gesvdj")[1].max().to(A.dtype)  # == linalg.matrix_norm(A, ord=2)
+    except (torch.linalg.LinAlgError, RuntimeError):
+        return max_singular_value_power_iter(promote(A), iterations=2)
 
 
 @decorator_knowngood
-def _compilable_stochastic_multiply_div_(x: Tensor, fac: Tensor, y: Tensor, z: Tensor):
-    copy_stochastic_(x, promote(x) * promote(fac) * promote(y) / promote(z).clamp(min=tiny_bf16))
+def max_singular_value_power_iter(A_outer: Tensor, max_abs: Optional[Tensor] = None, iterations: int = 5):
+    """
+    Rayleigh quotient of row with the largest norm + optional power iterations
+    """
+    x_norm, max_idx = A_outer.norm(dim=1).max(dim=0)
+    x_norm = promote(x_norm)
+
+    def _inner():
+        A = A_outer
+        x = A.index_select(0, max_idx).flatten().contiguous()
+        A = stochastic_round_(A / x_norm)
+        x = x / x_norm
+
+        def _mv(x):
+            return promote(A.T.mv(A.mv(stochastic_round_(x))))
+
+        for _ in range(iterations):
+            # A @ A.T @ x, but explicitly telling torch.compile not to compute the full matrix
+            x = F.normalize(_mv(x), dim=0)
+        out = (x @ _mv(x)).to(x_norm.dtype).sqrt() * x_norm
+        return out.squeeze().clone()
+
+    return cond(x_norm > 0, _inner, lambda: x_norm.squeeze().clone())
 
 
 @decorator_knowngood
-def _compilable_add_sub_(x: Tensor, y: Tensor):
-    x = promote(x)
-    y = promote(y)
-    return x - y, x + y
+def max_singular_value_cholesky(A: Tensor, max_abs: Optional[Tensor] = None):
+    """
+    Adapted from @evanatyourservice
+    """
+    Y, max_abs = _random_projection(A, max_abs)
+    Q = inplace_orthogonal_(Y, precise_zeroth_power_mode)
+    Q = Q / max_abs
+    Z = A.T @ Q
+    W = inplace_orthogonal_(Z, precise_zeroth_power_mode)
+    sketch_norm = max_singular_value_exact(Z.T @ W)
+    return sketch_norm * max_abs
+
+
+def _max_singular_value_ndim(A: Tensor, max_svd: int = 0, use_cholesky: bool = False, power_iter: int = 16) -> Tensor:
+    if A.ndim <= 2:
+        return max_singular_value(A, max_svd, use_cholesky, power_iter)
+
+    base = einsum_base[: A.ndim]
+    A16 = stochastic_round_(A)
+    squares = [compiled_einsum(f"{base},{base.replace(b, b.upper())}->{b}{b.upper()}", A16, A16) for b in base]
+    svds = [max_singular_value(promote(s), max_svd, use_cholesky, power_iter) for s in squares]
+    svds = torch.stack(svds)
+    return svds.max().sqrt().to(A.dtype)  # sqrt because we took the SVD of a squared matrix
+
+
+@decorator_knowngood
+def max_singular_value(A: Tensor, max_svd: int = 0, use_cholesky: bool = False, power_iter: int = 16) -> Tensor:
+    if A.ndim < 2:
+        return A.abs().max()
+    if A.ndim > 2:
+        raise ValueError("max_singular_value: dimension of A must be less than or equal to 2")
+    if min(A.shape) <= max_svd:
+        return max_singular_value_exact(A)  # SVD needs ~25% more runtime for size=32, but 0% error instead of 5%
+    if use_cholesky or power_iter < 0:
+        return max_singular_value_cholesky(A)
+    return max_singular_value_power_iter(A, None, iterations=power_iter)
+
+
+@decorator_knowngood
+def clamped_max_singular_value(
+    A: Tensor, min: float, max_svd: int = 0, use_cholesky: bool = False, power_iter: int = 16
+) -> Tensor:
+    norm = A.norm()  # L2 norm is an upper bound for the spectral norm. If the upper bound is below the minimum, the real value will be too.
+    out = cond(norm > min, lambda: max_singular_value(A, max_svd, use_cholesky, power_iter), lambda: norm.clone())
+    return out.clamp(min=min)
+
+
+@decorator_knowngood
+def min_singular_value(
+    A: Tensor,
+    power_iter: int = 5,
+    safety: float = 1.05,
+    max_svd: int = 32,
+):
+    if A.ndim < 2:
+        return A.abs().min()
+
+    n = A.size(0)
+    if n <= max_svd:
+        try:
+            eigs = torch.linalg.eigvalsh(promote(A))
+            return eigs.min().to(A.dtype)
+        except torch.linalg.LinAlgError:
+            pass
+
+    lambda_max_hat = max_singular_value(A, power_iter=power_iter)
+    lambda_upper = lambda_max_hat * safety
+
+    row_norms = A.norm(dim=1)
+    norm, idx = row_norms.min(dim=0)
+    v = cond(norm > 0, lambda: A.index_select(0, idx).flatten(), lambda: torch.rand_like(A[0]))
+
+    v = v / promote(v.norm())
+    for _ in range(power_iter):
+        v = lambda_upper * v - promote(A.mv(stochastic_round_(v)))
+        v = v / promote(v.norm())
+    mu_hat = v @ (lambda_upper * v - promote(A.mv(stochastic_round_(v))))
+
+    lambda_min_hat = lambda_upper - mu_hat
+
+    def _approx():
+        mu = A.trace() / n
+        sigma_square = A.square().sum() / n - mu**2
+        return mu - (sigma_square / (n - 1)).sqrt()
+
+    return cond(
+        (~torch.isfinite(lambda_min_hat)) | (lambda_min_hat <= 0), _approx, lambda: lambda_min_hat.clone()
+    ).squeeze()
+
+
+@decorator_knowngood
+def _balance_to_triu(Q: "TriuOrLine", symmetric_output: bool = False):
+    if isinstance(Q[0], tuple):
+        psgd_balance_Q([o[1] for o in Q])
+        return line_to_triu(Q, symmetric_output)
+    psgd_balance_Q(Q)
+    return Q
+
+
+@functools.lru_cache(maxsize=None)
+def calcG_expr(q_dim, g_dim):
+    exprs = []
+    base = einsum_base[:g_dim]
+    for i, q in enumerate(q_dim):
+        new = list(base)
+        if q == 2:
+            new[i] = "Z"
+            out = f"{base[i]}Z"
+        else:
+            out = base[i]
+        exprs.append(f"{base},{''.join(new)}->{out}")
+    return exprs
+
+
+def eye_like(x: Tensor):
+    if x.ndim < 2:
+        return torch.ones_like(x)
+    assert x.ndim == 2
+    assert x.size(0) == x.size(1)
+    return torch.eye(x.size(0), device=x.device, dtype=x.dtype)
+
+
+@decorator_knowngood
+def _gg_inverse_via_vjp(G: Tensor, Q: List[Tensor]):
+    """
+    Idea:
+        G should be zeroth power. So, all Qs together should approximate the G's inverse.
+        Assuming G is 2-dimensional, we'd have two preconditioning Q's: L, R
+        Optimize LGR being a zeroth power using `MSE( (LGR) (LGR).T , I ) + MSE( (LGR).T + (LGR) , I )`,
+        then backprop to L/R jointly.
+        This function computes the gradients for L/R, with an outer optimizer layer handling the rest.
+
+        `psgd_precond_grad` computes LGR for the general (n-dimensional) case
+        `exprG` contains the einsum expressions to compute (LGR)(LGR).T (and (LGR).T(LGR)) for the general n-dim case
+    Args:
+        G: Gradient that should be orthogonalized
+        Q: List of preconditioner tensors.
+
+    Returns:
+        - List of gradients with respect to Q (d_Q).
+    """
+    exprGs = calcG_expr(ndim_tuple(Q), G.ndim)
+
+    G16 = stochastic_round_(G)
+    Q16 = [stochastic_round_(q) for q in Q]
+    P = psgd_precond_grad(G16, Q16)  # Q₀GQ₁
+
+    d_P = torch.zeros_like(G)
+    base = einsum_base[: G.ndim]
+    for i, exprG in enumerate(exprGs):
+        pp = compiled_einsum(exprG, P, P)
+        error = pp - eye_like(pp)
+        dim = einsum_base[i]
+        if pp.ndim == 2:
+            new = dim.upper()
+            prec = f"{new}{dim}"
+        else:
+            new = dim
+            prec = dim
+        d_P += torch.einsum(f"{base},{prec}->{base.replace(dim, new)}", P, error)
+
+    d_P = stochastic_round_(d_P)  # accumulate in fp32 and round at the end
+    grads = []
+    for i, exprG in enumerate(exprGs):
+        new_q = Q16[:]
+        new_q[i] = eye_like(new_q[i])
+        pq = psgd_precond_grad(G16, new_q)
+        grad = compiled_einsum(exprG, pq, d_P)
+        if grad.ndim == 2:
+            grad = (grad + grad.T) / 2
+        grads.append(grad)
+
+    return grads, P.to(G.dtype)
+
+
+def _inverse_initial_guess(gg):
+    n = gg.shape[0]
+
+    sigma_max = promote(gg.norm())
+
+    trace_gg = promote(torch.trace(gg))
+    sigma_min_approx = trace_gg / (n * sigma_max)
+
+    return sigma_max, sigma_min_approx
+
+
+@decorator_knowngood
+def _chebychef_coeff(degree: int, device, eps: float = 1e-8):
+    k = torch.arange(degree, dtype=torch.float64, device=device)
+    rotation = (2 * k + 1) * math.pi / (2 * degree)
+    f = (rotation.cos() + 1 + eps) ** -0.5
+    rotation = (rotation.view(-1, 1) * k[1:].view(1, -1)).cos()
+    coeff0 = f.sum() / degree
+    coeffs = f @ rotation * 2 / degree
+    return coeff0.float(), coeffs.float()
+
+
+@decorator_knowngood
+def _psgd_default_preconditioner_grad(
+    terms: List[Tuple[Tensor, Tensor]],
+    Q: List[Tensor],
+) -> List[Tensor]:
+    out = []
+    for q, (x, y) in zip(Q, terms):
+        x = promote(x)
+        y = promote(y)
+        update = x - y
+        if q.ndim < 2:
+            update = q * update
+        else:
+            update = (q @ update).triu()
+        out.append(update)
+    return out
 
 
 @decorator
-def psgd_update_precond(Q, exprs, G, precond_lr, oq, store_triu_as_line, V):
+def psgd_update_precond(
+    G: Tensor,
+    precond_lr: float,
+    oq: "TriuOrLine",
+    store_triu_as_line: bool,
+    velocity: Optional[List[Tensor]],
+    beta2: float,
+    ortho_method: Optional[str],
+    V: Tensor,
+    running_lower_bound: List[Tensor],
+    lower_bount_beta: float,
+    power_iter: int,
+) -> None:
     """Update Kronecker product preconditioner Q with pair (V, G)."""
-    exprA, exprGs, _ = exprs
-    A, conjB = psgd_calc_A_and_conjB(exprA, G, Q, V)
-    precond_lr = scalar_guard(precond_lr, G)
+    Q = _balance_to_triu(oq)
+    exprGs = calcG_expr(ndim_tuple(Q), G.ndim)
+    precond_lr, beta2, lower_bount_beta = scalar_guard(precond_lr, beta2, lower_bount_beta, G)
 
-    for q, exprG, o in zip(Q, exprGs, oq):
-        term1 = torch.einsum(exprG, A, A)
-        term2 = torch.einsum(exprG, conjB, conjB)
-        term1, term2 = _compilable_add_sub_(term1, term2)
-        norm = term2.norm(float("inf"))
-        if q.dim() < 2:
-            _compilable_stochastic_multiply_div_(term1, precond_lr, q, norm)
-        else:
-            lower_bound = psgd_lb(term2, norm)
-            _prescale_term_(term1, precond_lr, lower_bound, norm)
-            torch.mm(term1, q.to(term1.dtype), out=term1)
-        if store_triu_as_line:
-            _subtract_from_line_(q, term1)
-        else:
-            stochastic_add_(o, term1, -1)
+    A, conjB = psgd_calc_A_and_conjB(G, Q, V)
+    terms = [(compiled_einsum(exprG, A, A), compiled_einsum(exprG, conjB, conjB)) for exprG in exprGs]
+    del A, conjB, V
+    updates = _psgd_default_preconditioner_grad(terms, Q)
+    _psgd_precond_update_(
+        updates, oq, running_lower_bound, lower_bount_beta, precond_lr, store_triu_as_line, power_iter
+    )
+    return None
 
 
 @decorator_knowngood
-def _compilable_l2_clip_(x, clip_at):
-    ref = x
-    x = list(map(promote, x))
-    norm = torch._foreach_norm(x)
-    torch._foreach_maximum_(norm, clip_at)
-    out = torch._foreach_div(x, norm)
-    return stochastic_round_list_(ref, out)
+def bf16_matmul(x: Tensor, y: Tensor):
+    return (promote(x) @ promote(y)).to(x.dtype)
+
+
+def if_iscompiling(fn):
+    base = getattr(torch, fn.__name__, None)
+
+    def _fn(x):
+        if torch.compiler.is_compiling() and hasattr(torch, fn.__name__):
+            return base(x)
+        return fn(x)
+
+    return _fn
+
+
+@if_iscompiling
+def while_loop(cond, body, state):
+    """
+    dispatches to torch.while_loop if we're compiling. otherwise, falls back to a naive + slow baseline
+    useful for debugging
+    """
+    while cond(*state).item():
+        state = body(*state)
+    return state
+
+
+@if_iscompiling
+def cond(cond, true_fn, false_fn):
+    """
+    dispatches to torch.cond if we're compiling. otherwise, falls back to a naive + slow baseline
+    useful for debugging
+    """
+
+    if cond.item():
+        return true_fn()
+    return false_fn()
+
+
+def cond_n(cond_val: Tensor, *fns):
+    fns = list(fns)
+    fn = fns.pop(0)
+    if not fns:
+        return fn
+    return cond(cond_val == 0, fn, lambda: cond_n(cond_val - 1, *fns))
+
+
+@decorator_knowngood
+def _psgd_precond_update_(
+    matmuled: List[Optional[Tensor]],
+    Q: "TriuOrLine",
+    running_lower_bound: List[Tensor],
+    lower_bount_beta: Tensor,
+    precond_lr: Tensor,
+    store_triu_as_line: bool,
+    power_iter: int,
+):
+    for update, oq, lb_state in zip(matmuled, Q, running_lower_bound):
+        if isinstance(oq, tuple):
+            oq = oq[1]
+
+        q = promote(oq)
+        if update.ndim < 2:
+            lb = update.norm(float("inf"))
+        else:
+            lb = max_singular_value(update, power_iter=power_iter)
+            update = promote(update)
+            if store_triu_as_line:
+                update = triu_to_line([update])[0][1]
+
+        lb = promote(lb)
+        lb = lb.maximum(promote(lb_state) + (lb - promote(lb_state)) * (1 - lower_bount_beta))
+        copy_stochastic_(lb_state, lb)
+        copy_stochastic_(oq, q - update / lb * precond_lr)
+
+
+@decorator_knowngood
+def _psgd_quad_preconditioner_grad(GG: List[Tensor], Q: List[Tensor], numel: int):
+    """
+    I: Identity
+    U: Update / gg / target
+    Q: q, preconditioner
+    scale: scalar scale
+    ---
+    U = T * scale - I
+    F = I - U  # = 2I - U * scale
+    O = F @ Q @ F - Q
+    """
+    out = []
+    for gg, q in zip(GG, Q):
+        if gg.ndim < 2:
+            scale = max(1, gg.numel()) / numel
+            target = promote(gg)
+            update = target * scale - 1
+            out.append(q - (1 - update) * q * (1 - update))
+        else:
+            scale = gg.size(0) / numel
+            gg = 2 * torch.eye(gg.size(0), device=gg.device, dtype=gg.dtype) - gg * scale
+            update = q - gg @ q @ gg
+            out.append(update + update.T)  # make matrix symmetric
+    return out
+
+
+@decorator
+def inverse_free_psgd_update_precond(
+    G: Tensor,
+    precond_lr: float,
+    oq: List[Tensor],
+    store_triu_as_line: bool,
+    velocity: Optional[List[Tensor]],
+    beta2: float,
+    ortho_method: Optional[str],
+    V: None,
+    running_lower_bound: List[Tensor],
+    lower_bount_beta: float,
+    power_iter: int,
+) -> Tensor:
+    """Update Kronecker product preconditioner Q with pair (V, G)."""
+    assert V is None
+    assert ortho_method is None
+    assert velocity is None
+    del V, ortho_method, velocity
+
+    Q = _balance_to_triu(oq, True)
+    precond_lr, beta2, lower_bount_beta = scalar_guard(precond_lr, beta2, lower_bount_beta, G)
+    exprGs = calcG_expr(ndim_tuple(Q), G.ndim)
+
+    G = psgd_precond_grad(G, Q)
+    terms = [compiled_einsum(exprG, G, G) for exprG in exprGs]
+    matmuled = _psgd_quad_preconditioner_grad(terms, Q, G.numel())
+    _psgd_precond_update_(
+        matmuled, oq, running_lower_bound, lower_bount_beta, precond_lr, store_triu_as_line, power_iter
+    )
+    return G
+
+
+@decorator_knowngood
+def _clip(x, norm, clip_at, eps=1e-8):
+    x32 = promote(x)
+    # (x / y.clamp(min=eps)).clamp(max=1) == x / y.clamp(min=max(x, eps))
+    norm = clip_at / norm.clamp(min=max(clip_at, eps))
+    x32 = x32 * norm
+    copy_stochastic_(x, x32)
+
+
+@decorator_knowngood
+def _compilable_l2_clip_(xs, clip_at, eps=1e-8):
+    for x in xs:
+        _clip(x, promote(x).norm(), clip_at, eps)
 
 
 def l2_normalization_(x, clip_at: float = 1e-8):
     x = list_guard(x)
-    return _compilable_l2_clip_(x, clip_at)
+    _compilable_l2_clip_(x, clip_at)
+    return x
 
 
 def l2_clip_(x, clip_at: float = 1.0):
     x = list_guard(x)
-    return _compilable_l2_clip_(x, clip_at)
+    _compilable_l2_clip_(x, clip_at)
+    return x
 
 
 @decorator_knowngood
-def _compilable_rmsnorm_clip_(x, clip_at):
-    x = list(map(promote, x))
-    norm = torch._foreach_norm(x)
-    norm = [n.div_(x_.numel() ** 0.5) for n, x_ in zip(norm, x)]
-    torch._foreach_maximum_(norm, clip_at)
-    return torch._foreach_div(x, norm)
+def _compilable_rmsnorm_clip_(xs, clip_at, eps=1e-8):
+    for x in xs:
+        _clip(x, promote(x).square().mean().sqrt(), clip_at, eps)
 
 
 def rmsnorm_clip_(x, clip_at: float = 1.0):
     x = list_guard(x)
-    return _compilable_rmsnorm_clip_(x, clip_at)
+    _compilable_rmsnorm_clip_(x, clip_at)
+    return x
+
+
+@decorator_knowngood
+def _compilable_global_rmsnorm_clip_(x, clip_at, eps=1e-8):
+    norm = 0
+    numel = sum([i.numel() for i in x])
+    for i in x:
+        norm += promote(i).square().sum()
+    norm = (norm / numel) ** 0.5
+    scalar = clip_at / norm.clamp(min=max(clip_at, eps))
+    stochastic_multiply_(x, scalar)
+
+
+def global_rmsnorm_clip(x, clip_at: float = 1.0):
+    x = list_guard(x)
+    clip_at = scalar_guard(clip_at, x[0])
+    _compilable_global_rmsnorm_clip_(x, clip_at)
+    return x
+
+
+@decorator_knowngood
+def _compilable_global_l2norm_clip_(x, clip_at, eps=1e-8):
+    norm = 0
+    for i in x:
+        norm += promote(i).square().sum()
+    norm = norm**0.5
+    scalar = clip_at / norm.clamp(min=max(clip_at, eps))
+    stochastic_multiply_(x, scalar)
+
+
+def global_l2norm_clip(x, clip_at: float = 1.0):
+    x = list_guard(x)
+    clip_at = scalar_guard(clip_at, x[0])
+    _compilable_global_l2norm_clip_(x, clip_at)
+    return x
 
 
 def rmsnorm_normalize_(x, clip_at: float = 1e-6):
     x = list_guard(x)
-    return _compilable_rmsnorm_clip_(x, clip_at)
+    _compilable_rmsnorm_clip_(x, clip_at)
+    return x
 
 
 @decorator_knowngood
@@ -1920,33 +2592,23 @@ def triu_to_line(Q_list: List[Tensor]):
         if q.dim() < 2:
             out.append((None, q))
         else:
-            out.append((q.shape, q[tuple(torch.triu_indices(*q.shape))]))
+            out.append((tuple(q.shape), q[tuple(torch.triu_indices(*q.shape))]))
     return out
 
 
-def _triu_shape(numel):
-    n = int((2 * numel) ** 0.5)
-    assert n * (n + 1) == 2 * numel
-    return n, n
-
-
-@decorator
-def line_to_triu(Q_list: List[Tuple[Optional[List[int]], Tensor]]):
+@decorator_knowngood
+def line_to_triu(Q_list: List[Tuple[Optional[List[int]], Tensor]], symmetric_output: bool = False):
     new = []
     for shape, q in Q_list:
         if shape is not None:
-            shape = _triu_shape(q.numel())
-            x = torch.zeros(shape, device=q.device, dtype=q.dtype)
-            x[tuple(torch.triu_indices(*shape, device=q.device))] = q
-            q = x
+            x, y = torch.triu_indices(*shape, device=q.device)
+            q_mat = torch.zeros(shape, device=q.device, dtype=q.dtype)
+            q_mat[x, y] = q
+            if symmetric_output:
+                q_mat[y, x] = q
+            q = q_mat
         new.append(q)
     return new
-
-
-def update_triu_(q_state, materialised):
-    for (shape0, q), (shape1, m) in zip(q_state, triu_to_line(materialised)):
-        assert shape0 == shape1
-        copy_stochastic_(q, m)
 
 
 _warned = set()
@@ -1971,52 +2633,118 @@ def psgd_should_update(
     return int(group[name]) > int(cumulative_prob)
 
 
+@functools.lru_cache(maxsize=None)
+def cached_precond_grad_expr(Q_dim, grad_dim):
+    expr = [f"{c.upper()}{c}" if q_ == 2 else c for c, q_ in zip(einsum_base, Q_dim)]
+    expr = ",".join(expr)
+    grad_expr = "".join(c for c, _ in zip(einsum_base, range(grad_dim)))
+    out_expr = "".join(c.upper() if c.upper() in expr else c for c in grad_expr)
+    return f"{expr},{grad_expr}->{out_expr}"
+
+
 @decorator_knowngood
 def precond_grad_cached_(
-    expr: str, ea: Tensor, *cached_q: Tensor, caution: bool = False, grad: Optional[Tensor] = None, cast: bool = True
+    ea: Tensor,
+    cached_q: List[Tensor],
+    caution: bool = False,
+    grad: Optional[Tensor] = None,
+    cast: bool = True,
 ):
     if caution:
         ea = _compilable_cautioning(grad, ea)
     md = min_dtype(list(cached_q) + [ea])
     args = [q.to(md) for q in cached_q]
     args = args + [ea.to(md)]
-    new = torch.einsum(expr, *args)
+    expr = cached_precond_grad_expr(ndim_tuple(cached_q), ea.ndim)
+    new = compiled_einsum(expr, *args)
     if cast:
         return new.to(ea.dtype)
     return new
 
 
+TriuOrLine = Union[List[Tensor], List[Tuple[Optional[List[int]], Tensor]]]
+
+
 @decorator_knowngood
-def _compilable_fused_precond_grad_cached_(expr: str, ea: Tensor, param, lr, grad, decay, caution, *cached_q: Tensor):
-    precond = precond_grad_cached_(expr, ea, *cached_q, caution=caution, grad=grad, cast=False)
+def _compilable_fused_precond_grad_cached_(ea: Tensor, param, lr, grad, decay, caution, cached_q: List[Tensor]):
+    precond = precond_grad_cached_(ea, cached_q, caution=caution, grad=grad, cast=False)
     update_param_(param, precond, lr, decay, caution=False)
 
 
-def fused_precond_grad_cached_(expr: str, ea: Tensor, param, lr, grad, decay, caution, *cached_q: Tensor):
-    lr = scalar_guard(lr, param[0])
-    _compilable_fused_precond_grad_cached_(expr, ea, param, lr, grad, decay, caution, *cached_q)
+def fused_precond_grad_cached_(ea: Tensor, param, lr, grad, decay, caution, cached_q: List[Tensor]):
+    lr, decay = scalar_guard(lr, decay, param[0])
+    _compilable_fused_precond_grad_cached_(ea, param, lr, grad, decay, caution, cached_q)
+
+
+@functools.lru_cache(maxsize=None)
+def precond_grad_expr(Q_dim, grad_dim):
+    expr = [
+        f"{c2}{c.upper()},{c2}{c}" if q_ == 2 else f"{c},{c}" for c, c2, q_ in zip(einsum_base, einsum_base[13:], Q_dim)
+    ]
+    expr = ",".join(expr)
+    grad_expr = "".join(c for c, _ in zip(einsum_base, range(grad_dim)))
+    out_expr = "".join(c.upper() if c.upper() in expr else c for c in grad_expr)
+    return f"{expr},{grad_expr}->{out_expr}"
 
 
 @decorator_knowngood
-def psgd_precond_grad(expr: str, ea: Tensor, *preconds: Tensor, caution: bool = False, grad: Optional[Tensor] = None):
+def psgd_precond_grad(
+    ea: Tensor,
+    preconds: TriuOrLine,
+    caution: bool = False,
+    grad: Optional[Tensor] = None,
+    store_triu_as_line: bool = False,
+    symmetric_output: bool = False,
+):
     if caution:
         ea = _compilable_cautioning(grad, ea)
+    if store_triu_as_line:
+        preconds = line_to_triu(preconds, symmetric_output)
     md = min_dtype(list(preconds) + [ea])
     args = [q.to(md) for q in preconds]
-    args = args + args + [ea.to(md)]
-    new = torch.einsum(expr, *args)
+    expr = precond_grad_expr(ndim_tuple(args), ea.ndim)
+    new = compiled_einsum(expr, *[a for a in args for _ in (0, 1)], ea.to(md))
     return new.to(ea.dtype)
 
 
 @decorator_knowngood
-def _compilable_fused_psgd_precond_grad(expr: str, ea: Tensor, param, lr, grad, decay, caution, *preconds: Tensor):
-    precond = psgd_precond_grad(expr, ea, *preconds, caution=caution, grad=grad)
+def _compilable_fused_psgd_precond_grad(
+    ea: Tensor,
+    param,
+    lr,
+    grad,
+    decay,
+    caution,
+    preconds: TriuOrLine,
+    store_triu_as_line: bool = False,
+    symmetric_output: bool = False,
+):
+    precond = psgd_precond_grad(
+        ea,
+        preconds,
+        caution=caution,
+        grad=grad,
+        store_triu_as_line=store_triu_as_line,
+        symmetric_output=symmetric_output,
+    )
     update_param_(param, precond, lr, decay, caution=False, grad=grad)
 
 
-def fused_psgd_precond_grad(expr: str, ea: Tensor, param, lr, grad, decay, caution, *preconds: Tensor):
-    lr = scalar_guard(lr, param[0])
-    _compilable_fused_psgd_precond_grad(expr, ea, param, lr, grad, decay, caution, *preconds)
+def fused_psgd_precond_grad(
+    ea: Tensor,
+    param,
+    lr,
+    grad,
+    decay,
+    caution,
+    preconds: TriuOrLine,
+    store_triu_as_line: bool = False,
+    symmetric_output: bool = False,
+):
+    lr, decay = scalar_guard(lr, decay, param[0])
+    _compilable_fused_psgd_precond_grad(
+        ea, param, lr, grad, decay, caution, preconds, store_triu_as_line, symmetric_output
+    )
 
 
 @decorator_knowngood
@@ -2068,7 +2796,15 @@ def caution(g, update):
     return _compilable_cautioning(g, update)
 
 
-def precond_update_prob_schedule(max_prob=1.0, min_prob=0.03, decay=0.999, flat_start=1000):
+def _inner_precond_update_prob_schedule(
+    n: int, max_prob: float = 1.0, min_prob: float = 0.03, decay: float = 0.999, flat_start: float = 1000
+):
+    return max(min_prob, max_prob * decay ** max(n - flat_start, 0))
+
+
+def precond_update_prob_schedule(
+    max_prob: float = 1.0, min_prob: float = 0.03, decay: float = 0.999, flat_start: float = 1000
+):
     """Anneal preconditioner update probability during beginning of training.
 
     PSGD benefits from more preconditioner updates at the beginning of training,
@@ -2079,11 +2815,9 @@ def precond_update_prob_schedule(max_prob=1.0, min_prob=0.03, decay=0.999, flat_
     `min_prob` by ~4000 steps. Default settings work very well for most models and
     training regimes.
     """
-
-    def _schedule(n):
-        return max(min_prob, max_prob * decay ** max(n - flat_start, 0))
-
-    return _schedule
+    return functools.partial(
+        _inner_precond_update_prob_schedule, max_prob=max_prob, min_prob=min_prob, decay=decay, flat_start=flat_start
+    )
 
 
 def merge_group(group, *tensors):
@@ -2217,3 +2951,16 @@ def _compilable_caution_no_scale(g: Tensor, update: Tensor):
 def disable_caution_scaling():
     global _compilable_cautioning
     _compilable_cautioning = _compilable_caution_no_scale
+
+
+@decorator_knowngood
+def sam_step(parameters, ball_size, adaptive: bool = True):
+    old_params = []
+    for p in parameters:
+        old_params.append(p.detach().clone())
+        grad = promote(p.grad)
+        if adaptive:
+            grad = grad * promote(p).square()
+        stochastic_add_(p.data, grad, ball_size)
+        p.grad.zero_()
+    return old_params

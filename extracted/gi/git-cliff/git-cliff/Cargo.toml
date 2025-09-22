@@ -1,10 +1,10 @@
 [package]
 name = "git-cliff"
-version = "2.10.0" # managed by release.sh
+version = "2.10.1" # managed by release.sh
 description = "A highly customizable changelog generator ⛰️"
 authors = ["git-cliff contributors <git-cliff@protonmail.com>"]
 license = "MIT OR Apache-2.0"
-readme = "../README.md"
+readme = "README.md"
 homepage = "https://github.com/orhun/git-cliff"
 repository = "https://github.com/orhun/git-cliff"
 keywords = ["changelog", "generator", "conventional", "commit"]
@@ -23,7 +23,9 @@ path = "src/bin/mangen.rs"
 
 [features]
 # check for new versions
-default = ["update-informer", "github", "gitlab", "gitea", "bitbucket"]
+default = ["update-informer", "integrations"]
+# enable all integrations
+integrations = ["github", "gitlab", "gitea", "bitbucket"]
 # inform about new releases
 update-informer = ["dep:update-informer"]
 # enable remote repository integration
@@ -61,7 +63,7 @@ url.workspace = true
 pathdiff = "0.2.3"
 
 [dependencies.git-cliff-core]
-version = "2.10.0" # managed by release.sh
+version = "2.10.1" # managed by release.sh
 path = "../git-cliff-core"
 
 [dev-dependencies]

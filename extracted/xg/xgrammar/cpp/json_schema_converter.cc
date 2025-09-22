@@ -8,10 +8,12 @@
 
 #include <climits>
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -39,13 +41,23 @@ using SchemaError = TypedError<SchemaErrorType>;
  */
 class IndentManager {
  public:
-  IndentManager(std::optional<int> indent, const std::string& separator, bool any_whitespace)
+  IndentManager(
+      std::optional<int> indent,
+      const std::string& separator,
+      bool any_whitespace,
+      std::optional<int> max_whitespace_cnt
+  )
       : any_whitespace_(any_whitespace),
         enable_newline_(indent.has_value()),
         indent_(indent.value_or(0)),
         separator_(separator),
         total_indent_(0),
-        is_first_({true}) {}
+        is_first_({true}),
+        max_whitespace_cnt_(max_whitespace_cnt) {
+    if (max_whitespace_cnt.has_value() && max_whitespace_cnt.value() <= 0) {
+      XGRAMMAR_LOG(FATAL) << ("max_whitespace_cnt must be positive.");
+    }
+  }
 
   /*! \brief Enter a new indent level. */
   void StartIndent() {
@@ -104,12 +116,17 @@ class IndentManager {
   std::string separator_;
   int64_t total_indent_;
   std::vector<bool> is_first_;
+  std::optional<int> max_whitespace_cnt_;
   friend class JSONSchemaConverter;
 };
 
 std::string IndentManager::StartSeparator() {
   if (any_whitespace_) {
-    return "[ \\n\\t]*";
+    if (!max_whitespace_cnt_.has_value()) {
+      return "[ \\n\\t]*";
+    } else {
+      return "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+    }
   }
   if (!enable_newline_) {
     return "\"\"";
@@ -119,7 +136,13 @@ std::string IndentManager::StartSeparator() {
 
 std::string IndentManager::MiddleSeparator() {
   if (any_whitespace_) {
-    return "[ \\n\\t]* \"" + separator_ + "\" [ \\n\\t]*";
+    std::string whitespace_part;
+    if (!max_whitespace_cnt_.has_value()) {
+      whitespace_part = "[ \\n\\t]*";
+    } else {
+      whitespace_part = "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+    }
+    return whitespace_part + " \"" + separator_ + "\" " + whitespace_part;
   }
   if (!enable_newline_) {
     return "\"" + separator_ + "\"";
@@ -129,7 +152,11 @@ std::string IndentManager::MiddleSeparator() {
 
 std::string IndentManager::EndSeparator() {
   if (any_whitespace_) {
-    return "[ \\n\\t]*";
+    if (!max_whitespace_cnt_.has_value()) {
+      return "[ \\n\\t]*";
+    } else {
+      return "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+    }
   }
   if (!enable_newline_) {
     return "\"\"";
@@ -139,7 +166,11 @@ std::string IndentManager::EndSeparator() {
 
 std::string IndentManager::EmptySeparator() {
   if (any_whitespace_) {
-    return "[ \\n\\t]*";
+    if (!max_whitespace_cnt_.has_value()) {
+      return "[ \\n\\t]*";
+    } else {
+      return "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+    }
   }
   return "\"\"";
 }
@@ -148,9 +179,19 @@ std::string IndentManager::NextSeparator(bool is_end) {
   if (any_whitespace_) {
     if (is_first_.back() || is_end) {
       is_first_.back() = false;
-      return "[ \\n\\t]*";
+      if (!max_whitespace_cnt_.has_value()) {
+        return "[ \\n\\t]*";
+      } else {
+        return "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+      }
     } else {
-      return "[ \\n\\t]* \"" + separator_ + "\" [ \\n\\t]*";
+      std::string whitespace_part;
+      if (!max_whitespace_cnt_.has_value()) {
+        whitespace_part = "[ \\n\\t]*";
+      } else {
+        whitespace_part = "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+      }
+      return whitespace_part + " \"" + separator_ + "\" " + whitespace_part;
     }
   }
 
@@ -189,7 +230,8 @@ class JSONSchemaConverter {
       std::optional<int> indent,
       std::optional<std::pair<std::string, std::string>> separators,
       bool strict_mode,
-      JSONFormat json_format = JSONFormat::kJSON
+      std::optional<int> max_whitespace_cnt,
+      JSONFormat json_format
   );
 
   /*! \brief The root method. Convert the JSON schema to EBNF grammar string. */
@@ -224,7 +266,6 @@ class JSONSchemaConverter {
   inline static const std::string kXMLEscape = "xml_escape";
   inline static const std::string kXMLString = "xml_string";
   inline static const std::string kXMLVariableName = "xml_variable_name";
-  inline static const std::string kWhiteSpace = "[ \\n\\t]*";
 
   /*! \brief Add the basic rules to the rules list and the basic_rules_cache. */
   void AddBasicRules(JSONFormat json_format);
@@ -361,6 +402,22 @@ class JSONSchemaConverter {
     int min_length = 0;
     int max_length = -1;
     std::pair<std::string, std::string> wrapper;
+    bool operator==(const StringSpec& other) const {
+      return pattern == other.pattern && min_length == other.min_length &&
+             max_length == other.max_length && wrapper == other.wrapper;
+    }
+  };
+
+  struct StringSpecHash {
+    size_t operator()(const StringSpec& spec) const {
+      return HashCombine(
+          std::hash<std::string>()(spec.pattern),
+          spec.min_length,
+          spec.max_length,
+          std::hash<std::string>()(spec.wrapper.first),
+          std::hash<std::string>()(spec.wrapper.second)
+      );
+    }
   };
 
   Result<StringSpec, SchemaError> ParseStringSchema(
@@ -517,6 +574,15 @@ class JSONSchemaConverter {
   bool any_whitespace_;
   // The cache for URI to rule. Mapping from the URI to the rule name.
   std::unordered_map<std::string, std::string> uri_to_rule_cache_;
+  // The maximum number of whitespaces allowed when any_whitespace_ is true.
+  std::optional<int> max_whitespace_cnt_;
+  // The map from string spec to the rule name.
+  std::unordered_map<StringSpec, std::string, StringSpecHash> string_spec_to_rule_name_and_context_;
+
+  const std::string kWhiteSpace =
+      max_whitespace_cnt_.has_value()
+          ? "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}"
+          : "[ \\n\\t]*";
 };
 
 JSONSchemaConverter::JSONSchemaConverter(
@@ -525,9 +591,13 @@ JSONSchemaConverter::JSONSchemaConverter(
     std::optional<int> indent,
     std::optional<std::pair<std::string, std::string>> separators,
     bool strict_mode,
+    std::optional<int> max_whitespace_cnt,
     JSONFormat json_format
 )
-    : json_schema_(json_schema), strict_mode_(strict_mode), any_whitespace_(any_whitespace) {
+    : json_schema_(json_schema),
+      strict_mode_(strict_mode),
+      any_whitespace_(any_whitespace),
+      max_whitespace_cnt_(max_whitespace_cnt) {
   if (!separators.has_value()) {
     if (indent == std::nullopt) {
       separators = std::make_pair(", ", ": ");
@@ -538,9 +608,15 @@ JSONSchemaConverter::JSONSchemaConverter(
   if (any_whitespace) {
     separators = std::make_pair(",", ":");
   }
-  indentManager_ = IndentManager(indent, separators->first, any_whitespace);
+  indentManager_ = IndentManager(indent, separators->first, any_whitespace, max_whitespace_cnt);
   if (any_whitespace) {
-    colon_pattern_ = "[ \\n\\t]* \"" + separators->second + "\" [ \\n\\t]*";
+    std::string whitespace_part;
+    if (!max_whitespace_cnt_.has_value()) {
+      whitespace_part = "[ \\n\\t]*";
+    } else {
+      whitespace_part = "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+    }
+    colon_pattern_ = whitespace_part + " \"" + separators->second + "\" " + whitespace_part;
   } else {
     colon_pattern_ = "\"" + separators->second + "\"";
   }
@@ -579,9 +655,9 @@ void JSONSchemaConverter::AddBasicRules(JSONFormat json_format) {
 
   auto past_indent_manager = indentManager_;
   if (any_whitespace_) {
-    indentManager_ = IndentManager(std::nullopt, ",", true);
+    indentManager_ = IndentManager(std::nullopt, ",", true, std::nullopt);
   } else {
-    indentManager_ = IndentManager(std::nullopt, ", ", false);
+    indentManager_ = IndentManager(std::nullopt, ", ", false, std::nullopt);
   }
   AddJSONHelperRules();
   if (json_format == JSONFormat::kXML) {
@@ -628,14 +704,28 @@ void JSONSchemaConverter::AddJSONHelperRules() {
   ebnf_script_creator_.AddRule(
       kBasicEscape, "[\"\\\\/bfnrt] | \"u\" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]"
   );
+  std::string whitespace_part;
+  if (!max_whitespace_cnt_.has_value()) {
+    whitespace_part = "[ \\n\\t]*";
+  } else {
+    whitespace_part = "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+  }
   ebnf_script_creator_.AddRule(
       kBasicStringSub,
       "(\"\\\"\" | [^\\0-\\x1f\\\"\\\\\\r\\n] " + kBasicStringSub + " | \"\\\\\" " + kBasicEscape +
-          " " + kBasicStringSub + ") (= [ \\n\\t]* [,}\\]:])"
+          " " + kBasicStringSub + ") (= " + whitespace_part + " [,}\\]:])"
   );
 }
 
 void JSONSchemaConverter::AddXMLHelperRules() {
+  std::string whitespace_part;
+  if (any_whitespace_) {
+    if (!max_whitespace_cnt_.has_value()) {
+      whitespace_part = "[ \\n\\t]*";
+    } else {
+      whitespace_part = "[ \\n\\t]{0," + std::to_string(max_whitespace_cnt_.value()) + "}";
+    }
+  }
   ebnf_script_creator_.AddRule(
       kXMLEscape, "[\"\\\\/bfnrt] | \"u\" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9]"
   );
@@ -645,7 +735,7 @@ void JSONSchemaConverter::AddXMLHelperRules() {
   ebnf_script_creator_.AddRule(
       kXMLString,
       "(\"\" | [^<>&\\0-\\x1f\\\\\\r\\n] " + kXMLString + " | \"\\\\\" " + kXMLEscape + " " +
-          kXMLString + " | " + kXMLEntity + " " + kXMLString + ") (= [ \\n\\t]*)"
+          kXMLString + " | " + kXMLEntity + " " + kXMLString + ") (= " + whitespace_part + ")"
   );
   ebnf_script_creator_.AddRule(kXMLVariableName, "[a-zA-Z_] [a-zA-Z0-9_]*");
 }
@@ -1886,22 +1976,48 @@ std::string JSONSchemaConverter::VisitString(
     XGRAMMAR_LOG(FATAL) << std::move(string_spec_result).UnwrapErr().what();
   }
   auto string_spec = std::move(string_spec_result).Unwrap();
-  std::string result;
-  if (!string_spec.wrapper.first.empty()) {
-    result += "\"" + string_spec.wrapper.first + "\" ";
+
+  // Check if we have already generated a rule for this string spec.
+  if (string_spec_to_rule_name_and_context_.find(string_spec) !=
+      string_spec_to_rule_name_and_context_.end()) {
+    const auto& existing_rule_name = string_spec_to_rule_name_and_context_.at(string_spec);
+    return existing_rule_name;
   }
-  result += string_spec.pattern;
+
+  if (string_spec.pattern == "[\"] " + kBasicStringSub && string_spec.min_length == 0 &&
+      string_spec.max_length == -1 && string_spec.wrapper.first.empty() &&
+      string_spec.wrapper.second.empty()) {
+    // It's the creation of the basic string rule.
+    string_spec_to_rule_name_and_context_[string_spec] = kBasicString;
+    return string_spec.pattern;
+  }
+
+  if (string_spec.pattern == kXMLString && string_spec.min_length == 0 &&
+      string_spec.max_length == -1 && string_spec.wrapper.first.empty() &&
+      string_spec.wrapper.second.empty()) {
+    string_spec_to_rule_name_and_context_[string_spec] = kXMLString;
+    return kXMLString;
+  }
+
+  // Generate a new rule name for this string spec.
+  std::string spec_context;
+  if (!string_spec.wrapper.first.empty()) {
+    spec_context += "\"" + string_spec.wrapper.first + "\" ";
+  }
+  spec_context += string_spec.pattern;
   if (string_spec.min_length != 0 || string_spec.max_length != -1) {
     std::string repetition_range;
     repetition_range +=
         "{" + std::to_string(string_spec.min_length) + "," +
         (string_spec.max_length == -1 ? "" : std::to_string(string_spec.max_length)) + "}";
-    result += repetition_range;
+    spec_context += repetition_range;
   }
   if (!string_spec.wrapper.second.empty()) {
-    result += " \"" + string_spec.wrapper.second + "\"";
+    spec_context += " \"" + string_spec.wrapper.second + "\"";
   }
-  return result;
+  std::string spec_rule_name = ebnf_script_creator_.AddRule("string", spec_context);
+  string_spec_to_rule_name_and_context_[string_spec] = spec_rule_name;
+  return spec_rule_name;
 }
 
 std::string JSONSchemaConverter::VisitBoolean(
@@ -3103,6 +3219,7 @@ Result<JSONSchemaConverter::StringSpec, SchemaError> JSONSchemaConverter::ParseS
     }
     default: {
       XGRAMMAR_LOG(FATAL) << "Unsupported JSON Format type: " << static_cast<int>(json_format);
+      XGRAMMAR_UNREACHABLE();
     }
   }
 }
@@ -3278,7 +3395,13 @@ std::string JSONSchemaConverter::VisitObject(
       result += " \"}\"";
       if (could_be_empty) {
         // result = (result) | {}
-        auto rest = "\"{\" " + std::string(any_whitespace_ ? "[ \\n\\t]* " : "") + "\"}\"";
+        std::string whitespace_part;
+        if (max_whitespace_cnt_ == std::nullopt) {
+          whitespace_part = "[ \\n\\t]* ";
+        } else {
+          whitespace_part = "[ \\n\\t]{0," + std::to_string(*max_whitespace_cnt_) + "} ";
+        }
+        auto rest = "\"{\" " + std::string(any_whitespace_ ? whitespace_part : "") + "\"}\"";
         if (result == "\"{\"  \"}\"") {
           result = rest;
         } else {
@@ -3329,6 +3452,7 @@ std::string JSONSchemaToEBNF(
     std::optional<int> indent,
     std::optional<std::pair<std::string, std::string>> separators,
     bool strict_mode,
+    std::optional<int> max_whitespace_cnt,
     JSONFormat json_format
 ) {
   picojson::value schema_value;
@@ -3336,7 +3460,7 @@ std::string JSONSchemaToEBNF(
   XGRAMMAR_CHECK(err.empty()) << "Failed to parse JSON: " << err
                               << ". The JSON string is:" << schema;
   return JSONSchemaToEBNF(
-      schema_value, any_whitespace, indent, separators, strict_mode, json_format
+      schema_value, any_whitespace, indent, separators, strict_mode, max_whitespace_cnt, json_format
   );
 }
 
@@ -3346,10 +3470,11 @@ std::string JSONSchemaToEBNF(
     std::optional<int> indent,
     std::optional<std::pair<std::string, std::string>> separators,
     bool strict_mode,
+    std::optional<int> max_whitespace_cnt,
     JSONFormat json_format
 ) {
   JSONSchemaConverter converter(
-      schema, any_whitespace, indent, separators, strict_mode, json_format
+      schema, any_whitespace, indent, separators, strict_mode, max_whitespace_cnt, json_format
   );
   return converter.Convert(json_format);
 }
@@ -3361,6 +3486,30 @@ std::string GenerateRangeRegex(std::optional<int64_t> start, std::optional<int64
 
 std::string GenerateFloatRangeRegex(std::optional<double> start, std::optional<double> end) {
   return JSONSchemaConverter::GenerateFloatRangeRegex(start, end, 6);
+}
+
+std::string QwenXMLToolCallingToEBNF(const std::string& schema) {
+  // Convert the schema string to picojson value.
+  picojson::value json_value;
+  std::string err = picojson::parse(json_value, schema);
+  if (!err.empty()) {
+    XGRAMMAR_LOG(FATAL) << "Failed to parse JSON schema: " << err;
+  }
+  if (json_value.is<bool>()) {
+    XGRAMMAR_LOG(FATAL) << "Expected JSON schema object, got boolean: " << json_value.to_str();
+  }
+  const auto& schema_obj = json_value.get<picojson::object>();
+  if (!schema_obj.count("type")) {
+    XGRAMMAR_LOG(FATAL) << "Function calling must have a 'type' field of 'object': "
+                        << json_value.to_str();
+  }
+  if (schema_obj.at("type").get<std::string>() != "object") {
+    XGRAMMAR_LOG(FATAL) << "Function calling must have a 'type' field of 'object': "
+                        << json_value.to_str();
+  }
+  return JSONSchemaToEBNF(
+      json_value, true, std::nullopt, std::nullopt, true, std::nullopt, JSONFormat::kXML
+  );
 }
 
 }  // namespace xgrammar

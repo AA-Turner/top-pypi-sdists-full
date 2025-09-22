@@ -162,14 +162,19 @@ class Lim(object):
         self.rotn = 0  # rot num files
         self.rotl = 0  # rot depth
         self.rotf = ""  # rot datefmt
+        self.rotf_tz = UTC  # rot timezone
         self.rot_re = re.compile("")  # rotf check
 
     def log(self, msg , c   = 0)  :
         if self.log_func:
             self.log_func("up-lim", msg, c)
 
-    def set_rotf(self, fmt )  :
+    def set_rotf(self, fmt , tz )  :
         self.rotf = fmt
+        if tz != "UTC":
+            from zoneinfo import ZoneInfo
+
+            self.rotf_tz = ZoneInfo(tz)
         r = re.escape(fmt).replace("%Y", "[0-9]{4}").replace("%j", "[0-9]{3}")
         r = re.sub("%[mdHMSWU]", "[0-9]{2}", r)
         self.rot_re = re.compile("(^|/)" + r + "$")
@@ -273,7 +278,7 @@ class Lim(object):
             if self.rot_re.search(path.replace("\\", "/")):
                 return path, ""
 
-            suf = datetime.now(UTC).strftime(self.rotf)
+            suf = datetime.now(self.rotf_tz).strftime(self.rotf)
             if path:
                 path += "/"
 
@@ -628,6 +633,8 @@ class VFS(object):
         if do_stat and not bos.path.exists(ap):
             return True  # doesn't exist at all; good to go
         dp, fn = os.path.split(ap)
+        if not fn:
+            return True  # filesystem root
         try:
             fns = os.listdir(dp)
         except:
@@ -640,6 +647,8 @@ class VFS(object):
             if lfn == zs.lower():
                 hit = zs
                 break
+        if not hit:
+            return True  # NFC/NFD or something, can't be helped either way
         if self.log:
             t = "returning 404 due to underlying case-insensitive filesystem:\n  http-req: %r\n  local-fs: %r"
             self.log("vfs", t % (fn, hit))
@@ -2203,7 +2212,7 @@ class AuthSrv(object):
             zs = vol.flags.get("rotf")
             if zs:
                 use = True
-                lim.set_rotf(zs)
+                lim.set_rotf(zs, vol.flags.get("rotf_tz") or "UTC")
 
             zs = vol.flags.get("maxn")
             if zs:

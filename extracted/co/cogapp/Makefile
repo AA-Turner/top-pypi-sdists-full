@@ -41,11 +41,7 @@ cogdoc:			## Run cog to keep the docs correct.
 	python -m cogapp -r $(COGARGS)
 
 lintdoc:		## Check that the docs are up-to-date.
-	@python -m cogapp --check --diff $(COGARGS); \
-	if [ $$? -ne 0 ]; then \
-		echo 'Docs need to be updated: `make cogdoc`'; \
-		exit 1; \
-	fi
+	@python -m cogapp --check --check-fail-msg='Docs need to be updated: `make cogdoc`' --diff $(COGARGS)
 
 dochtml:		## Build local docs.
 	$(MAKE) -C docs html
@@ -71,7 +67,7 @@ tag:			## Make a git tag with the version number
 release: _check_credentials clean check_release dist pypi tag ## Do all the steps for a release
 	@echo "Release $(VERSION) complete!"
 
-check_release: _check_manifest _check_tree _check_version ## Check that we are ready for a release
+check_release: clean dist _check_manifest _check_tree _check_version ## Check that we are ready for a release
 	@echo "Release checks passed"
 
 _check_credentials:

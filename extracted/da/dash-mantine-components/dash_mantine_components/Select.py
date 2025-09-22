@@ -217,10 +217,14 @@ Keyword arguments:
         Determines  whether overflow along this axis is checked to
         perform a flip. @,default,True.
 
-    - crossAxis (boolean; optional):
+    - crossAxis (optional):
         The axis that runs along the alignment of the floating
         element. Determines  whether overflow along this axis is
-        checked to perform a flip. @,default,True.
+        checked to perform a flip.  - `True`: Whether to check cross
+        axis overflow for both side and alignment flipping.  -
+        `False`: Whether to disable all cross axis overflow checking.
+        - `'alignment'`: Whether to check cross axis overflow for
+        alignment flipping only. @,default,True.
 
     - rootBoundary (dict; optional):
         The root clipping area in which overflow will be checked.
@@ -944,7 +948,7 @@ Keyword arguments:
             "type": NotRequired[Literal["auto", "always", "scroll", "hover", "never"]],
             "scrollHideDelay": NotRequired[NumberType],
             "scrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["xy"]]],
-            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"]]],
+            "offsetScrollbars": NotRequired[typing.Union[Literal["x"], Literal["y"], Literal["present"]]],
             "overscrollBehavior": NotRequired[typing.Union[Literal["auto"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["contain"], Literal["none"]]],
             "className": NotRequired[str],
             "style": NotRequired[typing.Union[typing.Any]],
@@ -994,7 +998,7 @@ Keyword arguments:
             "bgsz": NotRequired[typing.Union[str, NumberType]],
             "bgp": NotRequired[typing.Union[str, NumberType]],
             "bgr": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]],
-            "bga": NotRequired[typing.Union[Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"]]],
+            "bga": NotRequired[typing.Union[Literal["local"], Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"]]],
             "pos": NotRequired[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]],
             "top": NotRequired[typing.Union[str, NumberType]],
             "left": NotRequired[typing.Union[str, NumberType]],
@@ -1058,7 +1062,7 @@ Keyword arguments:
             {
             "padding": NotRequired[typing.Union[NumberType, "ComboboxPropsMiddlewaresFlipPadding"]],
             "mainAxis": NotRequired[bool],
-            "crossAxis": NotRequired[bool],
+            "crossAxis": NotRequired[typing.Union[Literal["alignment"]]],
             "rootBoundary": NotRequired[typing.Union[Literal["viewport"], Literal["document"], "ComboboxPropsMiddlewaresFlipRootBoundary"]],
             "elementContext": NotRequired[Literal["reference", "floating"]],
             "altBoundary": NotRequired[bool],
@@ -1191,7 +1195,7 @@ Keyword arguments:
         bgsz: typing.Optional[typing.Union[str, NumberType]] = None,
         bgp: typing.Optional[typing.Union[str, NumberType]] = None,
         bgr: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]] = None,
-        bga: typing.Optional[typing.Union[Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"]]] = None,
+        bga: typing.Optional[typing.Union[Literal["local"], Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"]]] = None,
         pos: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]] = None,
         top: typing.Optional[typing.Union[str, NumberType]] = None,
         left: typing.Optional[typing.Union[str, NumberType]] = None,

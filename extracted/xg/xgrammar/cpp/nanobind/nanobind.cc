@@ -84,21 +84,11 @@ std::vector<nanobind::bytes> TokenizerInfo_GetDecodedVocab(const TokenizerInfo& 
   return py_result;
 }
 
-template <typename T>
-static void RegisterRuntimeError(nb::module_& m, const char* name) {
-  // to avoid warning, cast to void
-  static_cast<void>(nb::exception<T>{m, name, PyExc_RuntimeError});
-}
-
 }  // namespace xgrammar
 
 using namespace xgrammar;
 
 NB_MODULE(xgrammar_bindings, m) {
-  RegisterRuntimeError<DeserializeFormatError>(m, "DeserializeFormatError");
-  RegisterRuntimeError<DeserializeVersionError>(m, "DeserializeVersionError");
-  RegisterRuntimeError<InvalidJSONError>(m, "InvalidJSONError");
-
   auto pyTokenizerInfo = nb::class_<TokenizerInfo>(m, "TokenizerInfo");
   pyTokenizerInfo
       .def(
@@ -154,6 +144,7 @@ NB_MODULE(xgrammar_bindings, m) {
           nb::arg("indent").none(),
           nb::arg("separators").none(),
           nb::arg("strict_mode"),
+          nb::arg("max_whitespace_cnt").none(),
           nb::arg("print_converted_ebnf"),
           nb::call_guard<nb::gil_scoped_release>()
       )
@@ -177,7 +168,7 @@ NB_MODULE(xgrammar_bindings, m) {
       .def_static("deserialize_json", &CompiledGrammar_DeserializeJSON);
 
   auto pyGrammarCompiler = nb::class_<GrammarCompiler>(m, "GrammarCompiler");
-  pyGrammarCompiler.def(nb::init<const TokenizerInfo&, int, bool, long long>())
+  pyGrammarCompiler.def(nb::init<const TokenizerInfo&, int, bool, int64_t>())
       .def(
           "compile_json_schema",
           &GrammarCompiler::CompileJSONSchema,
@@ -186,7 +177,8 @@ NB_MODULE(xgrammar_bindings, m) {
           nb::arg("any_whitespace"),
           nb::arg("indent").none(),
           nb::arg("separators").none(),
-          nb::arg("strict_mode")
+          nb::arg("strict_mode"),
+          nb::arg("max_whitespace_cnt").none()
       )
       .def(
           "compile_builtin_json_grammar",
@@ -195,7 +187,7 @@ NB_MODULE(xgrammar_bindings, m) {
       )
       .def(
           "compile_structural_tag",
-          &GrammarCompiler_CompileStructuralTag,
+          &GrammarCompiler::CompileStructuralTag,
           nb::call_guard<nb::gil_scoped_release>()
       )
       .def(
@@ -203,7 +195,15 @@ NB_MODULE(xgrammar_bindings, m) {
       )
       .def(
           "compile_grammar",
-          &GrammarCompiler::CompileGrammar,
+          [](GrammarCompiler& self, const Grammar& grammar) {
+            return self.CompileGrammar(grammar);
+          },
+          nb::call_guard<nb::gil_scoped_release>()
+      )
+      .def(
+          "compile_grammar",
+          [](GrammarCompiler& self, const std::string& ebnf_str, const std::string& root_rule_name
+          ) { return self.CompileGrammar(ebnf_str, root_rule_name); },
           nb::call_guard<nb::gil_scoped_release>()
       )
       .def("clear_cache", &GrammarCompiler::ClearCache)
@@ -253,16 +253,24 @@ NB_MODULE(xgrammar_bindings, m) {
              bool any_whitespace,
              std::optional<int> indent,
              std::optional<std::pair<std::string, std::string>> separators,
-             bool strict_mode) {
+             bool strict_mode,
+             std::optional<int> max_whitespace_cnt) {
             return JSONSchemaToEBNF(
-                schema, any_whitespace, indent, separators, strict_mode, JSONFormat::kJSON
+                schema,
+                any_whitespace,
+                indent,
+                separators,
+                strict_mode,
+                max_whitespace_cnt,
+                JSONFormat::kJSON
             );
           },
           nb::arg("schema"),
           nb::arg("any_whitespace"),
           nb::arg("indent").none(),
           nb::arg("separators").none(),
-          nb::arg("strict_mode")
+          nb::arg("strict_mode"),
+          nb::arg("max_whitespace_cnt").none()
       )
       .def("_regex_to_ebnf", &RegexToEBNF)
       .def("_ebnf_to_grammar_no_normalization", &_EBNFToGrammarNoNormalization)
@@ -279,7 +287,7 @@ NB_MODULE(xgrammar_bindings, m) {
           nb::arg("start").none(),
           nb::arg("end").none()
       )
-      .def("_qwen_xml_tool_calling_to_ebnf", &_QwenXMLToolCallingToEBNF, nb::arg("schema"))
+      .def("_qwen_xml_tool_calling_to_ebnf", &QwenXMLToolCallingToEBNF, nb::arg("schema"))
       .def(
           "_generate_float_regex",
           [](std::optional<double> start, std::optional<double> end) {
@@ -327,4 +335,16 @@ NB_MODULE(xgrammar_bindings, m) {
           &GetSerializationVersion,
           nb::call_guard<nb::gil_scoped_release>()
       );
+
+  auto pyExceptionModule = m.def_submodule("exception");
+  nb::exception<DeserializeFormatError>{
+      pyExceptionModule, "DeserializeFormatError", PyExc_RuntimeError
+  };
+  nb::exception<DeserializeVersionError>{
+      pyExceptionModule, "DeserializeVersionError", PyExc_RuntimeError
+  };
+  nb::exception<InvalidJSONError>{pyExceptionModule, "InvalidJSONError", PyExc_RuntimeError};
+  nb::exception<InvalidStructuralTagError>{
+      pyExceptionModule, "InvalidStructuralTagError", PyExc_RuntimeError
+  };
 }

@@ -322,7 +322,11 @@ class ProcessTest(CoverageTest):
         self.run_command("coverage run fleeting")
         os.remove("fleeting")
         out = self.run_command("coverage html -d htmlcov", status=1)
-        assert re.search("No source for code: '.*fleeting'", out)
+        assert re.search(r"No source for code: '.*fleeting'", out)
+        assert re.search(
+            r"; see https://coverage.readthedocs.io/en/[^/]+/messages.html#error-no-source",
+            out,
+        )
         assert "Traceback" not in out
 
     def test_running_missing_file(self) -> None:
@@ -762,13 +766,14 @@ class ProcessTest(CoverageTest):
         # Remove the file location and source line from the warning.
         out = re.sub(r"(?m)^[\\/\w.:~_-]+:\d+: CoverageWarning: ", "f:d: CoverageWarning: ", out)
         out = re.sub(r"(?m)^\s+self.warn.*$\n", "", out)
+        out = re.sub(r"; see https://.*$", "", out)
         expected = (
             "Run 1\n"
             + "Run 2\n"
             + "f:d: CoverageWarning: Module foo was previously imported, but not measured "
             + "(module-not-measured)\n"
         )
-        assert expected == out
+        assert out == expected
 
     def test_module_name(self) -> None:
         # https://github.com/nedbat/coveragepy/issues/478

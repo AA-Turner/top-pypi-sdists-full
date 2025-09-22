@@ -1163,6 +1163,81 @@ def generateWhiteNoise():
         print(e)
 
 class TasksMode:
+    def nanoid(self,auto=None):
+        with localcontext() as ctx:
+            fields={
+                'size':{
+                    'default':21,
+                    'type':'integer',
+                },
+                'alphabet':{
+                    'default':string.ascii_uppercase+string.digits,
+                    'type':'string',
+                },
+                'chunk size':{
+                    'default':7,
+                    'type':'integer',
+                },
+                'delim':{
+                    'default':'/',
+                    'type':'string',
+                }
+            }
+            if not auto:
+                fd=FormBuilder(data=fields)
+                if fd is None:
+                    return None
+            else:
+                fd={
+                    'chunk size':7,
+                    'size':21,
+                    'delim':'/',
+                    'alphabet':string.ascii_uppercase+string.digits,
+                }
+            recieptidFile=detectGetOrSet("NanoIdFile","nanoid.txt",setValue=False,literal=True)
+            idx=nanoid.generate(fd['alphabet'],fd['size'])
+            idx=f'{fd["delim"]}'.join(stre(idx)/fd["chunk size"])
+
+            if not auto:
+                returnIDX=Control(func=FormBuilderMkText,ptext=f"return '{idx}'; it will be saved to {recieptidFile}",helpText=f"return '{idx}' as a string",data="boolean")
+            else:
+                returnIDX=None  
+
+            if recieptidFile is not None:
+                if auto:
+                    print(f"'{recieptidFile}' was updated with '{idx}'.")
+                recieptidFile=Path(recieptidFile)
+                with recieptidFile.open("w") as f:
+                    f.write(idx+"\n")
+
+            if returnIDX in [False,'NaN',None]:
+                return None
+            elif returnIDX in ['d',True]:
+                return str(idx)
+
+    def mkRun(self):
+        rootdir=Control(func=FormBuilderMkText,ptext=f"Root Directory[d={ROOTDIR}/path|p=str(Path().cwd())]",helpText="root directory",data="string")
+        if rootdir in [None,'NaN']:
+            return
+        elif rootdir in ['d',]:
+            rootdir=f'"{ROOTDIR}"'
+        elif rootdir in ['path','p']:
+            rootdir='str(Path().cwd())'
+        else:
+            rootdir=f'"{rootdir}"'
+
+        content=f'''#!/usr/bin/env python3
+from pathlib import Path
+ROOTDIR={rootdir}
+from radboy import RecordMyCodes as rmc
+rmc.quikRn(rootdir=ROOTDIR)'''
+        with open('Run.py','w') as out:
+            out.write(content)
+        print("written to './Run.py'")
+
+    def chRun(self):
+        print(f"{Fore.orange_red_1}'./Run.py'.exists()=={Path('./Run.py').exists()}{Style.reset}")
+
     def networth_ui(self):
         NetWorthUi()
     def simple_scanner(self):
@@ -5152,6 +5227,7 @@ where:
         self.DateTimePkr=DateTimePkr
         self.TimePkr=TimePkr
         self.DatePkr=DatePkr
+        self.nanoid(auto=True)
         of=Path("GeneratedString.txt")
         if of.exists():
             age=datetime.now()-datetime.fromtimestamp(of.stat().st_ctime)

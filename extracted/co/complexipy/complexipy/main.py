@@ -51,6 +51,12 @@ def main(
         None,
         help="Paths to the directories or files to analyze, it can be a local paths or a git repository URL.",
     ),
+    exclude: Optional[List[str]] = typer.Option(
+        None,
+        "--exclude",
+        "-e",
+        help="Paths to the directories or files to exclude.",
+    ),
     max_complexity_allowed: Optional[int] = typer.Option(
         None,
         "--max-complexity-allowed",
@@ -110,6 +116,7 @@ def main(
         sort,
         output_csv,
         output_json,
+        exclude,
     ) = get_arguments_value(
         TOML_CONFIG,
         paths,
@@ -120,6 +127,7 @@ def main(
         sort,
         output_csv,
         output_json,
+        exclude,
     )
 
     if not quiet:
@@ -128,7 +136,9 @@ def main(
         else:
             console.rule(":octopus: complexipy")
     start_time = time.time()
-    result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(paths, quiet)
+    result: Tuple[List[FileComplexity], List[str]] = _complexipy.main(
+        paths, quiet, exclude
+    )
     files_complexities, failed_paths = result
     execution_time = time.time() - start_time
     output_csv_path = f"{INVOCATION_PATH}/complexipy.csv"

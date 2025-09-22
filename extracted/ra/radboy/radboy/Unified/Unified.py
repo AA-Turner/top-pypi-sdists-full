@@ -739,10 +739,11 @@ Location Fields:
                         #gzf.add("Images")
                         #gzf.add("LCL_IMG")
                         with open("Run.py","wb") as runner:
-                            lines=b'''#!/usr/bin/env python3
+                            lines=f'''#!/usr/bin/env python3
+from pathlib import Path
+ROOTDIR=str(Path().cwd())
 from radboy import RecordMyCodes as rmc
-rmc.quikRn()
-'''
+rmc.quikRn(rootdir=ROOTDIR)'''.encode()
                             runner.write(lines)
                         '''
                         try:
@@ -960,6 +961,31 @@ rmc.quikRn()
                         if bootable_directory.exists():
                             print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{bootable_directory}{Style.reset}")
                             gzf.add(bootable_directory)
+
+                        try:
+                            recieptidFile=Path(detectGetOrSet("NanoIdFile","nanoid.txt",setValue=False,literal=True))
+                            if recieptidFile.exists():
+                                print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{recieptidFile}{Style.reset}")
+                                gzf.add(recieptidFile)
+                        except Exception as e:
+                            print(e)
+                            pass
+                        try:
+                            recieptidFile=Path(detectGetOrSet("RecieptIdFile","reciept_id.txt",setValue=False,literal=True))
+                            if recieptidFile.exists():
+                                print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{recieptidFile}{Style.reset}")
+                                gzf.add(recieptidFile)
+                        except Exception as e:
+                            print(e)
+                            pass
+
+                        receiptsDirectory=detectGetOrSet("ReceiptsDirectory","Receipts",setValue=False,literal=True)
+                        if receiptsDirectory:
+                            receiptsDirectory=Path(receiptsDirectory)
+                            if not receiptsDirectory.exists():
+                                receiptsDirectory.mkdir(parents=True)
+                            print(f"{Fore.spring_green_3b}Adding {Fore.green_yellow}{receiptsDirectory}{Style.reset}")
+                            gzf.add(receiptsDirectory)
 
                         with Session(ENGINE) as session:
                             files=session.query(SystemPreference).filter(SystemPreference.name.icontains('ClipBoordImport_')).all()

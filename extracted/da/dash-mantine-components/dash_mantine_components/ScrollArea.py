@@ -20,7 +20,7 @@ NumberType = typing.Union[
 
 class ScrollArea(Component):
     """A ScrollArea component.
-ScrollArea
+Scroll area with custom scroll bars
 
 Keyword arguments:
 
@@ -218,6 +218,23 @@ Keyword arguments:
     Scroll hide delay in ms, applicable only when type is set to
     `hover` or `scroll`, `1000` by default.
 
+- scrollTo (dict; optional):
+    Scroll to a position in the scroll area.
+
+    `scrollTo` is a dict with keys:
+
+    - top (string | number; optional):
+        The vertical position as pixels (number) or percentage
+        (string) from '0%' to '100%'.
+
+    - left (string | number; optional):
+        The horizontal position as pixels (number) or percentage
+        (string) from '0%' to '100%'.
+
+    - behavior (a value equal to: 'auto', 'smooth'; optional):
+        scroll behavior: `auto` (instant) or `smooth` (animated),
+        `smooth` by default.
+
 - scrollbarSize (string | number; optional):
     Scrollbar size, any valid CSS value for width/height, numbers are
     converted to rem, default value is 0.75rem.
@@ -243,7 +260,7 @@ Keyword arguments:
 - tt (optional):
     TextTransform.
 
-- type (a value equal to: 'auto', 'scroll', 'always', 'hover', 'never'; optional):
+- type (a value equal to: 'auto', 'always', 'scroll', 'hover', 'never'; optional):
     Defines scrollbars behavior, `hover` by default - `hover` –
     scrollbars are visible when mouse is over the scroll area -
     `scroll` – scrollbars are visible when the scroll area is scrolled
@@ -267,6 +284,15 @@ Keyword arguments:
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'ScrollArea'
+    ScrollTo = TypedDict(
+        "ScrollTo",
+            {
+            "top": NotRequired[typing.Union[str, NumberType]],
+            "left": NotRequired[typing.Union[str, NumberType]],
+            "behavior": NotRequired[Literal["auto", "smooth"]]
+        }
+    )
+
     LoadingState = TypedDict(
         "LoadingState",
             {
@@ -280,12 +306,13 @@ Keyword arguments:
     def __init__(
         self,
         children: typing.Optional[ComponentType] = None,
+        scrollTo: typing.Optional["ScrollTo"] = None,
         scrollbarSize: typing.Optional[typing.Union[str, NumberType]] = None,
-        type: typing.Optional[Literal["auto", "scroll", "always", "hover", "never"]] = None,
+        type: typing.Optional[Literal["auto", "always", "scroll", "hover", "never"]] = None,
         scrollHideDelay: typing.Optional[NumberType] = None,
         scrollbars: typing.Optional[typing.Union[Literal["x"], Literal["y"], Literal["xy"]]] = None,
-        offsetScrollbars: typing.Optional[typing.Union[Literal["x"], Literal["y"]]] = None,
-        overscrollBehavior: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["none"], Literal["auto"], Literal["contain"]]] = None,
+        offsetScrollbars: typing.Optional[typing.Union[Literal["x"], Literal["y"], Literal["present"]]] = None,
+        overscrollBehavior: typing.Optional[typing.Union[Literal["auto"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["contain"], Literal["none"]]] = None,
         className: typing.Optional[str] = None,
         style: typing.Optional[typing.Any] = None,
         hiddenFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
@@ -334,7 +361,7 @@ Keyword arguments:
         bgsz: typing.Optional[typing.Union[str, NumberType]] = None,
         bgp: typing.Optional[typing.Union[str, NumberType]] = None,
         bgr: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["no-repeat"], Literal["repeat"], Literal["repeat-x"], Literal["repeat-y"], Literal["round"], Literal["space"]]] = None,
-        bga: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"], Literal["scroll"]]] = None,
+        bga: typing.Optional[typing.Union[Literal["scroll"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["local"]]] = None,
         pos: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["fixed"], Literal["-webkit-sticky"], Literal["absolute"], Literal["relative"], Literal["static"], Literal["sticky"]]] = None,
         top: typing.Optional[typing.Union[str, NumberType]] = None,
         left: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -353,9 +380,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offsetScrollbars', 'opacity', 'overscrollBehavior', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollHideDelay', 'scrollbarSize', 'scrollbars', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offsetScrollbars', 'opacity', 'overscrollBehavior', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollHideDelay', 'scrollTo', 'scrollbarSize', 'scrollbars', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'variant', 'visibleFrom', 'w']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offsetScrollbars', 'opacity', 'overscrollBehavior', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollHideDelay', 'scrollbarSize', 'scrollbars', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'variant', 'visibleFrom', 'w']
+        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'inset', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'offsetScrollbars', 'opacity', 'overscrollBehavior', 'p', 'pb', 'pe', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'scrollHideDelay', 'scrollTo', 'scrollbarSize', 'scrollbars', 'style', 'styles', 'ta', 'tabIndex', 'td', 'top', 'tt', 'type', 'unstyled', 'variant', 'visibleFrom', 'w']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

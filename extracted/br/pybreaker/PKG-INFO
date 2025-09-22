@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybreaker
-Version: 1.4.0
+Version: 1.4.1
 Summary: Python implementation of the Circuit Breaker pattern
 Keywords: design,pattern,circuit,breaker,integration
 Author-email: Daniel Fernandes Martins <daniel.tritone@gmail.com>

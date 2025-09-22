@@ -16,10 +16,10 @@ class Monthly(BaseEntity):
     """
 
     path: str = field(
-        default = 'storage/log/monthly.log',
+        default = 'storage/logs/monthly.log',
         metadata = {
             "description": "The file path where the log is stored.",
-            "default": "storage/log/monthly.log"
+            "default": "storage/logs/monthly.log"
         },
     )
 

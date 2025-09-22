@@ -26,10 +26,10 @@ class Chunked(BaseEntity):
     """
 
     path: str = field(
-        default = 'storage/log/chunked.log',
+        default = 'storage/logs/chunked.log',
         metadata = {
             "description": "The file path where the log is stored.",
-            "default": "storage/log/chunked.log"
+            "default": "storage/logs/chunked.log"
         },
     )
 
