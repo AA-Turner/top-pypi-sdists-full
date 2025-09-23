@@ -1,15 +1,14 @@
-from typing import Set, Type, Any, List, Dict, Optional, Iterable, TYPE_CHECKING
-import warnings as py_warnings
+from typing import Type, Any, List, Dict, Optional, Iterable, TYPE_CHECKING
 
 from antlr4 import InputStream
 
 from . import messages
-from . import warnings # pylint: disable=reimported
+from . import warnings
 from .parser import sa_systemrdl
 from .core.ComponentVisitor import RootVisitor
 from .core.ExprVisitor import ExprVisitor
 from .properties.rulebook import PropertyRuleBook
-from .properties.user_defined import ExternalUserProperty, LegacyExternalUserProperty
+from .properties.user_defined import ExternalUserProperty
 from .core.namespace import NamespaceRegistry
 from .core.elaborate import ElabExpressionsListener, PrePlacementValidateListener, LateElabListener
 from .core.elaborate import StructuralPlacementListener, LateElabRevisitor
@@ -88,7 +87,6 @@ class RDLCompiler:
                     'sort', 'tied', 'pack', 'unpack', 'reset'
                 ]
 
-
         .. versionchanged:: 1.8
             Added ``dedent_desc`` option.
         .. versionchanged:: 1.9
@@ -110,44 +108,9 @@ class RDLCompiler:
         self.msg = self.env.msg
 
         self.namespace: NamespaceRegistry = NamespaceRegistry(self.env)
-        self.visitor: RootVisitor = RootVisitor(self)
+        self.visitor: RootVisitor = RootVisitor(self, comp.Root())
         self.root = self.visitor.component
 
-
-    def define_udp(
-            self, name: str, valid_type: Any,
-            valid_components: Optional[Set[Type[comp.Component]]]=None,
-            default: Any=None
-        ) -> None:
-
-        py_warnings.warn(
-            "Use of RDLCompiler.define_udp() is deprecated. Use RDLCompiler.register_udp() instead.",
-            DeprecationWarning, stacklevel=2
-        )
-
-        if name in self.env.property_rules.rdl_properties:
-            raise ValueError(f"UDP definition's name '{name}' conflicts with existing built-in RDL property")
-        if name in self.env.property_rules.user_properties:
-            raise ValueError(f"UDP '{name}' has already been defined")
-        if valid_components is None:
-            valid_components = {
-                comp.Field,
-                comp.Reg,
-                comp.Regfile,
-                comp.Addrmap,
-                comp.Mem,
-                comp.Signal,
-            }
-
-        udp = LegacyExternalUserProperty(
-            self.env,
-            name,
-            valid_components,
-            valid_type,
-            default_assignment=default,
-            constr_componentwidth=False
-        )
-        self.env.property_rules.user_properties[udp.name] = udp
 
     def register_udp(self, definition_cls: 'Type[UDPDefinition]', soft: bool=True) -> None:
         """
@@ -342,6 +305,7 @@ class RDLCompiler:
         :class:`~systemrdl.node.RootNode`
             Elaborated root meta-component's Node object.
         """
+
         if parameters is None:
             parameters = {}
 
@@ -364,15 +328,30 @@ class RDLCompiler:
             else:
                 self.msg.fatal("Could not find any 'addrmap' components to elaborate")
 
+        # Create design instance
+        root_node = self._elab_create_root_inst(top_def, inst_name, top_def_name, parameters)
+
+        # Elaborate the design
+        self._elab_design(root_node)
+
+        # Validate design
+        self._elab_validate(root_node)
+
+        if self.msg.had_error:
+            self.msg.fatal("Elaborate aborted due to previous errors")
+
+        return root_node
+
+    def _elab_create_root_inst(self, top_def: comp.Addrmap, inst_name: Optional[str], top_def_name: Optional[str], parameters: Dict[str, 'RDLValue']) -> RootNode:
         # Create an instance of the root component
-        root_inst = self.root._copy_for_inst({})
+        root_inst = self.root._copy_for_inst({}, recursive=True)
         root_inst.is_instance = True
         root_inst.original_def = self.root
         root_inst.inst_name = "$root"
         root_inst.external = False # meaningless, but must not be None
 
         # Create a top-level instance
-        top_inst = top_def._copy_for_inst({})
+        top_inst = top_def._copy_for_inst({}, recursive=True)
         top_inst.is_instance = True
         top_inst.original_def = top_def
         top_inst.addr_offset = 0
@@ -385,11 +364,8 @@ class RDLCompiler:
         # Override parameters as needed
         for param_name, value in parameters.items():
             # Find the parameter to override
-            parameter = None
-            for p in top_inst.parameters:
-                if p.name == param_name:
-                    parameter = p
-                    break
+            if param_name in top_inst.parameters_dict:
+                parameter = top_inst.parameters_dict[param_name]
             else:
                 self.msg.fatal(f"Elaboration top does not have a parameter '{param_name}' that is available for override")
 
@@ -409,15 +385,18 @@ class RDLCompiler:
 
         root_node = RootNode(root_inst, self.env, None)
 
+        return root_node
+
+    def _elab_design(self, root_node: RootNode) -> None:
         # Resolve all expressions
-        walker.RDLWalker(skip_not_present=False).walk(
+        walker.RDLSimpleWalker(skip_not_present=False).walk(
             root_node,
             ElabExpressionsListener(self.msg)
         )
 
         # Resolve address and field placement
         late_elab_listener = LateElabListener(self.msg, self.env)
-        walker.RDLWalker(skip_not_present=False).walk(
+        walker.RDLSimpleWalker(skip_not_present=False).walk(
             root_node,
             PrePlacementValidateListener(self.msg),
             StructuralPlacementListener(self.msg),
@@ -427,14 +406,10 @@ class RDLCompiler:
         # re-visit nodes a 2nd time as-needed to complete elaboration
         LateElabRevisitor(late_elab_listener.node_needs_revisit)
 
-        # Validate design
+    def _elab_validate(self, root_node: RootNode) -> None:
         # Only need to validate nodes that are present
-        walker.RDLWalker(skip_not_present=True).walk(root_node, ValidateListener(self.env))
+        walker.RDLSimpleWalker(skip_not_present=True).walk(root_node, ValidateListener(self.env))
 
-        if self.msg.had_error:
-            self.msg.fatal("Elaborate aborted due to previous errors")
-
-        return root_node
 
 
     def eval(self, expression: str) ->'RDLValue':
@@ -488,7 +463,6 @@ class RDLEnvironment:
     of source compilation
     """
     def __init__(self, args_dict: Dict[str, Any]):
-
         # Collect args
         message_printer = args_dict.pop('message_printer', messages.MessagePrinter())
         w_flags = args_dict.pop('warning_flags', 0)
@@ -500,7 +474,6 @@ class RDLEnvironment:
             ':base_thread', ':filesys_read', ':sys_db', ':load',
             'sort', 'tied', 'pack', 'unpack', 'reset'
         ])
-
         self.chk_missing_reset = self.chk_flag_severity(warnings.MISSING_RESET, w_flags, e_flags)
         self.chk_implicit_field_pos = self.chk_flag_severity(warnings.IMPLICIT_FIELD_POS, w_flags, e_flags)
         self.chk_implicit_addr = self.chk_flag_severity(warnings.IMPLICIT_ADDR, w_flags, e_flags)

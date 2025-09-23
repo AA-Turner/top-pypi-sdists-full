@@ -2,15 +2,15 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 
 use log::debug;
-use nalgebra::{matrix, Vector3};
+use nalgebra::{Vector3, matrix};
 
 use super::centering::Centering;
-use super::hall_symbol_database::{hall_symbol_entry, HallNumber};
+use super::hall_symbol_database::{HallNumber, hall_symbol_entry};
 use super::magnetic_hall_symbol_database::magnetic_hall_symbol_entry;
 use super::magnetic_space_group::UNINumber;
 use crate::base::{
-    MagneticOperation, MagneticOperations, Operation, Operations, OriginShift, Rotation,
-    TimeReversal, Transformation, Translation, EPS,
+    EPS, MagneticOperation, MagneticOperations, Operation, Operations, OriginShift, Rotation,
+    TimeReversal, Transformation, Translation,
 };
 
 const MAX_DENOMINATOR: i32 = 12;
@@ -242,11 +242,10 @@ impl MagneticHallSymbol {
 
 /// Tokenize string by whitespaces
 fn tokenize(hall_symbol: &str) -> Vec<&str> {
-    let tokens = hall_symbol
+    hall_symbol
         .split_whitespace()
         .filter(|s| !s.is_empty())
-        .collect();
-    tokens
+        .collect()
 }
 
 #[allow(clippy::type_complexity)]

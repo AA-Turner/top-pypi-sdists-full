@@ -1,13 +1,13 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyType;
-use pyo3::{prelude::*, IntoPyObjectExt};
+use pyo3::{IntoPyObjectExt, prelude::*};
 use pythonize::{depythonize, pythonize};
 use serde::{Deserialize, Serialize};
 
+use moyo::MoyoDataset;
 use moyo::base::AngleTolerance;
 use moyo::data::Setting;
 use moyo::utils::{to_3_slice, to_3x3_slice};
-use moyo::MoyoDataset;
 
 use crate::base::{PyMoyoError, PyOperations, PyStructure};
 use crate::data::PySetting;
@@ -182,7 +182,7 @@ impl PyMoyoDataset {
     }
 
     pub fn as_dict(&self) -> PyResult<Py<PyAny>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let obj = pythonize(py, &self.0).expect("Python object conversion should not fail");
             obj.into_py_any(py)
         })
@@ -190,7 +190,7 @@ impl PyMoyoDataset {
 
     #[classmethod]
     pub fn from_dict(_cls: &Bound<'_, PyType>, obj: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Python::with_gil(|_| {
+        Python::attach(|_| {
             depythonize::<Self>(obj).map_err(|e| {
                 PyErr::new::<PyValueError, _>(format!("Deserialization failed: {}", e))
             })

@@ -1,6 +1,5 @@
-
 """
-Snowflake Stream API
+Snowflake Stream API.
 
 The Snowflake Stream API is a REST API that you can use to access, update, and perform certain actions on Stream resource in a Snowflake database.  # noqa: E501
 
@@ -40,7 +39,6 @@ class StreamSourceView(StreamSource):
     database_name : str, optional
         Database name to which stream source type belongs. If not provided, database  name provided in the path param will be used.
 
-
     schema_name : str, optional
         Schema name to which stream source type belongs. If not provided, schema name provided in the path param will be used.
 
@@ -49,7 +47,6 @@ class StreamSourceView(StreamSource):
     show_initial_rows : bool, optional
         Whether this stream show initial rows on first consumption
     point_of_time : PointOfTime, optional
-
 
     base_tables : list[str], optional
         List of base tables for the stream
@@ -79,14 +76,14 @@ class StreamSourceView(StreamSource):
 
     @classmethod
     def from_json(cls, json_str: str) -> StreamSourceView:
-        """Create an instance of StreamSourceView from a JSON string"""
+        """Create an instance of StreamSourceView from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -159,7 +156,6 @@ class StreamSourceViewModel(StreamSource):
 
         database_name : str, optional
             Database name to which stream source type belongs. If not provided, database  name provided in the path param will be used.
-
 
         schema_name : str, optional
             Schema name to which stream source type belongs. If not provided, schema name provided in the path param will be used.

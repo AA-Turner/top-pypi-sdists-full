@@ -3578,6 +3578,12 @@ class DeploymentListFilters:
         is one of those provided. See ``datarobot.enums.DEPLOYMENT_IMPORTANCE``
         for allowed values. Supports comma-separated lists. Note that Approval Workflows must
         be enabled for your account to use this filter, otherwise the API will return a 403.
+    tag_keys : List[str]
+        List of tag keys to filter for. If multiple values are specified, deployments with tags
+        that match any of the values will be returned. Supports comma-separated lists.
+    tag_values : List[str]
+        List of tag values to filter for. If multiple values are specified, deployments with tags
+        that match any of the values will be returned. Supports comma-separated lists."
 
     Examples
     --------
@@ -3638,6 +3644,8 @@ class DeploymentListFilters:
         accuracy_health: Optional[List[str]] = None,
         execution_environment_type: Optional[List[str]] = None,
         importance: Optional[List[str]] = None,
+        tag_keys: Optional[List[str]] = None,
+        tag_values: Optional[List[str]] = None,
     ) -> None:
 
         self.role = _check(String(), role)
@@ -3646,6 +3654,8 @@ class DeploymentListFilters:
         self.accuracy_health = _check(t.List(String()), accuracy_health)
         self.execution_environment_type = _check(t.List(String()), execution_environment_type)
         self.importance = _check(t.List(String()), importance)
+        self.tag_keys = _check(t.List(String()), tag_keys)
+        self.tag_values = _check(t.List(String()), tag_values)
 
     def construct_query_args(self) -> Dict[str, str]:  # pylint: disable=missing-function-docstring
         query_args = {}
@@ -3666,6 +3676,10 @@ class DeploymentListFilters:
             )
         if self.importance:
             query_args["importance"] = self._list_to_comma_separated_string(self.importance)
+        if self.tag_keys:
+            query_args["tagKeys"] = self._list_to_comma_separated_string(self.tag_keys)
+        if self.tag_values:
+            query_args["tagValues"] = self._list_to_comma_separated_string(self.tag_values)
 
         return query_args
 

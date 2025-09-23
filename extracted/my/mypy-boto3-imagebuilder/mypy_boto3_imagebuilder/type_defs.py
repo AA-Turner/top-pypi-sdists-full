@@ -858,7 +858,7 @@ class PaginatorConfigTypeDef(TypedDict):
 
 
 class ListComponentBuildVersionsRequestTypeDef(TypedDict):
-    componentVersionArn: str
+    componentVersionArn: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -902,7 +902,7 @@ class WorkflowStepExecutionTypeDef(TypedDict):
 
 
 class ListWorkflowBuildVersionsRequestTypeDef(TypedDict):
-    workflowVersionArn: str
+    workflowVersionArn: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -1570,7 +1570,7 @@ class ListDistributionConfigurationsRequestTypeDef(TypedDict):
 
 
 class ListImageBuildVersionsRequestTypeDef(TypedDict):
-    imageVersionArn: str
+    imageVersionArn: NotRequired[str]
     filters: NotRequired[Sequence[FilterTypeDef]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -1722,7 +1722,7 @@ class ListLifecyclePoliciesResponseTypeDef(TypedDict):
 
 
 class ListComponentBuildVersionsRequestPaginateTypeDef(TypedDict):
-    componentVersionArn: str
+    componentVersionArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1745,7 +1745,7 @@ class ListDistributionConfigurationsRequestPaginateTypeDef(TypedDict):
 
 
 class ListImageBuildVersionsRequestPaginateTypeDef(TypedDict):
-    imageVersionArn: str
+    imageVersionArn: NotRequired[str]
     filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1820,7 +1820,7 @@ class ListWaitingWorkflowStepsRequestPaginateTypeDef(TypedDict):
 
 
 class ListWorkflowBuildVersionsRequestPaginateTypeDef(TypedDict):
-    workflowVersionArn: str
+    workflowVersionArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

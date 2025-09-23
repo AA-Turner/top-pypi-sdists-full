@@ -324,14 +324,14 @@ class Task(proto.Message):
                 key/value string. These will be interpolated before passing
                 the args to the driver. Currently supported placeholders:
 
-                -  ${task_id}
-                -  ${job_time} To pass positional args, set the key as
-                   TASK_ARGS. The value should be a comma-separated string
-                   of all the positional arguments. To use a delimiter other
-                   than comma, refer to
-                   https://cloud.google.com/sdk/gcloud/reference/topic/escaping.
-                   In case of other keys being present in the args, then
-                   TASK_ARGS will be passed as the last argument.
+                - ${task_id}
+                - ${job_time} To pass positional args, set the key as
+                  TASK_ARGS. The value should be a comma-separated string of
+                  all the positional arguments. To use a delimiter other
+                  than comma, refer to
+                  https://cloud.google.com/sdk/gcloud/reference/topic/escaping.
+                  In case of other keys being present in the args, then
+                  TASK_ARGS will be passed as the last argument.
             service_account (str):
                 Required. Service account to use to execute a
                 task. If not provided, the default Compute
@@ -665,7 +665,8 @@ class Job(proto.Message):
             FAILED (5):
                 The job is no longer running due to an error.
             ABORTED (6):
-                The job was cancelled outside of Dataplex.
+                The job was cancelled outside of Dataplex
+                Universal Catalog.
         """
         STATE_UNSPECIFIED = 0
         RUNNING = 1
@@ -682,8 +683,9 @@ class Job(proto.Message):
             TRIGGER_UNSPECIFIED (0):
                 The trigger is unspecified.
             TASK_CONFIG (1):
-                The job was triggered by Dataplex based on
-                trigger spec from task definition.
+                The job was triggered by Dataplex Universal
+                Catalog based on trigger spec from task
+                definition.
             RUN_REQUEST (2):
                 The job was triggered by the explicit call of
                 Task API.

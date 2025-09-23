@@ -4,106 +4,13 @@ import numpy as np
 import os
 from numba import njit, prange
 
+from .maxcut_tfim_util import init_theta, init_thresholds, maxcut_hamming_cdf, opencl_context, probability_by_hamming_weight
 
 IS_OPENCL_AVAILABLE = True
-ctx = None
-queue = None
 try:
     import pyopencl as cl
-    
-    # Pick a device (GPU if available)
-    ctx = cl.create_some_context()
-    queue = cl.CommandQueue(ctx)
-
-    # Load and build OpenCL kernels
-    kernel_src = open(os.path.dirname(os.path.abspath(__file__)) + "/kernels.cl").read()
-    program = cl.Program(ctx, kernel_src).build()
-    maxcut_hamming_cdf_kernel = program.maxcut_hamming_cdf
 except ImportError:
     IS_OPENCL_AVAILABLE = False
-
-
-@njit
-def probability_by_hamming_weight(J, h, z, theta, t, n_qubits):
-    bias = np.empty(n_qubits - 1, dtype=np.float64)
-
-    # critical angle
-    theta_c = np.arcsin(max(-1.0, min(1.0, abs(h) / (z * J))))
-
-    p = (
-        pow(2.0, abs(J / h) - 1.0)
-        * (1.0 + np.sin(theta - theta_c) * np.cos(1.5 * np.pi * J * t + theta) / (1.0 + np.sqrt(t)))
-        - 0.5
-    )
-
-    if (p * n_qubits) >= 1024:
-        return bias
-
-    tot_n = 1.0 + 1.0 / pow(2.0, p * n_qubits)
-    factor = pow(2.0, -p)
-    n = 1.0
-    for q in range(1, n_qubits):
-        n *= factor
-        bias[q - 1] = n
-        tot_n += n
-    bias /= tot_n
-
-    if J > 0.0:
-        return bias[::-1]
-
-    return bias
-
-
-@njit(parallel=True)
-def maxcut_hamming_cdf(n_qubits, J_func, degrees, quality, hamming_prob):
-    if n_qubits < 2:
-        hamming_prob.fill(0.0)
-        return
-
-    n_steps = 1 << quality
-    delta_t = 1.0 / n_steps
-    tot_t = 2.0 * n_steps * delta_t
-    h_mult = 2.0 / tot_t
-    n_bias = n_qubits - 1
-
-    theta = np.empty(n_qubits, dtype=np.float64)
-    for q in range(n_qubits):
-        J = J_func[q]
-        z = degrees[q]
-        theta[q] = np.arcsin(
-            max(
-                -1.0,
-                min(
-                    1.0,
-                    (1.0 if J > 0.0 else -1.0) if np.isclose(abs(z * J), 0.0) else (abs(h_mult) / (z * J)),
-                ),
-            )
-        )
-
-    for qc in prange(n_qubits, n_steps * n_qubits):
-        step = qc // n_qubits
-        q = qc % n_qubits
-        J_eff = J_func[q]
-        if np.isclose(abs(J_eff), 0.0):
-            continue
-        z = degrees[q]
-        theta_eff = theta[q]
-        t = step * delta_t
-        tm1 = (step - 1) * delta_t
-        h_t = h_mult * (tot_t - t)
-        bias = probability_by_hamming_weight(J_eff, h_t, z, theta_eff, t, n_qubits)
-        last_bias = probability_by_hamming_weight(J_eff, h_t, z, theta_eff, tm1, n_qubits)
-        for i in range(n_bias):
-            hamming_prob[i] += bias[i] - last_bias[i]
-
-    tot_prob = hamming_prob.sum()
-    hamming_prob /= tot_prob
-
-    tot_prob = 0.0
-    for i in range(n_bias):
-        tot_prob += hamming_prob[i]
-        hamming_prob[i] = tot_prob
-    hamming_prob[-1] = 2.0
 
 
 # Written by Elara (OpenAI custom GPT) and improved by Dan Strano
@@ -176,7 +83,7 @@ def sample_for_solution(G_m, shots, thresholds, degrees_sum, J_eff, n):
     weights = 1.0 / (1.0 + (2 ** -52) - J_eff)
 
     solutions = np.empty((shots, n), dtype=np.bool_)
-    energies = np.empty(shots, dtype=np.float64)
+    energies = np.empty(shots, dtype=np.float32)
 
     for s in prange(shots):
         # First dimension: Hamming weight
@@ -203,63 +110,22 @@ def sample_for_solution(G_m, shots, thresholds, degrees_sum, J_eff, n):
     return best_solution, best_value
 
 
-@njit
+@njit(parallel=True)
 def init_J_and_z(G_m):
     n_qubits = len(G_m)
     degrees = np.empty(n_qubits, dtype=np.uint32)
-    J_eff = np.empty(n_qubits, dtype=np.float64)
+    J_eff = np.empty(n_qubits, dtype=np.float32)
     J_max = -float("inf")
-    for n in range(n_qubits):
+    for n in prange(n_qubits):
         degree = sum(G_m[n] != 0.0)
         J = -G_m[n].sum() / degree if degree > 0 else 0
         degrees[n] = degree
         J_eff[n] = J
         J_abs = abs(J)
-        if J_abs > J_max:
-            J_max = J_abs
+        J_max = max(J_abs, J_max)
     J_eff /= J_max
 
     return J_eff, degrees
-
-
-@njit
-def init_thresholds(n_qubits):
-    n_bias = n_qubits - 1
-    thresholds = np.empty(n_bias, dtype=np.float64)
-    tot_prob = 0
-    p = 1.0
-    if n_qubits & 1:
-        q = n_qubits // 2
-        thresholds[q - 1] = p
-        tot_prob = p
-        p /= 2
-    for q in range(1, n_qubits // 2):
-        thresholds[q - 1] = p
-        thresholds[n_bias - q] = p
-        tot_prob += 2 * p
-        p /= 2
-    thresholds /= tot_prob
-
-    return thresholds
-
-
-@njit
-def init_theta(delta_t, tot_t, h_mult, n_qubits, J_eff, degrees):
-    theta = np.empty(n_qubits, dtype=np.float64)
-    for q in range(n_qubits):
-        J = J_eff[q]
-        z = degrees[q]
-        theta[q] = np.arcsin(
-            max(
-                -1.0,
-                min(
-                    1.0,
-                    (1.0 if J > 0.0 else -1.0) if np.isclose(abs(z * J), 0.0) else (abs(h_mult) / (z * J)),
-                ),
-            )
-        )
-
-    return theta
 
 
 def maxcut_tfim(
@@ -324,20 +190,20 @@ def maxcut_tfim(
 
         # Move to GPU
         mf = cl.mem_flags
-        args_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=args)
-        J_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=J_eff)
-        deg_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=degrees)
-        theta_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=theta)
-        ham_buf = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=hamming_prob)
+        args_buf = cl.Buffer(opencl_context.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=args)
+        J_buf = cl.Buffer(opencl_context.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=J_eff)
+        deg_buf = cl.Buffer(opencl_context.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=degrees)
+        theta_buf = cl.Buffer(opencl_context.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=theta)
+        ham_buf = cl.Buffer(opencl_context.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=hamming_prob)
 
         # Kernel execution
-        maxcut_hamming_cdf_kernel(
-            queue, (grid_dim,), (group_size,),
+        opencl_context.maxcut_hamming_cdf_kernel(
+            opencl_context.queue, (grid_dim,), (group_size,),
             np.int32(n_qubits), deg_buf, args_buf, J_buf, theta_buf, ham_buf
         )
 
         # Fetch results
-        cl.enqueue_copy(queue, hamming_prob, ham_buf)
+        cl.enqueue_copy(opencl_context.queue, hamming_prob, ham_buf)
 
         hamming_prob /= hamming_prob.sum()
         tot_prob = 0.0

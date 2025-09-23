@@ -44,15 +44,13 @@ def main():
     setuptools.setup(
         name='wcwidth',
         # NOTE: manually manage __version__ in wcwidth/__init__.py !
-        version='0.2.13',
+        version='0.2.14',
         description=(
             "Measures the displayed width of unicode strings in a terminal"),
         long_description=codecs.open(
             _get_here('README.rst'), 'rb', 'utf8').read(),
         author='Jeff Quast',
         author_email='contact@jeffquast.com',
-        install_requires=('backports.functools-lru-cache>=1.2.1;'
-                          'python_version < "3.2"'),
         license='MIT',
         packages=['wcwidth'],
         url='https://github.com/jquast/wcwidth',
@@ -60,6 +58,7 @@ def main():
             '': ['LICENSE', '*.rst'],
         },
         zip_safe=True,
+        python_requires='>=3.6',
         classifiers=[
             'Intended Audience :: Developers',
             'Natural Language :: English',
@@ -67,8 +66,6 @@ def main():
             'Environment :: Console',
             'License :: OSI Approved :: MIT License',
             'Operating System :: POSIX',
-            'Programming Language :: Python :: 2.7',
-            'Programming Language :: Python :: 3.5',
             'Programming Language :: Python :: 3.6',
             'Programming Language :: Python :: 3.7',
             'Programming Language :: Python :: 3.8',
@@ -76,6 +73,8 @@ def main():
             'Programming Language :: Python :: 3.10',
             'Programming Language :: Python :: 3.11',
             'Programming Language :: Python :: 3.12',
+            'Programming Language :: Python :: 3.13',
+            'Programming Language :: Python :: 3.14',
             'Topic :: Software Development :: Libraries',
             'Topic :: Software Development :: Localization',
             'Topic :: Software Development :: Internationalization',

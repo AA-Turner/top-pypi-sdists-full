@@ -374,8 +374,8 @@ class DAGTask:
         This means that if both the child Task and its DAG do not have a warehouse specified then the child Task will
         be created as serverless even if is_serverless is set to False. Default is False.
     dag: DAG, optional
-        The DAG this child Task belong to.
-
+        The DAG this child Task belong to. The value is optional if the task is created within a DAG context,
+        otherwise it must be provided.
 
     Refer to :class:`snowflake.core.task.Task` for the details of the remaining properties.
     """
@@ -415,7 +415,7 @@ class DAGTask:
         self.user_task_timeout_ms = user_task_timeout_ms  #: refer to :attr:`snowflake.core.task.user_task_timeout_ms`
         dag = dag or _get_current_dag()
         if dag is None:
-            raise ValueError("Parameter 'dag' must be set when creating a DAGTask.")
+            raise ValueError("Parameter 'dag' must be set when creating a DAGTask outside of a DAG context.")
         if is_serverless and warehouse is not None:
             raise ValueError("Warehouse was provided for a serverless task.")
         self.warehouse = dag.warehouse if (warehouse is None and not is_serverless) else warehouse  # : refer to

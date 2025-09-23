@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepeval
-Version: 3.5.4
+Version: 3.5.5
 Summary: The LLM Evaluation Framework
 Home-page: https://github.com/confident-ai/deepeval
 License: Apache-2.0
@@ -185,6 +185,8 @@ Whether your LLM applications are RAG pipelines, chatbots, AI agents, implemente
 Let's pretend your LLM application is a RAG based customer support chatbot; here's how DeepEval can help test what you've built.
 
 ## Installation
+
+Deepeval works with **Python>=3.9+**.
 
 ```
 pip install -U deepeval

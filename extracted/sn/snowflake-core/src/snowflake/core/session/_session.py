@@ -2,8 +2,8 @@ from typing import TYPE_CHECKING, Optional
 
 from pydantic import StrictStr
 
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core.session._generated.api import SessionApi
-from snowflake.core.session._generated.api_client import StoredProcApiClient
 
 
 if TYPE_CHECKING:

@@ -25,21 +25,24 @@ from typing import List
 from typing import Optional
 from typing import Set
 from typing import Tuple
+from typing import Union
 
 import esp_idf_kconfig.gen_kconfig_doc as gen_kconfig_doc
 import esp_kconfiglib.core as kconfiglib
 from esp_idf_kconfig import __version__
+from esp_kconfiglib.constants import DEP_OP_BEGIN
+from esp_kconfiglib.constants import DEP_OP_END
+from esp_kconfiglib.constants import SDKCONFIG_DEFAULT_PRAGMA
 
 
 class DeprecatedOptions(object):
     _RENAME_FILE_NAME = "sdkconfig.rename"
-    _DEP_OP_BEGIN = "# Deprecated options for backward compatibility"
-    _DEP_OP_END = "# End of deprecated options"
-    _RE_DEP_OP_BEGIN = re.compile(_DEP_OP_BEGIN)
-    _RE_DEP_OP_END = re.compile(_DEP_OP_END)
+    _RE_DEP_OP_BEGIN = re.compile(DEP_OP_BEGIN)
+    _RE_DEP_OP_END = re.compile(DEP_OP_END)
 
-    def __init__(self, config_prefix: str, path_rename_files: List[str] = []):
+    def __init__(self, config_prefix: str, path_rename_files: List[str] = [], encoding: str = "utf-8"):
         self.config_prefix = config_prefix
+        self.encoding = encoding
         # sdkconfig.renames specification: each line contains a pair of config options separated by whitespace(s).
         # The first option is the deprecated one, the second one is the new one.
         # The new option can be prefixed with '!' to indicate inversion (n/not set -> y, y -> n).
@@ -78,7 +81,7 @@ class DeprecatedOptions(object):
         inversions: List[str] = []
 
         for rename_path in rename_paths:
-            with open(rename_path) as rename_file:
+            with open(rename_path, encoding=self.encoding) as rename_file:
                 for line_number, line in enumerate(rename_file, start=1):
                     parsed_line = self.parse_line(line)
                     if not parsed_line:
@@ -131,7 +134,9 @@ class DeprecatedOptions(object):
 
     def replace(self, sdkconfig_in: str, sdkconfig_out: str) -> None:
         replace_enabled = True
-        with open(sdkconfig_in, "r") as input_file, open(sdkconfig_out, "w") as output_file:
+        with open(sdkconfig_in, "r", encoding=self.encoding) as input_file, open(
+            sdkconfig_out, "w", encoding=self.encoding
+        ) as output_file:
             for line_number, line in enumerate(input_file, start=1):
                 if self._RE_DEP_OP_BEGIN.search(line):  # Begin of deprecated options
                     replace_enabled = False
@@ -158,6 +163,13 @@ class DeprecatedOptions(object):
         depr_name = self.remove_config_prefix(depr_opt)
         to_replace = depr_opt if depr_to_new else new_opt
         replace_with = new_opt if depr_to_new else depr_opt
+
+        # NOTE: We want deprecated options to be treated as user-set: they are not part
+        #       of the normal menu tree/menuconfig TUI etc. and even direct change in sdkconfig
+        #       will take no effect. For that reason, skipping the default value assignment
+        #       machinery makes the process easier without any drawbacks.
+        if line.startswith(SDKCONFIG_DEFAULT_PRAGMA):
+            line = line[len(SDKCONFIG_DEFAULT_PRAGMA) + 1 :]
 
         if depr_name in self.inversions:
             if any(substring in line for substring in ("is not set", "=n")):
@@ -190,7 +202,7 @@ class DeprecatedOptions(object):
                     return False
 
         if len(self.r_dic) > 0:
-            with open(path_output, "a") as f_o:
+            with open(path_output, "a", encoding=self.encoding) as f_o:
                 header = "Deprecated options and their replacements"
                 f_o.write(".. _configuration-deprecated-options:\n\n{}\n{}\n\n".format(header, "-" * len(header)))
                 for dep_opt in sorted(self.r_dic):
@@ -243,10 +255,10 @@ class DeprecatedOptions(object):
             append_config_node_process(n)
 
         if len(tmp_list) > 0:
-            with open(path_output, "a") as f_o:
-                f_o.write("\n{}\n".format(self._DEP_OP_BEGIN))
+            with open(path_output, "a", encoding=self.encoding) as f_o:
+                f_o.write("\n{}\n".format(DEP_OP_BEGIN))
                 f_o.writelines(tmp_list)
-                f_o.write("{}\n".format(self._DEP_OP_END))
+                f_o.write("{}\n".format(DEP_OP_END))
 
     def append_header(self, config: kconfiglib.Kconfig, path_output: str) -> None:
         def _opt_defined(opt):
@@ -259,7 +271,7 @@ class DeprecatedOptions(object):
             return opt_defined
 
         if len(self.r_dic) > 0:
-            with open(path_output, "a") as output_file:
+            with open(path_output, "a", encoding=self.encoding) as output_file:
                 output_file.write("\n/* List of deprecated options */\n")
                 for dep_opt in sorted(self.r_dic):
                     new_opt = self.r_dic[dep_opt]
@@ -401,7 +413,7 @@ def write_header(deprecated_options: DeprecatedOptions, config: kconfiglib.Kconf
 
 
 def write_cmake(deprecated_options: DeprecatedOptions, config: kconfiglib.Kconfig, filename: str) -> None:
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding=config._encoding) as f:
         tmp_dep_list = []
         prefix = config.config_prefix
 
@@ -458,8 +470,8 @@ def get_json_values(config: kconfiglib.Kconfig) -> dict:
             return
 
         if sym.config_string:
-            val = sym.str_value
-            if not val and sym.type in (
+            candidate_val: str = sym.str_value
+            if not candidate_val and sym.type in (
                 kconfiglib.INT,
                 kconfiglib.HEX,
             ):
@@ -467,13 +479,15 @@ def get_json_values(config: kconfiglib.Kconfig) -> dict:
                     f"warning: {sym.name} has no value set in the configuration."
                     " This can be caused e.g. by missing default value for the current chip version."
                 )
-                val = None
+                val: Optional[Union[str, bool, int]] = None
             elif sym.type == kconfiglib.BOOL:
-                val = val != "n"
+                val = candidate_val != "n"
             elif sym.type == kconfiglib.HEX:
-                val = int(val, 16)
+                val = int(candidate_val, 16)
             elif sym.type == kconfiglib.INT:
-                val = int(val)
+                val = int(candidate_val)
+            else:
+                val = candidate_val
             config_dict[sym.name] = val
 
     for n in config.node_iter(False):
@@ -483,31 +497,8 @@ def get_json_values(config: kconfiglib.Kconfig) -> dict:
 
 def write_json(_: DeprecatedOptions, config: kconfiglib.Kconfig, filename: str) -> None:
     config_dict = get_json_values(config)
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding=config._encoding) as f:
         json.dump(config_dict, f, indent=4, sort_keys=True)
-
-
-def get_menu_node_id(node: kconfiglib.MenuNode) -> str:
-    """Given a menu node, return a unique id
-    which can be used to identify it in the menu structure
-
-    Will either be the config symbol name, or a menu identifier
-    'slug'
-
-    """
-    try:
-        if not isinstance(node.item, kconfiglib.Choice):
-            return str(node.item.name)  # type: ignore
-    except AttributeError:
-        pass
-
-    result = []
-    while node.parent is not None and node.prompt:
-        slug = re.sub(r"\W+", "-", node.prompt[0]).lower()
-        result.append(slug)
-        node = node.parent
-
-    return "-".join(reversed(result))
 
 
 def write_json_menus(_: DeprecatedOptions, config: kconfiglib.Kconfig, filename: str) -> None:
@@ -594,21 +585,20 @@ def write_json_menus(_: DeprecatedOptions, config: kconfiglib.Kconfig, filename:
             }
 
         if new_json:
-            node_id = get_menu_node_id(node)
-            if node_id in existing_ids:
+            if node.id in existing_ids:
                 raise RuntimeError(
                     "Config file contains two items with the same id: "
-                    f" {node_id} ({node.prompt[0] if node.prompt else ''}). "
+                    f" {node.id} ({node.prompt[0] if node.prompt else ''}). "
                     "Please rename one of these items to avoid ambiguity."
                 )
-            new_json["id"] = node_id
+            new_json["id"] = node.id
 
             json_parent.append(new_json)
             node_lookup[node] = new_json
 
     for n in config.node_iter():
         write_node(n)
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding=config._encoding) as f:
         f.write(json.dumps(result, sort_keys=True, indent=4))
 
 
@@ -628,17 +618,17 @@ def write_report(_: DeprecatedOptions, config: kconfiglib.Kconfig, filename: str
     config.report.output_json(filename)
 
 
-def update_if_changed(source: str, destination: str) -> None:
-    with open(source, "r") as f:
+def update_if_changed(source: str, destination: str, encoding: str) -> None:
+    with open(source, "r", encoding=encoding) as f:
         source_contents = f.read()
 
     if os.path.exists(destination):
-        with open(destination, "r") as f:
+        with open(destination, "r", encoding=encoding) as f:
             dest_contents = f.read()
         if source_contents == dest_contents:
             return  # nothing to update
 
-    with open(destination, "w") as f:
+    with open(destination, "w", encoding=encoding) as f:
         f.write(source_contents)
 
 
@@ -749,20 +739,23 @@ def main():
             and len(args.defaults) == 0  # if defaults are loaded, report will be printed after that
         ),
     )
-    config.warn_assign_redun = False
-    config.warn_assign_override = False
+    kconfig_encoding = config._encoding
 
     sdkconfig_renames_sep = ";" if args.list_separator == "semicolon" else " "
     sdkconfig_renames = [args.sdkconfig_rename] if args.sdkconfig_rename else []
     sdkconfig_renames_from_env = os.environ.get("COMPONENT_SDKCONFIG_RENAMES")
     if sdkconfig_renames_from_env:
         sdkconfig_renames += sdkconfig_renames_from_env.split(sdkconfig_renames_sep)
-    deprecated_options = DeprecatedOptions(config.config_prefix, path_rename_files=sdkconfig_renames)
+    deprecated_options = DeprecatedOptions(
+        config.config_prefix, path_rename_files=sdkconfig_renames, encoding=kconfig_encoding
+    )
 
     if len(args.defaults) > 0:
 
         def _replace_empty_assignments(path_in, path_out):  # empty assignment: CONFIG_FOO=
-            with open(path_in, "r") as f_in, open(path_out, "w") as f_out:
+            with open(path_in, "r", encoding=kconfig_encoding) as f_in, open(
+                path_out, "w", encoding=kconfig_encoding
+            ) as f_out:
                 for line_num, line in enumerate(f_in, start=1):
                     line = line.strip()
                     if line.endswith("="):
@@ -778,9 +771,13 @@ def main():
             if not os.path.exists(name):
                 raise RuntimeError("Defaults file not found: %s" % name)
             try:
-                with tempfile.NamedTemporaryFile(prefix="kconfgen_tmp", delete=False) as f:
+                with tempfile.NamedTemporaryFile(
+                    prefix="kconfgen_tmp", mode="w+", delete=False, encoding=kconfig_encoding
+                ) as f:
                     temp_file1 = f.name
-                with tempfile.NamedTemporaryFile(prefix="kconfgen_tmp", delete=False) as f:
+                with tempfile.NamedTemporaryFile(
+                    prefix="kconfgen_tmp", mode="w+", delete=False, encoding=kconfig_encoding
+                ) as f:
                     temp_file2 = f.name
                 deprecated_options.replace(sdkconfig_in=name, sdkconfig_out=temp_file1)
                 _replace_empty_assignments(temp_file1, temp_file2)
@@ -802,12 +799,14 @@ def main():
     # If previous sdkconfig file exists, load it
     if args.config and os.path.exists(args.config):
         # ... but replace deprecated options before that
-        with tempfile.NamedTemporaryFile(prefix="kconfgen_tmp", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            prefix="kconfgen_tmp", mode="w+", delete=False, encoding=kconfig_encoding
+        ) as f:
             temp_file = f.name
         try:
             deprecated_options.replace(sdkconfig_in=args.config, sdkconfig_out=temp_file)
             config.load_config(temp_file, replace=False, print_report=print_report)
-            update_if_changed(temp_file, args.config)
+            update_if_changed(temp_file, args.config, encoding=kconfig_encoding)
         finally:
             try:
                 os.remove(temp_file)
@@ -821,12 +820,14 @@ def main():
 
     # Output the files specified in the arguments
     for output_type, filename in args.output:
-        with tempfile.NamedTemporaryFile(prefix="kconfgen_tmp", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            prefix="kconfgen_tmp", mode="w+", delete=False, encoding=kconfig_encoding
+        ) as f:
             temp_file = f.name
         try:
             output_function = OUTPUT_FORMATS[output_type]
             output_function(deprecated_options, config, temp_file)
-            update_if_changed(temp_file, filename)
+            update_if_changed(temp_file, filename, encoding=kconfig_encoding)
         finally:
             try:
                 os.remove(temp_file)

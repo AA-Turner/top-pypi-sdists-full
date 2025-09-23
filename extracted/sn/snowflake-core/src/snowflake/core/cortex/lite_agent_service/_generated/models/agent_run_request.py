@@ -1,6 +1,5 @@
-
 """
-Cortex Agent API
+Cortex Agent API.
 
 OpenAPI 3.0 specification for the Cortex Agent API  # noqa: E501
 
@@ -22,6 +21,15 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, StrictInt, StrictStr
 from typing_extensions import Annotated
 
+from snowflake.core.cortex.lite_agent_service._generated.models.agent_instructions import (
+    AgentInstructions,
+    AgentInstructionsModel,
+)
+from snowflake.core.cortex.lite_agent_service._generated.models.agent_models import AgentModels, AgentModelsModel
+from snowflake.core.cortex.lite_agent_service._generated.models.agent_orchestration import (
+    AgentOrchestration,
+    AgentOrchestrationModel,
+)
 from snowflake.core.cortex.lite_agent_service._generated.models.message import Message, MessageModel
 from snowflake.core.cortex.lite_agent_service._generated.models.tool import Tool, ToolModel
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_choice import ToolChoice, ToolChoiceModel
@@ -34,11 +42,17 @@ class AgentRunRequest(BaseModel):
 
     Parameters
     __________
-    model : str
-        The identifier of the LLM to use for processing.
     messages : list[Message]
         The conversation history and current message.
         Contains both user queries and assistant responses in chronological order.
+    models : AgentModels, optional
+
+    orchestration : AgentOrchestration, optional
+
+    instructions : AgentInstructions, optional
+
+    model : str, optional
+        The identifier of the LLM to use for processing.
     response_instruction : str, optional
         Optional instructions to guide the model's response style and behavior.
         Can be used to set the tone, format, or specific requirements for responses.
@@ -52,14 +66,19 @@ class AgentRunRequest(BaseModel):
         Keys must match the name field of tools.
     tool_choice : ToolChoice, optional
 
-
     thread_id : int, optional
         The id of the thread.
     parent_message_id : int, optional
         The id of the message from which this run should begin.
     """
 
-    model: StrictStr
+    models: Optional[AgentModels] = None
+
+    orchestration: Optional[AgentOrchestration] = None
+
+    instructions: Optional[AgentInstructions] = None
+
+    model: Optional[StrictStr] = None
 
     response_instruction: Optional[StrictStr] = None
 
@@ -78,6 +97,9 @@ class AgentRunRequest(BaseModel):
     parent_message_id: Optional[StrictInt] = None
 
     __properties = [
+        "models",
+        "orchestration",
+        "instructions",
         "model",
         "response_instruction",
         "experimental",
@@ -103,20 +125,32 @@ class AgentRunRequest(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> AgentRunRequest:
-        """Create an instance of AgentRunRequest from a JSON string"""
+        """Create an instance of AgentRunRequest from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
             exclude_properties.update({})
 
         _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+
+        # override the default output from pydantic by calling `to_dict()` of models
+        if self.models:
+            _dict["models"] = self.models.to_dict()
+
+        # override the default output from pydantic by calling `to_dict()` of orchestration
+        if self.orchestration:
+            _dict["orchestration"] = self.orchestration.to_dict()
+
+        # override the default output from pydantic by calling `to_dict()` of instructions
+        if self.instructions:
+            _dict["instructions"] = self.instructions.to_dict()
 
         # override the default output from pydantic by calling `to_dict()` of each item in messages (list)
         _items = []
@@ -159,6 +193,13 @@ class AgentRunRequest(BaseModel):
 
         _obj = AgentRunRequest.parse_obj(
             {
+                "models": AgentModels.from_dict(obj.get("models")) if obj.get("models") is not None else None,
+                "orchestration": AgentOrchestration.from_dict(obj.get("orchestration"))
+                if obj.get("orchestration") is not None
+                else None,
+                "instructions": AgentInstructions.from_dict(obj.get("instructions"))
+                if obj.get("instructions") is not None
+                else None,
                 "model": obj.get("model"),
                 "response_instruction": obj.get("response_instruction"),
                 "experimental": obj.get("experimental"),
@@ -183,9 +224,12 @@ class AgentRunRequest(BaseModel):
 class AgentRunRequestModel:
     def __init__(
         self,
-        model: str,
         messages: list[Message],
         # optional properties
+        models: Optional[AgentModels] = None,
+        orchestration: Optional[AgentOrchestration] = None,
+        instructions: Optional[AgentInstructions] = None,
+        model: Optional[str] = None,
         response_instruction: Optional[str] = None,
         experimental: Optional[object] = None,
         tools: Optional[list[Tool]] = None,
@@ -200,12 +244,18 @@ class AgentRunRequestModel:
 
                 Parameters
                 __________
-                model : str
-                    The identifier of the LLM to use for processing.
                 messages : list[Message]
                     The conversation history and current message.
         Contains both user queries and assistant responses in chronological order.
 
+                models : AgentModels, optional
+
+                orchestration : AgentOrchestration, optional
+
+                instructions : AgentInstructions, optional
+
+                model : str, optional
+                    The identifier of the LLM to use for processing.
                 response_instruction : str, optional
                     Optional instructions to guide the model's response style and behavior.
         Can be used to set the tone, format, or specific requirements for responses.
@@ -227,8 +277,10 @@ class AgentRunRequestModel:
 
                 parent_message_id : int, optional
                     The id of the message from which this run should begin.
-
         """
+        self.models = models
+        self.orchestration = orchestration
+        self.instructions = instructions
         self.model = model
         self.response_instruction = response_instruction
         self.experimental = experimental
@@ -240,6 +292,9 @@ class AgentRunRequestModel:
         self.parent_message_id = parent_message_id
 
     __properties = [
+        "models",
+        "orchestration",
+        "instructions",
         "model",
         "response_instruction",
         "experimental",
@@ -256,6 +311,9 @@ class AgentRunRequestModel:
 
     def _to_model(self):
         return AgentRunRequest(
+            models=self.models._to_model() if self.models is not None else None,
+            orchestration=self.orchestration._to_model() if self.orchestration is not None else None,
+            instructions=self.instructions._to_model() if self.instructions is not None else None,
             model=self.model,
             response_instruction=self.response_instruction,
             experimental=self.experimental,
@@ -270,6 +328,9 @@ class AgentRunRequestModel:
     @classmethod
     def _from_model(cls, model) -> AgentRunRequestModel:
         return AgentRunRequestModel(
+            models=AgentModelsModel._from_model(model.models) if model.models else None,
+            orchestration=AgentOrchestrationModel._from_model(model.orchestration) if model.orchestration else None,
+            instructions=AgentInstructionsModel._from_model(model.instructions) if model.instructions else None,
             model=model.model,
             response_instruction=model.response_instruction,
             experimental=model.experimental,

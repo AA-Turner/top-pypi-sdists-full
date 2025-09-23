@@ -1,6 +1,5 @@
-
 """
-Cortex Search REST API
+Cortex Search REST API.
 
 OpenAPI 3.0 specification for the Cortex Search REST API  # noqa: E501
 
@@ -22,6 +21,11 @@ from typing import Any, Optional
 from pydantic import BaseModel, StrictStr
 
 from snowflake.core.cortex.search_service._generated.models.functions import Functions, FunctionsModel
+from snowflake.core.cortex.search_service._generated.models.ranking_weights import RankingWeights, RankingWeightsModel
+from snowflake.core.cortex.search_service._generated.models.retrieval_weights import (
+    RetrievalWeights,
+    RetrievalWeightsModel,
+)
 from snowflake.core.cortex.search_service._generated.models.weights import Weights, WeightsModel
 
 
@@ -34,12 +38,13 @@ class ScoringConfig(BaseModel):
     __________
     functions : Functions, optional
 
-
     reranker : str, optional
         Model to use for the reranker, or "none" if the reranker should be turned off. If excluded or null, the default reranker is used.
     weights : Weights, optional
 
+    retrieval_weights : RetrievalWeights, optional
 
+    ranking_weights : RankingWeights, optional
     """
 
     functions: Optional[Functions] = None
@@ -48,7 +53,11 @@ class ScoringConfig(BaseModel):
 
     weights: Optional[Weights] = None
 
-    __properties = ["functions", "reranker", "weights"]
+    retrieval_weights: Optional[RetrievalWeights] = None
+
+    ranking_weights: Optional[RankingWeights] = None
+
+    __properties = ["functions", "reranker", "weights", "retrieval_weights", "ranking_weights"]
 
     class Config:
         populate_by_name = True
@@ -64,14 +73,14 @@ class ScoringConfig(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> ScoringConfig:
-        """Create an instance of ScoringConfig from a JSON string"""
+        """Create an instance of ScoringConfig from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -86,6 +95,14 @@ class ScoringConfig(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of weights
         if self.weights:
             _dict["weights"] = self.weights.to_dict()
+
+        # override the default output from pydantic by calling `to_dict()` of retrieval_weights
+        if self.retrieval_weights:
+            _dict["retrieval_weights"] = self.retrieval_weights.to_dict()
+
+        # override the default output from pydantic by calling `to_dict()` of ranking_weights
+        if self.ranking_weights:
+            _dict["ranking_weights"] = self.ranking_weights.to_dict()
 
         return _dict
 
@@ -107,6 +124,12 @@ class ScoringConfig(BaseModel):
                 "functions": Functions.from_dict(obj.get("functions")) if obj.get("functions") is not None else None,
                 "reranker": obj.get("reranker"),
                 "weights": Weights.from_dict(obj.get("weights")) if obj.get("weights") is not None else None,
+                "retrieval_weights": RetrievalWeights.from_dict(obj.get("retrieval_weights"))
+                if obj.get("retrieval_weights") is not None
+                else None,
+                "ranking_weights": RankingWeights.from_dict(obj.get("ranking_weights"))
+                if obj.get("ranking_weights") is not None
+                else None,
             }
         )
 
@@ -119,6 +142,8 @@ class ScoringConfigModel:
         functions: Optional[Functions] = None,
         reranker: Optional[str] = None,
         weights: Optional[Weights] = None,
+        retrieval_weights: Optional[RetrievalWeights] = None,
+        ranking_weights: Optional[RankingWeights] = None,
     ):
         """A model object representing the ScoringConfig resource.
 
@@ -132,12 +157,17 @@ class ScoringConfigModel:
             Model to use for the reranker, or "none" if the reranker should be turned off. If excluded or null, the default reranker is used.
         weights : Weights, optional
 
+        retrieval_weights : RetrievalWeights, optional
+
+        ranking_weights : RankingWeights, optional
         """
         self.functions = functions
         self.reranker = reranker
         self.weights = weights
+        self.retrieval_weights = retrieval_weights
+        self.ranking_weights = ranking_weights
 
-    __properties = ["functions", "reranker", "weights"]
+    __properties = ["functions", "reranker", "weights", "retrieval_weights", "ranking_weights"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -147,6 +177,8 @@ class ScoringConfigModel:
             functions=self.functions._to_model() if self.functions is not None else None,
             reranker=self.reranker,
             weights=self.weights._to_model() if self.weights is not None else None,
+            retrieval_weights=self.retrieval_weights._to_model() if self.retrieval_weights is not None else None,
+            ranking_weights=self.ranking_weights._to_model() if self.ranking_weights is not None else None,
         )
 
     @classmethod
@@ -155,6 +187,10 @@ class ScoringConfigModel:
             functions=FunctionsModel._from_model(model.functions) if model.functions else None,
             reranker=model.reranker,
             weights=WeightsModel._from_model(model.weights) if model.weights else None,
+            retrieval_weights=RetrievalWeightsModel._from_model(model.retrieval_weights)
+            if model.retrieval_weights
+            else None,
+            ranking_weights=RankingWeightsModel._from_model(model.ranking_weights) if model.ranking_weights else None,
         )
 
     def to_dict(self):

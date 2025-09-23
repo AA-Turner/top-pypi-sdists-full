@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Cortex Search REST API
+Cortex Search REST API.
 
 OpenAPI 3.0 specification for the Cortex Search REST API  # noqa: E501
 
@@ -21,10 +21,6 @@ __version__ = "1.0.0"
 # import apis into sdk package
 from snowflake.core.cortex.search_service._generated.api.cortex_search_service_api import CortexSearchServiceApi
 
-# import ApiClient
-from snowflake.core.cortex.search_service._generated.api_client import ApiClient
-from snowflake.core.cortex.search_service._generated.configuration import Configuration
-
 # import models into sdk package
 from snowflake.core.cortex.search_service._generated.models.column_query import ColumnQuery
 from snowflake.core.cortex.search_service._generated.models.cortex_search_service import CortexSearchService
@@ -38,7 +34,9 @@ from snowflake.core.cortex.search_service._generated.models.numeric_boost import
 from snowflake.core.cortex.search_service._generated.models.query_request import QueryRequest
 from snowflake.core.cortex.search_service._generated.models.query_response import QueryResponse
 from snowflake.core.cortex.search_service._generated.models.query_similarity_boost import QuerySimilarityBoost
+from snowflake.core.cortex.search_service._generated.models.ranking_weights import RankingWeights
 from snowflake.core.cortex.search_service._generated.models.result_row import ResultRow
+from snowflake.core.cortex.search_service._generated.models.retrieval_weights import RetrievalWeights
 from snowflake.core.cortex.search_service._generated.models.scheduling_state import SchedulingState
 from snowflake.core.cortex.search_service._generated.models.scoring_config import ScoringConfig
 from snowflake.core.cortex.search_service._generated.models.send_feedback_request import SendFeedbackRequest

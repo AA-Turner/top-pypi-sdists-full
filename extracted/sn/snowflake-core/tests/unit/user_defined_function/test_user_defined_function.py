@@ -14,7 +14,7 @@ from snowflake.core.user_defined_function import (
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.user_defined_function._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 UDF = UserDefinedFunction(
     name="my_udf", arguments=[], return_type=ReturnDataType(datatype="VARCHAR"), language_config=SQLFunction()
 )
@@ -31,15 +31,9 @@ def user_defined_function(user_defined_functions):
 
 
 def test_create_user_defined_function(fake_root, user_defined_functions):
-    args = (
-        fake_root,
-        "POST",
-        BASE_URL
-        + "/databases/my_db/schemas/my_schema/user-defined-functions"
-        + "?createMode=errorIfExists&copyGrants=False",
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/user-defined-functions")
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
+        query_params=[],
         body={
             "name": "my_udf",
             "arguments": [],

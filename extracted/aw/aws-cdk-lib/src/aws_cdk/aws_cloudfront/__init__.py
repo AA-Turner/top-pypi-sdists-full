@@ -9903,6 +9903,7 @@ class OriginBase(
         origin_id: typing.Optional[builtins.str] = None,
         origin_shield_enabled: typing.Optional[builtins.bool] = None,
         origin_shield_region: typing.Optional[builtins.str] = None,
+        response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
     ) -> None:
         '''
         :param domain_name: -
@@ -9914,6 +9915,7 @@ class OriginBase(
         :param origin_id: A unique identifier for the origin. This value must be unique within the distribution. Default: - an originid will be generated for you
         :param origin_shield_enabled: Origin Shield is enabled by setting originShieldRegion to a valid region, after this to disable Origin Shield again you must set this flag to false. Default: - true
         :param origin_shield_region: When you enable Origin Shield in the AWS Region that has the lowest latency to your origin, you can get better network performance. Default: - origin shield not enabled
+        :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b13f814bf47a5f3949ffc4b53034b4702a02836213167c9ba4c6a8d6e8f623e)
@@ -9927,6 +9929,7 @@ class OriginBase(
             origin_id=origin_id,
             origin_shield_enabled=origin_shield_enabled,
             origin_shield_region=origin_shield_region,
+            response_completion_timeout=response_completion_timeout,
         )
 
         jsii.create(self.__class__, self, [domain_name, props])
@@ -9973,6 +9976,25 @@ class OriginBase(
         self,
     ) -> typing.Optional["CfnDistribution.VpcOriginConfigProperty"]:
         return typing.cast(typing.Optional["CfnDistribution.VpcOriginConfigProperty"], jsii.invoke(self, "renderVpcOriginConfig", []))
+
+    @jsii.member(jsii_name="validateResponseCompletionTimeoutWithReadTimeout")
+    def _validate_response_completion_timeout_with_read_timeout(
+        self,
+        response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
+        read_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    ) -> None:
+        '''Validates that responseCompletionTimeout is greater than or equal to readTimeout when both are specified.
+
+        This method should be called by subclasses that support readTimeout.
+
+        :param response_completion_timeout: -
+        :param read_timeout: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a6162e2b8ea3b5399119fc8b631f66d8bac30203424ac043fac74ad6d5bf84d)
+            check_type(argname="argument response_completion_timeout", value=response_completion_timeout, expected_type=type_hints["response_completion_timeout"])
+            check_type(argname="argument read_timeout", value=read_timeout, expected_type=type_hints["read_timeout"])
+        return typing.cast(None, jsii.invoke(self, "validateResponseCompletionTimeoutWithReadTimeout", [response_completion_timeout, read_timeout]))
 
 
 class _OriginBaseProxy(OriginBase):
@@ -10279,6 +10301,7 @@ class OriginFailoverConfig:
         "origin_id": "originId",
         "origin_shield_enabled": "originShieldEnabled",
         "origin_shield_region": "originShieldRegion",
+        "response_completion_timeout": "responseCompletionTimeout",
     },
 )
 class OriginOptions:
@@ -10292,6 +10315,7 @@ class OriginOptions:
         origin_id: typing.Optional[builtins.str] = None,
         origin_shield_enabled: typing.Optional[builtins.bool] = None,
         origin_shield_region: typing.Optional[builtins.str] = None,
+        response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
     ) -> None:
         '''Options to define an Origin.
 
@@ -10302,6 +10326,7 @@ class OriginOptions:
         :param origin_id: A unique identifier for the origin. This value must be unique within the distribution. Default: - an originid will be generated for you
         :param origin_shield_enabled: Origin Shield is enabled by setting originShieldRegion to a valid region, after this to disable Origin Shield again you must set this flag to false. Default: - true
         :param origin_shield_region: When you enable Origin Shield in the AWS Region that has the lowest latency to your origin, you can get better network performance. Default: - origin shield not enabled
+        :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
 
         :exampleMetadata: fixture=_generated
 
@@ -10321,7 +10346,8 @@ class OriginOptions:
                 origin_access_control_id="originAccessControlId",
                 origin_id="originId",
                 origin_shield_enabled=False,
-                origin_shield_region="originShieldRegion"
+                origin_shield_region="originShieldRegion",
+                response_completion_timeout=cdk.Duration.minutes(30)
             )
         '''
         if __debug__:
@@ -10333,6 +10359,7 @@ class OriginOptions:
             check_type(argname="argument origin_id", value=origin_id, expected_type=type_hints["origin_id"])
             check_type(argname="argument origin_shield_enabled", value=origin_shield_enabled, expected_type=type_hints["origin_shield_enabled"])
             check_type(argname="argument origin_shield_region", value=origin_shield_region, expected_type=type_hints["origin_shield_region"])
+            check_type(argname="argument response_completion_timeout", value=response_completion_timeout, expected_type=type_hints["response_completion_timeout"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection_attempts is not None:
             self._values["connection_attempts"] = connection_attempts
@@ -10348,6 +10375,8 @@ class OriginOptions:
             self._values["origin_shield_enabled"] = origin_shield_enabled
         if origin_shield_region is not None:
             self._values["origin_shield_region"] = origin_shield_region
+        if response_completion_timeout is not None:
+            self._values["response_completion_timeout"] = response_completion_timeout
 
     @builtins.property
     def connection_attempts(self) -> typing.Optional[jsii.Number]:
@@ -10422,6 +10451,21 @@ class OriginOptions:
         result = self._values.get("origin_shield_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
+    @builtins.property
+    def response_completion_timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The time that a request from CloudFront to the origin can stay open and wait for a response.
+
+        If the complete response isn't received from the origin by this time, CloudFront ends the connection.
+
+        Valid values are 1-3600 seconds, inclusive.
+
+        :default: undefined -  AWS CloudFront default is not enforcing a maximum value
+
+        :see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#response-completion-timeout
+        '''
+        result = self._values.get("response_completion_timeout")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -10445,6 +10489,7 @@ class OriginOptions:
         "origin_id": "originId",
         "origin_shield_enabled": "originShieldEnabled",
         "origin_shield_region": "originShieldRegion",
+        "response_completion_timeout": "responseCompletionTimeout",
         "origin_path": "originPath",
     },
 )
@@ -10459,6 +10504,7 @@ class OriginProps(OriginOptions):
         origin_id: typing.Optional[builtins.str] = None,
         origin_shield_enabled: typing.Optional[builtins.bool] = None,
         origin_shield_region: typing.Optional[builtins.str] = None,
+        response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
         origin_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties to define an Origin.
@@ -10470,6 +10516,7 @@ class OriginProps(OriginOptions):
         :param origin_id: A unique identifier for the origin. This value must be unique within the distribution. Default: - an originid will be generated for you
         :param origin_shield_enabled: Origin Shield is enabled by setting originShieldRegion to a valid region, after this to disable Origin Shield again you must set this flag to false. Default: - true
         :param origin_shield_region: When you enable Origin Shield in the AWS Region that has the lowest latency to your origin, you can get better network performance. Default: - origin shield not enabled
+        :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
 
         :exampleMetadata: fixture=_generated
@@ -10491,7 +10538,8 @@ class OriginProps(OriginOptions):
                 origin_id="originId",
                 origin_path="originPath",
                 origin_shield_enabled=False,
-                origin_shield_region="originShieldRegion"
+                origin_shield_region="originShieldRegion",
+                response_completion_timeout=cdk.Duration.minutes(30)
             )
         '''
         if __debug__:
@@ -10503,6 +10551,7 @@ class OriginProps(OriginOptions):
             check_type(argname="argument origin_id", value=origin_id, expected_type=type_hints["origin_id"])
             check_type(argname="argument origin_shield_enabled", value=origin_shield_enabled, expected_type=type_hints["origin_shield_enabled"])
             check_type(argname="argument origin_shield_region", value=origin_shield_region, expected_type=type_hints["origin_shield_region"])
+            check_type(argname="argument response_completion_timeout", value=response_completion_timeout, expected_type=type_hints["response_completion_timeout"])
             check_type(argname="argument origin_path", value=origin_path, expected_type=type_hints["origin_path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection_attempts is not None:
@@ -10519,6 +10568,8 @@ class OriginProps(OriginOptions):
             self._values["origin_shield_enabled"] = origin_shield_enabled
         if origin_shield_region is not None:
             self._values["origin_shield_region"] = origin_shield_region
+        if response_completion_timeout is not None:
+            self._values["response_completion_timeout"] = response_completion_timeout
         if origin_path is not None:
             self._values["origin_path"] = origin_path
 
@@ -10596,6 +10647,21 @@ class OriginProps(OriginOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def response_completion_timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The time that a request from CloudFront to the origin can stay open and wait for a response.
+
+        If the complete response isn't received from the origin by this time, CloudFront ends the connection.
+
+        Valid values are 1-3600 seconds, inclusive.
+
+        :default: undefined -  AWS CloudFront default is not enforcing a maximum value
+
+        :see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#response-completion-timeout
+        '''
+        result = self._values.get("response_completion_timeout")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
     def origin_path(self) -> typing.Optional[builtins.str]:
         '''An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin.
 
@@ -10632,6 +10698,7 @@ class OriginProtocolPolicy(enum.Enum):
             connection_attempts=3,
             connection_timeout=Duration.seconds(5),
             read_timeout=Duration.seconds(45),
+            response_completion_timeout=Duration.seconds(120),
             keepalive_timeout=Duration.seconds(45),
             protocol_policy=cloudfront.OriginProtocolPolicy.MATCH_VIEWER
         )
@@ -32539,6 +32606,7 @@ def _typecheckingstub__5b13f814bf47a5f3949ffc4b53034b4702a02836213167c9ba4c6a8d6
     origin_id: typing.Optional[builtins.str] = None,
     origin_shield_enabled: typing.Optional[builtins.bool] = None,
     origin_shield_region: typing.Optional[builtins.str] = None,
+    response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32548,6 +32616,13 @@ def _typecheckingstub__8428dfc90e69bdd5363e69afd9c590a4ed2f1363b22242197295117dc
     *,
     origin_id: builtins.str,
     distribution_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a6162e2b8ea3b5399119fc8b631f66d8bac30203424ac043fac74ad6d5bf84d(
+    response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    read_timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32586,6 +32661,7 @@ def _typecheckingstub__554f93c57439378c8175676cc442eaea5c8ec961a156b1f26e60df9cd
     origin_id: typing.Optional[builtins.str] = None,
     origin_shield_enabled: typing.Optional[builtins.bool] = None,
     origin_shield_region: typing.Optional[builtins.str] = None,
+    response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32599,6 +32675,7 @@ def _typecheckingstub__e1f5da480c426bb32e14bbbeb482146cc90bcd3678f902c46f0f2f739
     origin_id: typing.Optional[builtins.str] = None,
     origin_shield_enabled: typing.Optional[builtins.bool] = None,
     origin_shield_region: typing.Optional[builtins.str] = None,
+    response_completion_timeout: typing.Optional[_Duration_4839e8c3] = None,
     origin_path: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

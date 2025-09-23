@@ -87,7 +87,7 @@ class Device:
 
     Args:
         type (`str`):
-            The device type (e.g., "cuda", "mps", "rocm").
+            The device type (e.g., "cuda", "mps", "rocm", "xpu").
         properties ([`CUDAProperties`], *optional*):
             Device-specific properties. Currently only [`CUDAProperties`] is supported for CUDA devices.
 
@@ -106,6 +106,9 @@ class Device:
 
         # MPS device for Apple Silicon
         mps_device = Device(type="mps")
+
+        # XPU device (e.g., Intel(R) Data Center GPU Max 1550)
+        xpu_device = Device(type="xpu")
         ```
     """
 
@@ -125,6 +128,8 @@ class Device:
             return _ROCMRepos()
         elif self.type == "mps":
             return _MPSRepos()
+        elif self.type == "xpu":
+            return _XPURepos()
         else:
             raise ValueError(f"Unknown device type: {self.type}")
 
@@ -311,7 +316,7 @@ class LayerRepository:
         return hash((self.layer_name, self._repo_id, self._revision, self._version))
 
     def __str__(self) -> str:
-        return f"`{self._repo_id}` (revision: {self._resolve_revision()}) for layer `{self.layer_name}`"
+        return f"`{self._repo_id}` (revision: {self._resolve_revision()}), layer `{self.layer_name}`"
 
 
 class LocalLayerRepository:
@@ -367,7 +372,7 @@ class LocalLayerRepository:
         return hash((self.layer_name, self._repo_path, self._package_name))
 
     def __str__(self) -> str:
-        return f"`{self._repo_path}` (package: {self._package_name}) for layer `{self.layer_name}`"
+        return f"`{self._repo_path}` (package: {self._package_name}), layer `{self.layer_name}`"
 
 
 class LockedLayerRepository:
@@ -422,7 +427,7 @@ class LockedLayerRepository:
         return hash((self.layer_name, self._repo_id))
 
     def __str__(self) -> str:
-        return f"`{self._repo_id}` (revision: {self._resolve_revision()}) for layer `{self.layer_name}`"
+        return f"`{self._repo_id}` (revision: {self._resolve_revision()}), layer `{self.layer_name}`"
 
 
 _CACHED_LAYER: Dict[LayerRepositoryProtocol, Type["nn.Module"]] = {}
@@ -445,6 +450,26 @@ class _DeviceRepos(ABC):
         Insert a repository for a specific device and mode.
         """
         ...
+
+
+class _XPURepos(_DeviceRepos):
+    _repos: Dict[Mode, LayerRepositoryProtocol]
+
+    def __init__(self):
+        super().__init__()
+        self._repos = {}
+
+    @property
+    def repos(
+        self,
+    ) -> Optional[Dict[Mode, LayerRepositoryProtocol]]:
+        return self._repos
+
+    def insert(self, device: Device, repos: Dict[Mode, LayerRepositoryProtocol]):
+        if device.type != "xpu":
+            raise ValueError(f"Device type must be 'xpu', got {device.type}")
+
+        self._repos = repos
 
 
 class _MPSRepos(_DeviceRepos):
@@ -531,7 +556,7 @@ class _ROCMRepos(_DeviceRepos):
 
 def _validate_device_type(device_type: str) -> None:
     """Validate that the device type is supported."""
-    supported_devices = {"cuda", "rocm", "mps"}
+    supported_devices = {"cuda", "rocm", "mps", "xpu"}
     if device_type not in supported_devices:
         raise ValueError(
             f"Unsupported device type '{device_type}'. Supported device types are: {', '.join(sorted(supported_devices))}"
@@ -789,7 +814,7 @@ def kernelize(
             `Mode.TRAINING | Mode.TORCH_COMPILE` kernelizes the model for training with
             `torch.compile`.
         device (`Union[str, torch.device]`, *optional*):
-            The device type to load kernels for. Supported device types are: "cuda", "mps", "rocm".
+            The device type to load kernels for. Supported device types are: "cuda", "mps", "rocm", "xpu".
             The device type will be inferred from the model parameters when not provided.
         use_fallback (`bool`, *optional*, defaults to `True`):
             Whether to use the original forward method of modules when no compatible kernel could be found.
@@ -995,7 +1020,7 @@ def _get_kernel_layer(repo: LayerRepositoryProtocol) -> Type["nn.Module"]:
     return layer
 
 
-def _validate_layer(*, check_cls, cls):
+def _validate_layer(*, check_cls, cls, repo: LayerRepositoryProtocol):
     import torch.nn as nn
 
     # The layer must have at least have the following properties: (1) it
@@ -1004,12 +1029,12 @@ def _validate_layer(*, check_cls, cls):
     # methods.
 
     if not issubclass(cls, nn.Module):
-        raise TypeError(f"Layer `{cls}` is not a Torch layer.")
+        raise TypeError(f"Layer `{cls.__name__}` is not a Torch layer.")
 
     # We verify statelessness by checking that the does not have its own
     # constructor (since the constructor could add member variables)...
     if cls.__init__ is not nn.Module.__init__:
-        raise TypeError("Layer must not override nn.Module constructor.")
+        raise TypeError(f"{repo} must not override nn.Module constructor.")
 
     # ... or predefined member variables.
     torch_module_members = {name for name, _ in inspect.getmembers(nn.Module)}
@@ -1017,7 +1042,9 @@ def _validate_layer(*, check_cls, cls):
     difference = cls_members - torch_module_members
     # verify if : difference ⊄ {"can_torch_compile", "has_backward"}
     if not difference <= {"can_torch_compile", "has_backward"}:
-        raise TypeError("Layer must not contain additional members.")
+        raise TypeError(
+            f"{repo} must not contain additional members compared to `{check_cls.__name__}`."
+        )
 
     # Check whether the forward signatures are similar.
     params = inspect.signature(cls.forward).parameters
@@ -1025,13 +1052,13 @@ def _validate_layer(*, check_cls, cls):
 
     if len(params) != len(ref_params):
         raise TypeError(
-            "Forward signature does not match: different number of arguments."
+            f"Forward signature of {repo} does not match `{check_cls.__name__}`: different number of arguments."
         )
 
     for param, ref_param in zip(params.values(), ref_params.values()):
         if param.kind != ref_param.kind:
             raise TypeError(
-                f"Forward signature does not match: different kind of arguments ({param} ({param.kind}) and {ref_param} ({ref_param.kind})"
+                f"Forward signature of {repo} does not match `{check_cls.__name__}`: different kind of arguments ({param} ({param.kind}) and {ref_param} ({ref_param.kind})"
             )
 
 
@@ -1148,7 +1175,7 @@ def _get_layer_memoize(
         return layer
 
     layer = _get_kernel_layer(repo)
-    _validate_layer(check_cls=module_class, cls=layer)
+    _validate_layer(check_cls=module_class, cls=layer, repo=repo)
     _CACHED_LAYER[repo] = layer
 
     return layer

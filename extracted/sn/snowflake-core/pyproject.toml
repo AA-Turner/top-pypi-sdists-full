@@ -35,6 +35,7 @@ classifiers = [
     'Topic :: Scientific/Engineering :: Information Analysis',
 ]
 dependencies = [
+    'certifi',
     'pydantic>=2',
     'python-dateutil>=2.8.2',
     'requests',
@@ -169,13 +170,15 @@ MYPYPATH = '{root}/src'
 
 [tool.hatch.envs.precommit.scripts]
 check = [
-    'ruff format src/snowflake tests',
+    'ruff format --check src/snowflake tests',
     'ruff check src/snowflake tests',
     'mypy --install-types --non-interactive -p snowflake.core',
 ]
 fix = [
     'ruff format src/snowflake tests',
     'ruff check --fix src/snowflake tests',
+    # Run format once again as linting may have changed files.
+    'ruff format src/snowflake tests',
     'mypy --install-types --non-interactive -p snowflake.core',
 ]
 

@@ -2,7 +2,7 @@ import logging
 import logging.config
 
 import pytest
-import simplejson as json  # type: ignore[import-untyped]
+import simplejson as json
 
 from fluidattacks_core.logging import PRODUCT_LOGGING
 from fluidattacks_core.logging.utils import set_telemetry_metadata

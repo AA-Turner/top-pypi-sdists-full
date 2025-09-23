@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.6);ob(v1)                                                    #
-# Generated on 2025-09-19T21:56:58.876684                                                            #
+# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
+# Generated on 2025-09-23T01:34:30.899174                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.events
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
     import metaflow.mf_extensions.outerbounds.plugins.apps.core
-    import metaflow.metaflow_current
-    import metaflow.events
     import typing
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow.plugins.cards.component_serializer
     import metaflow
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.metaflow_current
 
 
 TYPE_CHECKING: bool
@@ -229,18 +229,6 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
-        """
-        (only in the presence of the @app_deploy decorator)
-        
-        
-        Returns
-        ----------
-        apps
-            The object carrying the Deployer class to deploy apps.
-        """
-        ...
-    @property
     def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
         """
         (only in the presence of the @model decorator)
@@ -254,35 +242,6 @@ class Current(object, metaclass=type):
         ----------
         ModelSerializer
             The object used for loading / saving models.
-        """
-        ...
-    @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
-        """
-        (only in the presence of the @parallel decorator)
-        
-        Returns a namedtuple with relevant information about the parallel task.
-        
-        Returns
-        -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
-        """
-        ...
-    @property
-    def is_parallel(self) -> bool:
-        """
-        (only in the presence of the @parallel decorator)
-        
-        True if the current step is a @parallel step.
         """
         ...
     @property
@@ -332,18 +291,15 @@ class Current(object, metaclass=type):
         key may include: `repo_id`, `repo_type`, `revision`, `ignore_patterns`,
         and `allow_patterns` (see `cache_scope` for how keys are scoped).
         
-        Examples
-        --------
-        Snapshot reference:
+        > Usage Styles
         ```python
+        # Snapshot reference:
         ref = current.huggingface_hub.snapshot_download(
             repo_id="google-bert/bert-base-uncased",
             allow_patterns=["*.json"]
         )
-        ```
         
-        Explicit Model Loading with Context manager:
-        ```python
+        # Explicit Model Loading with Context manager:
         with current.huggingface_hub.load(
             repo_id="google-bert/bert-base-uncased",
             allow_patterns=["*.json"]
@@ -354,6 +310,18 @@ class Current(object, metaclass=type):
         Returns
         ----------
         HuggingfaceRegistry
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
+        """
+        (only in the presence of the @app_deploy decorator)
+        
+        
+        Returns
+        ----------
+        apps
+            The object carrying the Deployer class to deploy apps.
         """
         ...
     @property
@@ -375,16 +343,32 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def trigger(self) -> "metaflow.events.Trigger":
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        (only in the presence of the @parallel decorator)
         
-        Returns `Trigger` if the current run is triggered by an event
+        Returns a namedtuple with relevant information about the parallel task.
         
         Returns
         -------
-        Trigger
-            `Trigger` if triggered by an event
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
+        """
+        ...
+    @property
+    def is_parallel(self) -> bool:
+        """
+        (only in the presence of the @parallel decorator)
+        
+        True if the current step is a @parallel step.
         """
         ...
     @property
@@ -452,6 +436,19 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
+        """
+        ...
+    @property
+    def trigger(self) -> "metaflow.events.Trigger":
+        """
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        
+        Returns `Trigger` if the current run is triggered by an event
+        
+        Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
         """
         ...
     ...

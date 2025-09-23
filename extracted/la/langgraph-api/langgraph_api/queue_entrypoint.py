@@ -81,7 +81,7 @@ async def health_and_metrics_server():
 
     config = uvicorn.Config(
         app,
-        host="0.0.0.0",
+        host=os.getenv("LANGGRAPH_SERVER_HOST", "0.0.0.0"),
         port=port,
         log_level="error",
         access_log=False,

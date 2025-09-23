@@ -140,13 +140,9 @@ class BoardInterface:
         "litex_arty": {
             "description": "LiteX SoC running on an Arty-A7 board",
             "arch": "rv32imc",
-            # Tockloader is currently only supported through the flash file
-            # board interface. The file being operated on is loaded into RAM by
-            # the LiteX bootloader into the main SDRAM. This does the address
-            # translation to the memory-mapped SDRAM bus address.
-            "address_translator": lambda addr: addr - 0x40000000,
             "no_attribute_table": True,
             "flash_file": {
+                "flash_address": 0x40000000,
                 # Set to the maximum RAM size, as the LiteX bootloader will
                 # update the flash image into RAM.
                 "max_size": 0x10000000,
@@ -166,15 +162,16 @@ class BoardInterface:
             "description": "VeeR EL2 running on Verilated simulation",
             "arch": "rv32imc",
             "no_attribute_table": True,
-            "address_translator": lambda addr: addr - 0x20000000,
+            "flash_file": {
+                "flash_address": 0x20000000,
+            },
         },
         "qemu_rv32_virt": {
             "description": "QEMU RISC-V 32 bit virt Platform",
             "arch": "rv32imac",
-            # The QEMU-provided binary will be loaded at address 0x80000000
-            "address_translator": lambda addr: addr - 0x80000000,
             "no_attribute_table": True,
             "flash_file": {
+                "flash_address": 0x80000000,
                 # Size of the ROM and PROG region combined, where the resulting
                 # binary will be loaded into by QEMU:
                 "max_size": 0x00200000,
@@ -291,8 +288,8 @@ class BoardInterface:
             "arch": "rv32imc",
             "page_size": 512,
             "no_attribute_table": True,
-            "address_translator": lambda addr: addr - 0x20000000,
             "flash_file": {
+                "flash_address": 0x20000000,
                 # Set to the maximum flash size.
                 "max_size": 0x00100000,
             },
@@ -302,11 +299,21 @@ class BoardInterface:
             "arch": "rv32imc",
             "page_size": 512,
             "no_attribute_table": True,
-            "address_translator": lambda addr: addr - 0x20010000,
             "flash_file": {
+                "flash_address": 0x20010000,
                 # Set to the half of maximum flash size, to keep image sizes smaller
                 # (also ensures room for data at end of flash).
                 "max_size": 0x00070000,
+            },
+        },
+        "cy8cproto_62_4343_w": {
+            "description": "Infineon board based on the PSoC 62xA SoC",
+            "arch": "cortex-m0",
+            "no_attribute_table": True,
+            "probers": {"chip": "CY8C624AAZI-S2D44"},
+            "flash_file": {
+                "flash_address": 0x10000000,
+                "flush_command": "probe-rs download {binary} --binary-format bin --base-address 0x10000000 --chip CY8C624AAZI-S2D44",
             },
         },
     }
@@ -369,6 +376,12 @@ class BoardInterface:
         # This init only includes the generic settings that all communication
         # methods need. There may be flags specific to a particular
         # communication interface.
+
+    def is_known_board(board):
+        """
+        Check if the board name is a known board.
+        """
+        return board in BoardInterface.KNOWN_BOARDS.keys()
 
     def translate_address(self, address):
         """
@@ -505,6 +518,27 @@ class BoardInterface:
         # This is only valid if there is a bootloader and this function is
         # re-implemented.
         raise TockLoaderException("No bootloader, cannot set start address.")
+
+    def get_apps_start_address(self):
+        """
+        Return the address in flash where apps start.
+        """
+        if hasattr(self, "app_address") and self.app_address:
+            return self.app_address
+        else:
+            attributes = self.get_all_attributes()
+            for attribute in attributes:
+                if attribute and attribute["key"] == "appaddr":
+                    return int(attribute["value"], 0)
+
+        # Or, if we don't know, return None
+        return None
+
+    def get_flash_address(self):
+        """
+        Return the address where flash starts.
+        """
+        return None
 
     def _decode_attribute(self, raw):
         try:

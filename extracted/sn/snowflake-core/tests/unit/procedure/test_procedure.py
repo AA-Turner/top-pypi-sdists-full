@@ -19,7 +19,7 @@ from snowflake.core.procedure import (
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.procedure._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 PROCEDURE = Procedure(
     name="my_proc",
     arguments=[],
@@ -43,10 +43,10 @@ def test_create_procedure(fake_root, procedures):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/procedures?createMode=errorIfExists&copyGrants=False",
+        BASE_URL + "/databases/my_db/schemas/my_schema/procedures",
     )
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
+        query_params=[],
         body={
             "name": "my_proc",
             "arguments": [],
@@ -123,9 +123,9 @@ def test_drop_procedure(fake_root, procedure):
     args = (
         fake_root,
         "DELETE",
-        BASE_URL + f"/databases/my_db/schemas/my_schema/procedures/{quote('my_proc()')}?ifExists=False",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/procedures/{quote('my_proc()')}",
     )
-    kwargs = extra_params(query_params=[("ifExists", False)])
+    kwargs = extra_params(query_params=[])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         procedure.drop()

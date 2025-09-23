@@ -1,14 +1,14 @@
 import struct
 import numpy as np
 import pytest
-from timezonefinder.flatbuf.polygon_utils import (
+from timezonefinder.flatbuf.io.polygons import (
     get_polygon_collection,
     write_polygon_collection_flatbuffer,
     read_polygon_array_from_binary,
     flatten_polygon_coords,
     reshape_to_polygon_coords,
 )
-from timezonefinder.utils import close_ressource
+from timezonefinder.utils import close_resource
 
 
 @pytest.mark.parametrize(
@@ -46,8 +46,8 @@ def test_single_polygon_collection_round_trip(tmp_path, polygons):
         # Attempt to read a polygon with an out-of-bounds index
         read_polygon = read_polygon_array_from_binary(poly_collection, idx + 1)
 
-    close_ressource(buffer)
-    close_ressource(file)
+    close_resource(buffer)
+    close_resource(file)
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-kenzo
-Version: 10.6.26
+Version: 10.6.27
 Summary: passagemath: Topological spaces and homology groups with kenzo
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,9 +28,9 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-ecl~=10.6.26.0
-Requires-Dist: passagemath-graphs~=10.6.26.0
-Requires-Dist: passagemath-modules~=10.6.26.0
+Requires-Dist: passagemath-ecl~=10.6.27.0
+Requires-Dist: passagemath-graphs~=10.6.27.0
+Requires-Dist: passagemath-modules~=10.6.27.0
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
 

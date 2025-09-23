@@ -1,6 +1,5 @@
-
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 
@@ -35,8 +34,6 @@ class StreamingAnthropicOutput(BaseModel):
     Parameters
     __________
     thinking : StreamingAnthropicThinking, optional
-
-
     """
 
     thinking: Optional[StreamingAnthropicThinking] = None
@@ -57,14 +54,14 @@ class StreamingAnthropicOutput(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> StreamingAnthropicOutput:
-        """Create an instance of StreamingAnthropicOutput from a JSON string"""
+        """Create an instance of StreamingAnthropicOutput from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -118,7 +115,6 @@ class StreamingAnthropicOutputModel:
         Parameters
         __________
         thinking : StreamingAnthropicThinking, optional
-
         """
         self.thinking = thinking
 

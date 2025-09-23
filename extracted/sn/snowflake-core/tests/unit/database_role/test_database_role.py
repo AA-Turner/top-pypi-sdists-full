@@ -14,7 +14,7 @@ from snowflake.core.database_role import (
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.database_role._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 DB_ROLE = DatabaseRole(name="my_db_role")
 ROLE = Securable(name="my_role")
 

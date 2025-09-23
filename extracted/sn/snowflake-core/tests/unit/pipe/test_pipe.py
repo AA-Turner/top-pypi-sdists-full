@@ -8,7 +8,7 @@ from snowflake.core.pipe import Pipe, PipeResource
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.pipe._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 PIPE = Pipe(name="my_pipe", copy_statement="copy into my_tab")
 
 
@@ -23,10 +23,8 @@ def pipe(pipes):
 
 
 def test_create_pipe(fake_root, pipes):
-    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/pipes?createMode=errorIfExists")
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")], body={"name": "my_pipe", "copy_statement": "copy into my_tab"}
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/pipes")
+    kwargs = extra_params(query_params=[], body={"name": "my_pipe", "copy_statement": "copy into my_tab"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         pipe_res = pipes.create(PIPE)

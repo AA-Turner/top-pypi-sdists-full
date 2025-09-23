@@ -1,6 +1,7 @@
 use std::ops::RangeInclusive;
 
 use once_cell::sync::Lazy;
+use serde::Serialize;
 
 use super::hall_symbol_database::Number;
 
@@ -9,7 +10,7 @@ pub const NUM_MAGNETIC_SPACE_GROUP_TYPES: usize = 1651;
 /// UNI Number for magnetic space groups (1 - 1651)
 pub type UNINumber = i32;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub enum ConstructType {
     Type1,
     Type2,
@@ -17,7 +18,7 @@ pub enum ConstructType {
     Type4,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MagneticSpaceGroupType {
     /// Serial number of UNI (and BNS) symbols
     pub uni_number: UNINumber,
@@ -82,7 +83,7 @@ pub fn get_magnetic_space_group_type(uni_number: UNINumber) -> Option<MagneticSp
         .cloned()
 }
 
-const MAGNETIC_SPACE_GROUP_TYPES: [MagneticSpaceGroupType; NUM_MAGNETIC_SPACE_GROUP_TYPES] = [
+static MAGNETIC_SPACE_GROUP_TYPES: [MagneticSpaceGroupType; NUM_MAGNETIC_SPACE_GROUP_TYPES] = [
     MagneticSpaceGroupType::new(1, 1, "1.1", "1.1.1", 1, ConstructType::Type1),
     MagneticSpaceGroupType::new(2, 2, "1.2", "1.2.2", 1, ConstructType::Type2),
     MagneticSpaceGroupType::new(3, 3, "1.3", "1.3.3", 1, ConstructType::Type4),

@@ -216,3 +216,105 @@ class GetJobQueueAuxiliaryResourcesResponse(_message.Message):
         deployment_scaled_objects: _Optional[_Mapping[str, _scaledobject_pb2.KubernetesScaledObjectData]] = ...,
         resource_quota: _Optional[_Union[_resourcequota_pb2.KubernetesResourceQuotaData, _Mapping]] = ...,
     ) -> None: ...
+
+class JobQueueRowSummary(_message.Message):
+    __slots__ = (
+        "id",
+        "created_at",
+        "attempt_idx",
+        "state",
+        "finalized_at",
+        "last_attempted_at",
+        "attempter_idxs",
+        "last_heartbeat_at",
+        "max_attempts",
+        "job_idx",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPT_IDX_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    FINALIZED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_ATTEMPTED_AT_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPTER_IDXS_FIELD_NUMBER: _ClassVar[int]
+    LAST_HEARTBEAT_AT_FIELD_NUMBER: _ClassVar[int]
+    MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    JOB_IDX_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    created_at: _timestamp_pb2.Timestamp
+    attempt_idx: int
+    state: JobQueueState
+    finalized_at: _timestamp_pb2.Timestamp
+    last_attempted_at: _timestamp_pb2.Timestamp
+    attempter_idxs: _containers.RepeatedScalarFieldContainer[int]
+    last_heartbeat_at: _timestamp_pb2.Timestamp
+    max_attempts: int
+    job_idx: int
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        attempt_idx: _Optional[int] = ...,
+        state: _Optional[_Union[JobQueueState, str]] = ...,
+        finalized_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        last_attempted_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        attempter_idxs: _Optional[_Iterable[int]] = ...,
+        last_heartbeat_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        max_attempts: _Optional[int] = ...,
+        job_idx: _Optional[int] = ...,
+    ) -> None: ...
+
+class JobQueueOperationSummary(_message.Message):
+    __slots__ = ("indexed_row_summaries", "resource_group_name", "mainline_deployment_id", "kind", "attempters")
+    class IndexedRowSummariesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: int
+        value: JobQueueRowSummary
+        def __init__(
+            self, key: _Optional[int] = ..., value: _Optional[_Union[JobQueueRowSummary, _Mapping]] = ...
+        ) -> None: ...
+
+    INDEXED_ROW_SUMMARIES_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    MAINLINE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    ATTEMPTERS_FIELD_NUMBER: _ClassVar[int]
+    indexed_row_summaries: _containers.MessageMap[int, JobQueueRowSummary]
+    resource_group_name: str
+    mainline_deployment_id: str
+    kind: JobQueueKind
+    attempters: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        indexed_row_summaries: _Optional[_Mapping[int, JobQueueRowSummary]] = ...,
+        resource_group_name: _Optional[str] = ...,
+        mainline_deployment_id: _Optional[str] = ...,
+        kind: _Optional[_Union[JobQueueKind, str]] = ...,
+        attempters: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class GetJobQueueOperationSummaryRequest(_message.Message):
+    __slots__ = ("environment_id", "operation_id", "limit", "offset")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    operation_id: str
+    limit: int
+    offset: int
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        operation_id: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        offset: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetJobQueueOperationSummaryResponse(_message.Message):
+    __slots__ = ("summary",)
+    SUMMARY_FIELD_NUMBER: _ClassVar[int]
+    summary: JobQueueOperationSummary
+    def __init__(self, summary: _Optional[_Union[JobQueueOperationSummary, _Mapping]] = ...) -> None: ...

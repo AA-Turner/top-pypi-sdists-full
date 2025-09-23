@@ -5421,8 +5421,8 @@ l_hand_msg_flood = {
     'ar': "💬<i>الفيضانات</i>-رسائل",
 }
 l_hand_msg_via_bot = {
-    'ru': "🗣 <b>Сообщения</b> <i>от имени бота</i> не разрешены",
-    'en': "🗣 <b>Messages</b> <i>on behalf of a bot</i> are not allowed",
+    'ru': "🔗 <b>Сообщения</b> <i>от имени бота</i> не разрешены",
+    'en': "🔗 <b>Messages</b> <i>on behalf of a bot</i> are not allowed",
     'es': "🗣 <b>Mensajes</b> <i>en nombre de un bot</i> no están permitidos",
     'fr': "🗣 Les <b>Messages</b> <i>de la part d'un bot</i> ne sont pas autorisés",
     'zh': "🗣 不允许<b>消息</b> <i>代表机器人</i>",
@@ -5437,8 +5437,8 @@ l_hand_msg_channel = {
     'ar': "🫥 <b>الرسائل</b> <i>بالنيابة عن القناة</i> غير مسموح بها",
 }
 l_hand_msg_emoji = {
-    'ru': "🗣 <b>Сообщения</b> <i>c emoji</i> не разрешены",
-    'en': "🗣 <b>Messages</b> <i>with emoji</i> are not allowed",
+    'ru': "🫥 <b>Сообщения</b> <i>c эмоджи</i> не разрешены",
+    'en': "🫥 <b>Messages</b> <i>with emoji</i> are not allowed",
     'es': "🗣 <b>Mensajes</b> <i>con emoji</i> no están permitidos",
     'fr': "🗣 Les <b>Messages</b> <i>avec emoji</i> ne sont pas autorisés",
     'zh': "🗣 不允许<b>消息</b> <i>带有表情符号</i>",
@@ -5461,7 +5461,7 @@ l_hand_msg_telegram = {
     'ar': "🔗 <b>الرسائل</b> <i>التي تحتوي على روابط تيليجرام</i> غير مسموح بها",
 }
 l_hand_msg_forward = {
-    'ru': "🔗 <b>Сообщения</b> <i>c forward-ссылками</i> не разрешены",
+    'ru': "🔗 <b>Сообщения</b> <i>c форвард-ссылками</i> не разрешены",
     'en': "🔗 <b>Messages</b> <i>with forward links</i> are not allowed",
     'es': "🔗 No se permiten <b>Mensajes</b> <i>con enlaces directos</i>",
     'fr': "🔗 Les <b>Messages</b> <i>avec liens de transfert</i> ne sont pas autorisés",
@@ -5477,7 +5477,7 @@ l_hand_msg_zalgo = {
     'ar': "文 <b>الرسائل</b> <i>c <a href=' https://www.zalgo.org '> zalgo-characters</a></i> غير مسموح بها",
 }
 l_hand_msg_symbols = {
-    'ru': "文 <b>Сообщения</b> <i>c 文ب-алфавитами</i> не разрешены",
+    'ru': "文 <b>Сообщения</b> <i>c 文ب-glyth символами</i> не разрешены",
     'en': "文 <b>Messages</b> <i>with 文ب-alphabets</i> are not allowed",
     'es': "文 <b>Mensajes</b> <i>con 文ب-alfabetos</i> no están permitidos",
     'fr': "文 <b>Les messages</b> <i>avec les alphabets 文ب</i> ne sont pas autorisés",
@@ -5556,6 +5556,15 @@ l_hand_msg_FLOOD_USERNAME = {
     'zh': "💬<b>用户</b>@{0}更改了<b>名称/ @username </b>！可能是间谍！",
     'ar': "💬 قام <b>المستخدم</b> @{0} بتغيير <b>الاسم/ @username </b>! ربما جاسوس!",
 }
+l_grp_vote = {
+    'ru': "🪻 Голосование",
+    'en': "👩🏽‍💻 <b>Message</b> more than {0} characters",
+    'es': "👩🏽‍💻 <b>Mensaje</b> más de {0} caracteres",
+    'fr': "👩🏽‍💻 <b>Message</b> de plus de {0} caractères",
+    'zh': "👩🏽‍💻<b>消息</b>超过 {0} 个字符",
+    'ar': "👩🏽‍💻 <b>الرسالة</b> أكثر من {0} حرف",
+}
+
 # endregion
 
 

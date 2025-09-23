@@ -13,6 +13,7 @@ from snowflake.core import PollingOperation
 from snowflake.core._operation import PollingOperations
 
 from .._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
+from .._generated.api_client import StoredProcApiClient
 from .._internal.telemetry import api_telemetry
 from .._internal.utils import deprecated
 
@@ -31,7 +32,6 @@ from snowflake.core.service._generated import (
     ServiceRole,
     ServiceRoleGrantTo,
 )
-from snowflake.core.service._generated.api_client import StoredProcApiClient
 from snowflake.core.service._generated.models import JobService, Service, ServiceSpecInlineText, ServiceSpecStageFile
 
 

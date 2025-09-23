@@ -1271,10 +1271,7 @@ class BatchPredictionJob(AbstractBatchJob):
                 df[i : i + chunk_size] for i in range(0, df.shape[0], chunk_size)
             ):
                 yield chunked_df.to_csv(
-                    index_label=index_label,
-                    header=(chunk_no == 0),
-                    quoting=csv.QUOTE_ALL,
-                    float_format="%.17g",
+                    index_label=index_label, header=(chunk_no == 0), quoting=csv.QUOTE_ALL
                 ).encode()
 
         kwargs["intake_settings"] = {

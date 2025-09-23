@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Procedure API
+Snowflake Procedure API.
 
 The Snowflake Procedure API is a REST API that you can use to access, update, and perform certain actions on Procedure resource in a Snowflake database.  # noqa: E501
 

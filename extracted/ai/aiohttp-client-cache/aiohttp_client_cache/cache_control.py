@@ -172,7 +172,7 @@ def get_cache_directives(headers: Mapping) -> dict:
     if not hasattr(headers, 'getall'):
         headers = CIMultiDict(headers)
 
-    header_values = headers.getall('Cache-Control', [])  # type: ignore
+    header_values = headers.getall('Cache-Control', [])
     cache_directives = [v.split(',') for v in header_values if v]
     cache_directives = list(chain.from_iterable(cache_directives))
     kv_directives = dict([split_kv_directive(value) for value in cache_directives])
@@ -304,7 +304,7 @@ def _(value: str):
         return None
 
 
-def url_match(url: StrOrURL, pattern: str) -> bool:
+def url_match(url: StrOrURL, pattern: StrOrURL) -> bool:
     """Determine if a URL matches a pattern
 
     Args:
@@ -322,5 +322,5 @@ def url_match(url: StrOrURL, pattern: str) -> bool:
     if not url:
         return False
     url = str(url).split('://')[-1]
-    pattern = pattern.split('://')[-1].rstrip('*') + '**'
+    pattern = str(pattern).split('://')[-1].rstrip('*') + '**'
     return fnmatch(url, pattern)

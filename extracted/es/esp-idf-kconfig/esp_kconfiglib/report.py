@@ -10,6 +10,7 @@ the messages and print them at the end of the parsing process as one report.
 
 import json
 import textwrap
+from collections import defaultdict
 from typing import TYPE_CHECKING
 from typing import Dict
 from typing import List
@@ -17,6 +18,8 @@ from typing import Optional
 from typing import Set
 from typing import Tuple
 from typing import Union
+
+from .constants import DefaultsPolicy
 
 if TYPE_CHECKING:
     from .core import Choice
@@ -120,6 +123,13 @@ class Area(ABC):
         ret_json["severity"] = self.severity_to_str(self.report_severity())
         return ret_json
 
+    @abstractmethod
+    def reset(self) -> None:
+        """
+        Reset the area to its initial state, clearing all records and data.
+        """
+        pass
+
     @staticmethod
     def severity_to_str(severity: int) -> str:
         if severity == STATUS_OK:
@@ -140,10 +150,10 @@ class DefaultValuesArea(Area):
       This is normally not a problem, but a feature. However, devs may want to know about it.
     """
 
-    def __init__(self):
+    def __init__(self, defaults_policy: DefaultsPolicy, verbosity: str):
         super().__init__(
             title="Default Value Mismatch",
-            ignore_codes=tuple(),
+            ignore_codes=set(),
             info_string=textwrap.dedent(
                 """\
                 This area reports issues with default values of the config options.
@@ -151,33 +161,54 @@ class DefaultValuesArea(Area):
                 """
             ),
         )
+        self.defaults_policy: DefaultsPolicy = defaults_policy
+        self.verbosity: str = verbosity
+
         self.changed_defaults: Set[Tuple[str, str, str]] = set()
         # Changed configs without prompts should not be reported as it's not something user should care about.
         # However, it may be useful to report them in verbose mode for devs.
         self.changed_values_promptless: Set[Tuple[str, str, str, bool]] = set()
+        self.changed_choices: Set[Tuple[str, str, str]] = set()
 
     def add_record(self, sym_or_choice: "Union[Symbol, Choice]", **kwargs: Optional[dict]) -> None:
         promptless: bool = kwargs.get("promptless", False)  # type: ignore
-        record = (
-            str(sym_or_choice.name),
-            str(sym_or_choice.str_value),
-            str(getattr(sym_or_choice, "_sdkconfig_value", "") or ""),
-        )
-        if not promptless:
-            self.changed_defaults.add(record)
-        else:
-            # sdkconfig value is still set even for promptless symbols, so we can decide
-            # if sdkconfig contained default value or not
-            record_with_default_flag = record + (getattr(sym_or_choice, "_user_value", None) is not None,)
-            self.changed_values_promptless.add(record_with_default_flag)
+        record_type: str = kwargs.get("record_type", "symbol")  # type: ignore
+        if record_type == "symbol":  # Symbol
+            record = (
+                str(sym_or_choice.name),
+                str(sym_or_choice.str_value),
+                str(getattr(sym_or_choice, "_sdkconfig_value", "") or ""),
+            )
+            if not promptless:
+                self.changed_defaults.add(record)
+            else:
+                # sdkconfig value is still set even for promptless symbols, so we can decide
+                # if sdkconfig contained default value or not
+                record_with_default_flag = record + (getattr(sym_or_choice, "_user_value", None) is not None,)
+                self.changed_values_promptless.add(record_with_default_flag)
+        else:  # Choice
+            record = (
+                str(sym_or_choice.name or "nameless" + sym_or_choice.name_and_loc),
+                str(sym_or_choice.selection.name if sym_or_choice.selection else "choice deselected"),  # type: ignore
+                str(kwargs.get("sdkconfig_selection", False)),
+            )
+            self.changed_choices.add(record)
 
     def add_ignore(self, sym_or_choice: "Union[Symbol, Choice]") -> None:
         pass
 
     def report_severity(self) -> int:
-        if not self.changed_defaults and not self.changed_values_promptless:
+        if (
+            not self.changed_defaults
+            and not (self.changed_values_promptless and self.verbosity == VERBOSITY_VERBOSE)
+            and not self.changed_choices
+        ):
             return STATUS_OK
-        if self.changed_defaults or self.changed_values_promptless:
+        if (
+            self.changed_defaults
+            or (self.changed_values_promptless and self.verbosity == VERBOSITY_VERBOSE)
+            or self.changed_choices
+        ):
             return STATUS_OK_WITH_INFO
         else:  # This should not happen, but just in case
             return STATUS_ERROR
@@ -186,7 +217,11 @@ class DefaultValuesArea(Area):
         """
         Check if there is nothing to report in the area.
         """
-        return not self.changed_defaults and (verbosity != VERBOSITY_VERBOSE or not self.changed_values_promptless)
+        return (
+            not self.changed_defaults
+            and not self.changed_choices
+            and (verbosity != VERBOSITY_VERBOSE or not self.changed_values_promptless)
+        )
 
     def print(self, verbosity: str) -> Optional[Table]:
         # No changed defaults or only promptless changed defaults without verbosity VERBOSITY_VERBOSE
@@ -195,11 +230,12 @@ class DefaultValuesArea(Area):
             return None
 
         table = Table(title=self.title, title_justify="left", show_header=False, title_style=AREA_TITLE_STYLE)
+        table.add_row(self.defaults_policy.description, style=INFO_STRING_STYLE)
         table.box = HORIZONTALS
         table.add_column(
             "",
             justify="left",
-            no_wrap=True,
+            no_wrap=False,
         )
         if verbosity == VERBOSITY_VERBOSE:
             table.add_row(self.info_string, style=INFO_STRING_STYLE)
@@ -211,6 +247,17 @@ class DefaultValuesArea(Area):
             for sym_name, kconfig_value, sdkconfig_value in self.changed_defaults:
                 table.add_row(
                     f"{sym_name}: Kconfig default value: {kconfig_value}, sdkconfig default value: {sdkconfig_value}"
+                )
+            table.add_row("")
+
+        if self.changed_choices:
+            table.add_row(
+                "Choice symbols with different default selection between sdkconfig and Kconfig", style=SUBTITLE_STYLE
+            )
+            for choice_name, kconfig_selection, sdkconfig_selection in self.changed_choices:
+                table.add_row(
+                    f"{choice_name}: Kconfig default selection: {kconfig_selection}, "
+                    f"sdkconfig default selection: {sdkconfig_selection}"
                 )
             table.add_row("")
 
@@ -260,13 +307,32 @@ class DefaultValuesArea(Area):
                         "sdkconfig_value_is_default": sdkconfig_value_is_default,
                     }
                 )
+        if self.changed_choices:
+            ret_json["data"]["changed_choices"] = list()
+            for choice_name, kconfig_selection, sdkconfig_selection in self.changed_choices:
+                ret_json["data"]["changed_choices"].append(
+                    {
+                        "name": choice_name,
+                        "kconfig_selection": kconfig_selection,
+                        "sdkconfig_selection": sdkconfig_selection,
+                    }
+                )
+
         return ret_json
+
+    def reset(self) -> None:
+        """
+        Reset the area to its initial state, clearing all records and data.
+        """
+        self.changed_defaults.clear()
+        self.changed_values_promptless.clear()
+        self.changed_choices.clear()
 
 
 class MultipleDefinitionArea(Area):
     """
     Multiple definition: having two or more definitions of the Symbol/Choice with the same name.
-    NOTE: Currently, MutliplyDefinitionArea cause only info instead of warning. This will be changed in the future.
+    NOTE: Currently, MultipleDefinitionArea cause only info instead of warning. This will be changed in the future.
     """
 
     def __init__(self):
@@ -314,7 +380,7 @@ class MultipleDefinitionArea(Area):
         table.add_column(
             "",
             justify="left",
-            no_wrap=True,
+            no_wrap=False,
         )
         table.add_row(
             "Multiple definitions will have higher severity in the future. Please, visit "
@@ -347,6 +413,12 @@ class MultipleDefinitionArea(Area):
             for definition in self.multiple_definitions[sym_or_choice_name]:
                 ret_json["data"][sym_or_choice_name].append(definition)
         return ret_json
+
+    def reset(self) -> None:
+        """
+        Reset the area to its initial state, clearing all records and data.
+        """
+        self.multiple_definitions.clear()
 
 
 class MiscArea(Area):
@@ -385,7 +457,7 @@ class MiscArea(Area):
 
         table = Table(title=self.title, title_justify="left", show_header=False, title_style=AREA_TITLE_STYLE)
         table.box = HORIZONTALS
-        table.add_column("", justify="left", no_wrap=True)
+        table.add_column("", justify="left", no_wrap=False)
         for message in self.messages:
             table.add_row(f"* {message}")
         return table
@@ -398,6 +470,121 @@ class MiscArea(Area):
             ret_json = dict()
         ret_json["data"] = list(self.messages)
         return ret_json
+
+    def reset(self) -> None:
+        """
+        Reset the area to its initial state, clearing all records and data.
+        """
+        self.messages.clear()
+
+
+class MultipleAssignmentArea(Area):
+    """
+    This area reports multiple assignments to the same symbol within a single file.
+    """
+
+    def __init__(self):
+        super().__init__(
+            title="Multiple Assignments",
+            ignore_codes=set(),
+            info_string=(
+                "Under normal circumstances, there should be only one (or none) assignment per config option. "
+                "Multiple assignments mean somebody manually altered the sdkconfig file. "
+                "If you edited the sdkconfig file intentionally, this area can be ignored."
+            ),
+        )
+
+        # CONFIG_NAME: [(val, is_default?), (val, is_default?), ...]
+        self.multiple_assignments_sym: Dict[Symbol, List[Tuple[str, bool]]] = defaultdict(list)
+        # CHOICE_NAME: [(val, is_default?), (val, is_default?), ...]
+        self.multiple_assignments_choice: Dict[Choice, List[Tuple[str, bool]]] = defaultdict(list)
+
+    def add_record(self, sym_or_choice, **kwargs):
+        """
+        kwargs:
+            new_value: str
+            is_default: bool
+        """
+        if "new_value" not in kwargs.keys() or "is_default" not in kwargs.keys():
+            raise AttributeError("New value and is_default must be specified for MultipleAssignmentArea.")
+        if sym_or_choice.__class__.__name__ == "Symbol":
+            if not self.multiple_assignments_sym[sym_or_choice]:
+                # If this is the first time we are logging the data, we also need to log the first value
+                self.multiple_assignments_sym[sym_or_choice] = [
+                    (sym_or_choice.str_value, sym_or_choice._user_value is None)
+                ]
+            self.multiple_assignments_sym[sym_or_choice].append((kwargs["new_value"], kwargs["is_default"]))
+        elif sym_or_choice.__class__.__name__ == "Choice":
+            if not self.multiple_assignments_choice[sym_or_choice]:
+                # If this is the first time we are logging the data, we also need to log the first selection
+                self.multiple_assignments_choice[sym_or_choice] = [
+                    (
+                        sym_or_choice.selection.name if sym_or_choice.selection else "choice deselected",
+                        sym_or_choice._user_selection is None,
+                    )
+                ]
+            self.multiple_assignments_choice[sym_or_choice].append((kwargs["new_value"], kwargs["is_default"]))
+
+    def add_ignore(self, sym_or_choice: "Union[Symbol, Choice]") -> None:
+        raise AttributeError("MultipleAssignmentArea does not support ignore codes")
+
+    def report_severity(self) -> int:
+        return STATUS_OK_WITH_INFO if (self.multiple_assignments_sym or self.multiple_assignments_choice) else STATUS_OK
+
+    def print(self, verbosity: str) -> Optional[Table]:
+        if self.report_severity() is STATUS_OK:
+            return None
+
+        table = Table(title=self.title, title_justify="left", show_header=False, title_style=AREA_TITLE_STYLE)
+        table.box = HORIZONTALS
+        table.add_column("", justify="left", no_wrap=False)
+
+        if verbosity == VERBOSITY_VERBOSE:
+            table.add_row(self.info_string, style=INFO_STRING_STYLE)
+
+        for sym in self.multiple_assignments_sym:
+            msg = f"Symbol {sym.name}: "
+            for val, is_default in self.multiple_assignments_sym[sym]:
+                msg += f"\n{_INDENT}{val}{' (default value)' if is_default else ' (user-set value)'}"
+            msg += f"\n{_INDENT}-> using {sym.str_value}"
+            table.add_row(msg)
+        for choice in self.multiple_assignments_choice:
+            msg = f"Choice {choice.name}: "
+            for val, is_default in self.multiple_assignments_choice[choice]:
+                msg += f"\n{_INDENT}{val}{' (default selection)' if is_default else ' (user-set selection)'}"
+            msg += f"\n{_INDENT}-> using {choice.selection.name}"
+            table.add_row(msg)
+
+        return table
+
+    def return_json(self) -> Optional[dict]:
+        if not self.multiple_assignments_sym and not self.multiple_assignments_choice:
+            return None
+        ret_json = super().return_json()
+        if not ret_json:
+            ret_json = dict()
+        ret_json["data"] = dict()
+        ret_json["data"]["symbols"] = dict()
+        ret_json["data"]["choices"] = defaultdict(list)
+
+        for sym in self.multiple_assignments_sym:
+            ret_json["data"]["symbols"][sym.name] = {"values": dict(), "final_value": sym.str_value}
+            for val, is_default in self.multiple_assignments_sym[sym]:
+                ret_json["data"]["symbols"][sym.name]["values"][val] = "default" if is_default else "user-set"
+
+        for choice in self.multiple_assignments_choice:
+            ret_json["data"]["choices"][choice.name] = {"values": dict(), "final_value": choice.selection.name}
+            for val, is_default in self.multiple_assignments_choice[choice]:
+                ret_json["data"]["choices"][choice.name]["values"][val] = "default" if is_default else "user-set"
+
+        return ret_json
+
+    def reset(self) -> None:
+        """
+        Reset the area to its initial state, clearing all records and data.
+        """
+        self.multiple_assignments_sym.clear()
+        self.multiple_assignments_choice.clear()
 
 
 class KconfigReport:
@@ -412,17 +599,19 @@ class KconfigReport:
     _instance = None
     _initialized: bool
 
-    def __new__(cls, kconfig: "Kconfig") -> "KconfigReport":
+    def __new__(cls, kconfig: "Kconfig", defaults_policy: DefaultsPolicy) -> "KconfigReport":
         """Singleton class to log messages"""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.kconfig = kconfig
+            cls._instance.defaults_policy = defaults_policy
             cls._instance._initialized = False
         return cls._instance
 
     def __init__(
         self,
         kconfig: "Kconfig",
+        defaults_policy: DefaultsPolicy,
     ) -> None:
         if hasattr(self, "_initialized") and self._initialized:
             return
@@ -430,12 +619,18 @@ class KconfigReport:
 
         self.kconfig: "Kconfig" = kconfig
         self.verbosity: str = os.getenv("KCONFIG_REPORT_VERBOSITY", VERBOSITY_DEFAULT)
+        self.defaults_policy: DefaultsPolicy = defaults_policy
 
         # Ignores
         self.lines_with_ignores: List[str] = list()
 
         # Areas
-        self.areas = (MultipleDefinitionArea(), MiscArea(), DefaultValuesArea())
+        self.areas = (
+            MultipleDefinitionArea(),
+            MiscArea(),
+            DefaultValuesArea(defaults_policy, verbosity=self.verbosity),
+            MultipleAssignmentArea(),
+        )
 
         # Mapping dictionaries
         """
@@ -467,6 +662,15 @@ class KconfigReport:
         self._status = max(area.report_severity() for area in self.areas) or STATUS_OK
 
         return self._status
+
+    def reset(self) -> None:
+        """
+        Reset the report to its initial state.
+        """
+        self.lines_with_ignores.clear()
+        for area in self.areas:
+            area.reset()
+        self._status = STATUS_NONE
 
     def add_ignore_line(self, line: str) -> None:
         """
@@ -514,6 +718,7 @@ class KconfigReport:
         if self.verbosity == VERBOSITY_VERBOSE:
             header_table.add_row(f"Symbols parsed: {len(self.kconfig.unique_defined_syms)}")
 
+        header_table.add_row(f"Defaults policy: {self.defaults_policy.value}")
         status = self.status
         if status == STATUS_OK:
             header_table.add_row("Status: Finished successfully", style="green")
@@ -562,6 +767,19 @@ class KconfigReport:
                 rprint(report_table, file=f)
 
     def output_json(self, file: Optional[str] = None) -> None:
+        report_json = self._return_json()
+
+        if not file:
+            console = Console(force_terminal=True, stderr=True)
+            console.print(json.dumps(report_json, indent=4))
+        else:
+            with open(file, "w+") as f:
+                json.dump(report_json, f, indent=4)
+
+    def _return_json(self) -> Dict:
+        """
+        Return the report in JSON format.
+        """
         report_json: Dict = dict()
         report_json["header"] = dict()
         report_json["header"]["report_type"] = "kconfig"
@@ -569,6 +787,7 @@ class KconfigReport:
         report_json["header"]["verbosity"] = self.verbosity
         report_json["header"]["status"] = Area.severity_to_str(self.status)
         report_json["header"]["unique_defined_syms"] = len(self.kconfig.unique_defined_syms)
+        report_json["header"]["defaults_policy"] = self.defaults_policy.value
 
         report_json["areas"] = list()
         for area in self.areas:
@@ -577,9 +796,4 @@ class KconfigReport:
                 continue
             report_json["areas"].append(area.return_json())
 
-        if not file:
-            console = Console(force_terminal=True, stderr=True)
-            console.print(json.dumps(report_json, indent=4))
-        else:
-            with open(file, "w+") as f:
-                json.dump(report_json, f, indent=4)
+        return report_json

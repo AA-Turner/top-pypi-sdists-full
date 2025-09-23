@@ -1,9 +1,10 @@
-import json
 import logging
 import sys
 from logging.handlers import HTTPHandler, QueueHandler, QueueListener
 from queue import Queue
 from typing import TextIO
+
+import simplejson as json
 
 from fluidattacks_core.logging.filters import NoProductionFilter, ProductionOnlyFilter
 from fluidattacks_core.logging.formatters import ColorfulFormatter, CustomJsonFormatter

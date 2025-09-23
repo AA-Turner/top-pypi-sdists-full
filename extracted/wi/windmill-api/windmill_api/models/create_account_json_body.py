@@ -12,9 +12,10 @@ T = TypeVar("T", bound="CreateAccountJsonBody")
 class CreateAccountJsonBody:
     """
     Attributes:
+        refresh_token (str): OAuth refresh token. For authorization_code flow, this contains the actual refresh token.
+            For client_credentials flow, this must be set to an empty string.
         expires_in (int):
         client (str):
-        refresh_token (Union[Unset, str]):
         grant_type (Union[Unset, str]):  Default: 'authorization_code'.
         cc_client_id (Union[Unset, str]): OAuth client ID for resource-level credentials (client_credentials flow only)
         cc_client_secret (Union[Unset, str]): OAuth client secret for resource-level credentials (client_credentials
@@ -23,9 +24,9 @@ class CreateAccountJsonBody:
             flow only)
     """
 
+    refresh_token: str
     expires_in: int
     client: str
-    refresh_token: Union[Unset, str] = UNSET
     grant_type: Union[Unset, str] = "authorization_code"
     cc_client_id: Union[Unset, str] = UNSET
     cc_client_secret: Union[Unset, str] = UNSET
@@ -33,9 +34,9 @@ class CreateAccountJsonBody:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
+        refresh_token = self.refresh_token
         expires_in = self.expires_in
         client = self.client
-        refresh_token = self.refresh_token
         grant_type = self.grant_type
         cc_client_id = self.cc_client_id
         cc_client_secret = self.cc_client_secret
@@ -45,12 +46,11 @@ class CreateAccountJsonBody:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "refresh_token": refresh_token,
                 "expires_in": expires_in,
                 "client": client,
             }
         )
-        if refresh_token is not UNSET:
-            field_dict["refresh_token"] = refresh_token
         if grant_type is not UNSET:
             field_dict["grant_type"] = grant_type
         if cc_client_id is not UNSET:
@@ -65,11 +65,11 @@ class CreateAccountJsonBody:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         d = src_dict.copy()
+        refresh_token = d.pop("refresh_token")
+
         expires_in = d.pop("expires_in")
 
         client = d.pop("client")
-
-        refresh_token = d.pop("refresh_token", UNSET)
 
         grant_type = d.pop("grant_type", UNSET)
 
@@ -80,9 +80,9 @@ class CreateAccountJsonBody:
         cc_token_url = d.pop("cc_token_url", UNSET)
 
         create_account_json_body = cls(
+            refresh_token=refresh_token,
             expires_in=expires_in,
             client=client,
-            refresh_token=refresh_token,
             grant_type=grant_type,
             cc_client_id=cc_client_id,
             cc_client_secret=cc_client_secret,

@@ -25,6 +25,7 @@ import argcomplete
 import crcmod
 
 from . import helpers
+from . import tockloader
 from .exceptions import TockLoaderException
 from .tab import TAB
 from .tickv import TicKV, TockTicKV
@@ -412,6 +413,60 @@ def command_inspect_tab(args):
                     textwrap.indent(helpers.print_flash(0, app.get_binary(0)), "    ")
                 )
         print("")
+
+
+def command_local_board_set(args):
+    board_name = args.board[0]
+
+    if tockloader.is_known_board(board_name):
+        pass
+    else:
+        # If this is not a known board we must have the necessary values to
+        # understand how to create the local file.
+        if args.arch == None or args.app_address == None or args.flash_address == None:
+            logging.error(f"Board {board_name} is not a known board.")
+            logging.error("You must include --arch, --app-address, and --flash-address")
+            logging.error(
+                "Or, use tockloader list-known-boards to see the list of known boards"
+            )
+            raise TockLoaderException("Unknown board.")
+
+    logging.status(f"Setting the default local board to '{board_name}'")
+    if args.arch:
+        logging.status(f"  Using arch {args.arch}")
+    if args.app_address:
+        logging.status(f"  Using app_address {args.app_address:#02x}")
+    if args.flash_address:
+        logging.status(f"  Using flash_address {args.flash_address:#02x}")
+    if args.flush_command:
+        logging.status(f'  Using flush_command "{args.flush_command}"')
+    if args.binary_path:
+        logging.status(f'  Storing flash-file at "{args.binary_path}"')
+
+    tockloader.set_local_board(
+        board_name,
+        args.arch,
+        args.app_address,
+        args.flash_address,
+        args.flush_command,
+        args.binary_path,
+    )
+
+
+def command_local_board_unset(args):
+    logging.status("Unsetting any defined local board")
+    tockloader.unset_local_board()
+
+
+def command_local_board_path(args):
+    # Disable logging for this command
+    logging.getLogger("").setLevel(1000)
+    print(tockloader.get_local_board_path())
+
+
+def command_local_board_flush(args):
+    logging.status(f"Flushing the local board binary file to the actual board")
+    tockloader.flush_local_board(args)
 
 
 def command_tbf_tlv_delete(args):
@@ -809,6 +864,12 @@ def main():
         "--stlink", action="store_true", help="Use ST-Link tools to flash."
     )
     parent_channel.add_argument(
+        "--probers", action="store_true", help="Use probe-rs to flash."
+    )
+    parent_channel.add_argument(
+        "--local-board", action="store_true", help="Use a local binary file to flash."
+    )
+    parent_channel.add_argument(
         "--jtag-device",
         default="cortex-m0",
         help="The device type to pass to JLinkExe. Useful for initial commissioning. Deprecated. Use --jlink-device instead.",
@@ -860,6 +921,15 @@ def main():
     )
     parent_channel.add_argument(
         "--stflash-cmd", default="st-flash", help="The st-flash binary to invoke."
+    )
+    parent_channel.add_argument("--probers-board", help="The --chip for probe-rs.")
+    parent_channel.add_argument(
+        "--probers-cmd", default="probe-rs", help="The probe-rs binary to invoke."
+    )
+    parent_channel.add_argument(
+        "--probers-probe",
+        default=None,
+        help="Specify a specific probe when using probe-rs.",
     )
     parent_channel.add_argument(
         "--flash-file",
@@ -1235,6 +1305,79 @@ def main():
         "--tbf-binary", help="Dump the entire TBF binary", action="store_true"
     )
     inspect_tab.add_argument("tab", help="The TAB or TABs to inspect", nargs="*")
+
+    #################
+    ## LOCAL BOARD ##
+    #################
+
+    local_board = subparser.add_parser(
+        "local-board",
+        help="Commands for interacting with local files as board flash",
+    )
+    local_board_subparser = local_board.add_subparsers(
+        title="Commands", metavar="            ", dest="subcommand"
+    )
+
+    ## SET
+
+    local_board_set = local_board_subparser.add_parser(
+        "set",
+        parents=[parent],
+        help="Define a default local (i.e., flash-file) board",
+    )
+    local_board_set.set_defaults(func=command_local_board_set)
+    local_board_set.add_argument("board", help="The board name to use", nargs=1)
+    local_board_set.add_argument(
+        "--binary-path",
+        default=None,
+        help="Path to where the flash-file is stored.",
+    )
+    local_board_set.add_argument(
+        "--arch",
+        default=None,
+        help="Architecture of the target board.",
+    )
+    local_board_set.add_argument(
+        "--app-address",
+        help="Address where apps are located",
+        type=lambda x: int(x, 0),
+    )
+    local_board_set.add_argument(
+        "--flash-address",
+        help="Address where flash starts",
+        type=lambda x: int(x, 0),
+    )
+    local_board_set.add_argument(
+        "--flush-command",
+        help="Command to run to load the local file to the board",
+    )
+
+    ## UNSET
+
+    local_board_unset = local_board_subparser.add_parser(
+        "unset",
+        parents=[parent],
+        help="Undefine a default local (i.e., flash-file) board",
+    )
+    local_board_unset.set_defaults(func=command_local_board_unset)
+
+    # PATH
+
+    local_board_path = local_board_subparser.add_parser(
+        "path",
+        parents=[parent],
+        help="Get the path to the local (i.e., flash-file) board's binary",
+    )
+    local_board_path.set_defaults(func=command_local_board_path)
+
+    ## FLUSH
+
+    local_board_flush = local_board_subparser.add_parser(
+        "flush",
+        parents=[parent],
+        help="Flush the local board binary file to the hardware board",
+    )
+    local_board_flush.set_defaults(func=command_local_board_flush)
 
     #########
     ## TBF ##

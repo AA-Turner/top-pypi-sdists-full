@@ -136,6 +136,31 @@ route53.AaaaRecord(self, "Alias",
 )
 ```
 
+To add an HTTPS record:
+
+```python
+import aws_cdk.aws_cloudfront as cloudfront
+
+# my_zone: route53.HostedZone
+# distribution: cloudfront.CloudFrontWebDistribution
+
+# Alias to CloudFront target
+route53.HttpsRecord(self, "HttpsRecord-CloudFrontAlias",
+    zone=my_zone,
+    target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution))
+)
+# ServiceMode (priority >= 1)
+route53.HttpsRecord(self, "HttpsRecord-ServiceMode",
+    zone=my_zone,
+    values=[route53.HttpsRecordValue.service(alpn=[route53.Alpn.H3, route53.Alpn.H2])]
+)
+# AliasMode (priority = 0)
+route53.HttpsRecord(self, "HttpsRecord-AliasMode",
+    zone=my_zone,
+    values=[route53.HttpsRecordValue.alias("service.example.com")]
+)
+```
+
 [Geolocation routing](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-geo.html) can be enabled for continent, country or subdivision:
 
 ```python
@@ -815,6 +840,72 @@ class AliasRecordTargetConfig:
         return "AliasRecordTargetConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class Alpn(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_route53.Alpn"):
+    '''The ALPN protocol identifier.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_cloudfront as cloudfront
+        
+        # my_zone: route53.HostedZone
+        # distribution: cloudfront.CloudFrontWebDistribution
+        
+        # Alias to CloudFront target
+        route53.HttpsRecord(self, "HttpsRecord-CloudFrontAlias",
+            zone=my_zone,
+            target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution))
+        )
+        # ServiceMode (priority >= 1)
+        route53.HttpsRecord(self, "HttpsRecord-ServiceMode",
+            zone=my_zone,
+            values=[route53.HttpsRecordValue.service(alpn=[route53.Alpn.H3, route53.Alpn.H2])]
+        )
+        # AliasMode (priority = 0)
+        route53.HttpsRecord(self, "HttpsRecord-AliasMode",
+            zone=my_zone,
+            values=[route53.HttpsRecordValue.alias("service.example.com")]
+        )
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, protocol: builtins.str) -> "Alpn":
+        '''A custom ALPN protocol identifier.
+
+        :param protocol: The ALPN protocol identifier.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d9ef0a4a7247c6d4a71f3fa246dc19c356186767877913ae8a1b1123c46a69e)
+            check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
+        return typing.cast("Alpn", jsii.sinvoke(cls, "of", [protocol]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="H2")
+    def H2(cls) -> "Alpn":
+        '''HTTP2.'''
+        return typing.cast("Alpn", jsii.sget(cls, "H2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="H3")
+    def H3(cls) -> "Alpn":
+        '''HTTP3 (QUIC).'''
+        return typing.cast("Alpn", jsii.sget(cls, "H3"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="HTTP1_1")
+    def HTTP1_1(cls) -> "Alpn":
+        '''HTTP/1.1.'''
+        return typing.cast("Alpn", jsii.sget(cls, "HTTP1_1"))
+
+    @builtins.property
+    @jsii.member(jsii_name="protocol")
+    def protocol(self) -> builtins.str:
+        '''The ALPN protocol identifier.'''
+        return typing.cast(builtins.str, jsii.get(self, "protocol"))
 
 
 @jsii.data_type(
@@ -3836,6 +3927,94 @@ class HostedZoneReference:
         )
 
 
+class HttpsRecordValue(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.HttpsRecordValue",
+):
+    '''Represents an HTTPS record value.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_cloudfront as cloudfront
+        
+        # my_zone: route53.HostedZone
+        # distribution: cloudfront.CloudFrontWebDistribution
+        
+        # Alias to CloudFront target
+        route53.HttpsRecord(self, "HttpsRecord-CloudFrontAlias",
+            zone=my_zone,
+            target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution))
+        )
+        # ServiceMode (priority >= 1)
+        route53.HttpsRecord(self, "HttpsRecord-ServiceMode",
+            zone=my_zone,
+            values=[route53.HttpsRecordValue.service(alpn=[route53.Alpn.H3, route53.Alpn.H2])]
+        )
+        # AliasMode (priority = 0)
+        route53.HttpsRecord(self, "HttpsRecord-AliasMode",
+            zone=my_zone,
+            values=[route53.HttpsRecordValue.alias("service.example.com")]
+        )
+    '''
+
+    @jsii.member(jsii_name="alias")
+    @builtins.classmethod
+    def alias(cls, target_name: builtins.str) -> "HttpsRecordValue":
+        '''An HTTPS AliasMode record value.
+
+        :param target_name: The domain name of the alternative endpoint.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00426d6aef7715125de0a287a45d208ba1f76ffc095e09ee726de5a1536b46c9)
+            check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
+        return typing.cast("HttpsRecordValue", jsii.sinvoke(cls, "alias", [target_name]))
+
+    @jsii.member(jsii_name="service")
+    @builtins.classmethod
+    def service(
+        cls,
+        *,
+        alpn: typing.Optional[typing.Sequence[Alpn]] = None,
+        ipv4hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ipv6hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        mandatory: typing.Optional[typing.Sequence[builtins.str]] = None,
+        no_default_alpn: typing.Optional[builtins.bool] = None,
+        port: typing.Optional[jsii.Number] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        target_name: typing.Optional[builtins.str] = None,
+    ) -> "HttpsRecordValue":
+        '''An HTTPS ServiceMode record value.
+
+        :param alpn: Indicates the set of Application-Layer Protocol Negotiation (ALPN) protocol identifiers and associated transport protocols supported by this service endpoint. Default: - No ALPN protocol identifiers
+        :param ipv4hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param ipv6hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param mandatory: Indicates mandatory keys. Default: - No mandatory keys
+        :param no_default_alpn: Indicates no default ALPN protocol identifiers. The ``alpn`` parameter must be supplied together. Default: false
+        :param port: The alternative port number. Default: - Use the default port
+        :param priority: The priority. Default: 1
+        :param target_name: The domain name of the alternative endpoint. Default: '.' - The record name of the record itself
+        '''
+        props = HttpsRecordServiceModeProps(
+            alpn=alpn,
+            ipv4hint=ipv4hint,
+            ipv6hint=ipv6hint,
+            mandatory=mandatory,
+            no_default_alpn=no_default_alpn,
+            port=port,
+            priority=priority,
+            target_name=target_name,
+        )
+
+        return typing.cast("HttpsRecordValue", jsii.sinvoke(cls, "service", [props]))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Returns the string representation of SVCB and HTTPS record value.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_route53.IAliasRecordTarget")
 class IAliasRecordTarget(typing_extensions.Protocol):
     '''Classes that are valid alias record targets, like CloudFront distributions and load balancers, should implement this interface.'''
@@ -6778,6 +6957,655 @@ class SrvRecordValue:
         return "SrvRecordValue(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class SvcbRecord(
+    RecordSet,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.SvcbRecord",
+):
+    '''A DNS SVCB record.
+
+    :resource: AWS::Route53::RecordSet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk as cdk
+        from aws_cdk import aws_route53 as route53
+        
+        # cidr_routing_config: route53.CidrRoutingConfig
+        # geo_location: route53.GeoLocation
+        # health_check: route53.HealthCheck
+        # hosted_zone: route53.HostedZone
+        # svcb_record_value: route53.SvcbRecordValue
+        
+        svcb_record = route53.SvcbRecord(self, "MySvcbRecord",
+            values=[svcb_record_value],
+            zone=hosted_zone,
+        
+            # the properties below are optional
+            cidr_routing_config=cidr_routing_config,
+            comment="comment",
+            delete_existing=False,
+            geo_location=geo_location,
+            health_check=health_check,
+            multi_value_answer=False,
+            record_name="recordName",
+            region="region",
+            set_identifier="setIdentifier",
+            ttl=cdk.Duration.minutes(30),
+            weight=123
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        values: typing.Sequence["SvcbRecordValue"],
+        zone: IHostedZone,
+        cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+        comment: typing.Optional[builtins.str] = None,
+        delete_existing: typing.Optional[builtins.bool] = None,
+        geo_location: typing.Optional[GeoLocation] = None,
+        health_check: typing.Optional[IHealthCheck] = None,
+        multi_value_answer: typing.Optional[builtins.bool] = None,
+        record_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+        set_identifier: typing.Optional[builtins.str] = None,
+        ttl: typing.Optional[_Duration_4839e8c3] = None,
+        weight: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param values: The values.
+        :param zone: The hosted zone in which to define the new record.
+        :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
+        :param comment: A comment to add on the record. Default: no comment
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
+        :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
+        :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
+        :param record_name: The subdomain name for this record. This should be relative to the zone root name. For example, if you want to create a record for acme.example.com, specify "acme". You can also specify the fully qualified domain name which terminates with a ".". For example, "acme.example.com.". Default: zone root
+        :param region: The Amazon EC2 Region where you created the resource that this resource record set refers to. The resource typically is an AWS resource, such as an EC2 instance or an ELB load balancer, and is referred to by an IP address or a DNS domain name, depending on the record type. When Amazon Route 53 receives a DNS query for a domain name and type for which you have created latency resource record sets, Route 53 selects the latency resource record set that has the lowest latency between the end user and the associated Amazon EC2 Region. Route 53 then returns the value that is associated with the selected resource record set. Default: - Do not set latency based routing
+        :param set_identifier: A string used to distinguish between different records with the same combination of DNS name and type. It can only be set when either weight or geoLocation is defined. This parameter must be between 1 and 128 characters in length. Default: - Auto generated string
+        :param ttl: The resource record cache time to live (TTL). Default: Duration.minutes(30)
+        :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9061fb94be4da039b0429a165062a427f90914b268a3f15ef9424a45850e1a4c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = SvcbRecordProps(
+            values=values,
+            zone=zone,
+            cidr_routing_config=cidr_routing_config,
+            comment=comment,
+            delete_existing=delete_existing,
+            geo_location=geo_location,
+            health_check=health_check,
+            multi_value_answer=multi_value_answer,
+            record_name=record_name,
+            region=region,
+            set_identifier=set_identifier,
+            ttl=ttl,
+            weight=weight,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.SvcbRecordProps",
+    jsii_struct_bases=[RecordSetOptions],
+    name_mapping={
+        "zone": "zone",
+        "cidr_routing_config": "cidrRoutingConfig",
+        "comment": "comment",
+        "delete_existing": "deleteExisting",
+        "geo_location": "geoLocation",
+        "health_check": "healthCheck",
+        "multi_value_answer": "multiValueAnswer",
+        "record_name": "recordName",
+        "region": "region",
+        "set_identifier": "setIdentifier",
+        "ttl": "ttl",
+        "weight": "weight",
+        "values": "values",
+    },
+)
+class SvcbRecordProps(RecordSetOptions):
+    def __init__(
+        self,
+        *,
+        zone: IHostedZone,
+        cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+        comment: typing.Optional[builtins.str] = None,
+        delete_existing: typing.Optional[builtins.bool] = None,
+        geo_location: typing.Optional[GeoLocation] = None,
+        health_check: typing.Optional[IHealthCheck] = None,
+        multi_value_answer: typing.Optional[builtins.bool] = None,
+        record_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+        set_identifier: typing.Optional[builtins.str] = None,
+        ttl: typing.Optional[_Duration_4839e8c3] = None,
+        weight: typing.Optional[jsii.Number] = None,
+        values: typing.Sequence["SvcbRecordValue"],
+    ) -> None:
+        '''Construction properties for an SvcbRecord.
+
+        :param zone: The hosted zone in which to define the new record.
+        :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
+        :param comment: A comment to add on the record. Default: no comment
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
+        :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
+        :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
+        :param record_name: The subdomain name for this record. This should be relative to the zone root name. For example, if you want to create a record for acme.example.com, specify "acme". You can also specify the fully qualified domain name which terminates with a ".". For example, "acme.example.com.". Default: zone root
+        :param region: The Amazon EC2 Region where you created the resource that this resource record set refers to. The resource typically is an AWS resource, such as an EC2 instance or an ELB load balancer, and is referred to by an IP address or a DNS domain name, depending on the record type. When Amazon Route 53 receives a DNS query for a domain name and type for which you have created latency resource record sets, Route 53 selects the latency resource record set that has the lowest latency between the end user and the associated Amazon EC2 Region. Route 53 then returns the value that is associated with the selected resource record set. Default: - Do not set latency based routing
+        :param set_identifier: A string used to distinguish between different records with the same combination of DNS name and type. It can only be set when either weight or geoLocation is defined. This parameter must be between 1 and 128 characters in length. Default: - Auto generated string
+        :param ttl: The resource record cache time to live (TTL). Default: Duration.minutes(30)
+        :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
+        :param values: The values.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_route53 as route53
+            
+            # cidr_routing_config: route53.CidrRoutingConfig
+            # geo_location: route53.GeoLocation
+            # health_check: route53.HealthCheck
+            # hosted_zone: route53.HostedZone
+            # svcb_record_value: route53.SvcbRecordValue
+            
+            svcb_record_props = route53.SvcbRecordProps(
+                values=[svcb_record_value],
+                zone=hosted_zone,
+            
+                # the properties below are optional
+                cidr_routing_config=cidr_routing_config,
+                comment="comment",
+                delete_existing=False,
+                geo_location=geo_location,
+                health_check=health_check,
+                multi_value_answer=False,
+                record_name="recordName",
+                region="region",
+                set_identifier="setIdentifier",
+                ttl=cdk.Duration.minutes(30),
+                weight=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f178a06653341a87070700e1fbb7000faa1c8b33ac5fae5287b9cf8e15cdf6e)
+            check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
+            check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            check_type(argname="argument delete_existing", value=delete_existing, expected_type=type_hints["delete_existing"])
+            check_type(argname="argument geo_location", value=geo_location, expected_type=type_hints["geo_location"])
+            check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+            check_type(argname="argument multi_value_answer", value=multi_value_answer, expected_type=type_hints["multi_value_answer"])
+            check_type(argname="argument record_name", value=record_name, expected_type=type_hints["record_name"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument set_identifier", value=set_identifier, expected_type=type_hints["set_identifier"])
+            check_type(argname="argument ttl", value=ttl, expected_type=type_hints["ttl"])
+            check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "zone": zone,
+            "values": values,
+        }
+        if cidr_routing_config is not None:
+            self._values["cidr_routing_config"] = cidr_routing_config
+        if comment is not None:
+            self._values["comment"] = comment
+        if delete_existing is not None:
+            self._values["delete_existing"] = delete_existing
+        if geo_location is not None:
+            self._values["geo_location"] = geo_location
+        if health_check is not None:
+            self._values["health_check"] = health_check
+        if multi_value_answer is not None:
+            self._values["multi_value_answer"] = multi_value_answer
+        if record_name is not None:
+            self._values["record_name"] = record_name
+        if region is not None:
+            self._values["region"] = region
+        if set_identifier is not None:
+            self._values["set_identifier"] = set_identifier
+        if ttl is not None:
+            self._values["ttl"] = ttl
+        if weight is not None:
+            self._values["weight"] = weight
+
+    @builtins.property
+    def zone(self) -> IHostedZone:
+        '''The hosted zone in which to define the new record.'''
+        result = self._values.get("zone")
+        assert result is not None, "Required property 'zone' is missing"
+        return typing.cast(IHostedZone, result)
+
+    @builtins.property
+    def cidr_routing_config(self) -> typing.Optional[CidrRoutingConfig]:
+        '''The object that is specified in resource record set object when you are linking a resource record set to a CIDR location.
+
+        A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record.
+
+        :default: - No CIDR routing configured
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-cidrroutingconfig
+        '''
+        result = self._values.get("cidr_routing_config")
+        return typing.cast(typing.Optional[CidrRoutingConfig], result)
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''A comment to add on the record.
+
+        :default: no comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_existing(self) -> typing.Optional[builtins.bool]:
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+
+        This allows to deploy a new record set while minimizing the downtime because the
+        new record set will be created immediately after the existing one is deleted. It
+        also avoids "manual" actions to delete existing record sets.
+        .. epigraph::
+
+           **N.B.:** this feature is dangerous, use with caution! It can only be used safely when
+           ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing
+           an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment
+           will delete the record!
+
+        :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("delete_existing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def geo_location(self) -> typing.Optional[GeoLocation]:
+        '''The geographical origin for this record to return DNS records based on the user's location.'''
+        result = self._values.get("geo_location")
+        return typing.cast(typing.Optional[GeoLocation], result)
+
+    @builtins.property
+    def health_check(self) -> typing.Optional[IHealthCheck]:
+        '''The health check to associate with the record set.
+
+        Route53 will return this record set in response to DNS queries only if the health check is passing.
+
+        :default: - No health check configured
+        '''
+        result = self._values.get("health_check")
+        return typing.cast(typing.Optional[IHealthCheck], result)
+
+    @builtins.property
+    def multi_value_answer(self) -> typing.Optional[builtins.bool]:
+        '''Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries.
+
+        :default: false
+        '''
+        result = self._values.get("multi_value_answer")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def record_name(self) -> typing.Optional[builtins.str]:
+        '''The subdomain name for this record. This should be relative to the zone root name.
+
+        For example, if you want to create a record for acme.example.com, specify
+        "acme".
+
+        You can also specify the fully qualified domain name which terminates with a
+        ".". For example, "acme.example.com.".
+
+        :default: zone root
+        '''
+        result = self._values.get("record_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''The Amazon EC2 Region where you created the resource that this resource record set refers to.
+
+        The resource typically is an AWS resource, such as an EC2 instance or an ELB load balancer,
+        and is referred to by an IP address or a DNS domain name, depending on the record type.
+
+        When Amazon Route 53 receives a DNS query for a domain name and type for which you have created latency resource record sets,
+        Route 53 selects the latency resource record set that has the lowest latency between the end user and the associated Amazon EC2 Region.
+        Route 53 then returns the value that is associated with the selected resource record set.
+
+        :default: - Do not set latency based routing
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-region
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def set_identifier(self) -> typing.Optional[builtins.str]:
+        '''A string used to distinguish between different records with the same combination of DNS name and type.
+
+        It can only be set when either weight or geoLocation is defined.
+
+        This parameter must be between 1 and 128 characters in length.
+
+        :default: - Auto generated string
+        '''
+        result = self._values.get("set_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ttl(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The resource record cache time to live (TTL).
+
+        :default: Duration.minutes(30)
+        '''
+        result = self._values.get("ttl")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def weight(self) -> typing.Optional[jsii.Number]:
+        '''Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set.
+
+        Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type.
+        Route 53 then responds to queries based on the ratio of a resource's weight to the total.
+
+        This value can be a number between 0 and 255.
+
+        :default: - Do not set weighted routing
+
+        :see: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-weighted.html
+        '''
+        result = self._values.get("weight")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def values(self) -> typing.List["SvcbRecordValue"]:
+        '''The values.'''
+        result = self._values.get("values")
+        assert result is not None, "Required property 'values' is missing"
+        return typing.cast(typing.List["SvcbRecordValue"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SvcbRecordProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.SvcbRecordServiceModeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alpn": "alpn",
+        "ipv4hint": "ipv4hint",
+        "ipv6hint": "ipv6hint",
+        "mandatory": "mandatory",
+        "no_default_alpn": "noDefaultAlpn",
+        "port": "port",
+        "priority": "priority",
+        "target_name": "targetName",
+    },
+)
+class SvcbRecordServiceModeProps:
+    def __init__(
+        self,
+        *,
+        alpn: typing.Optional[typing.Sequence[Alpn]] = None,
+        ipv4hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ipv6hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        mandatory: typing.Optional[typing.Sequence[builtins.str]] = None,
+        no_default_alpn: typing.Optional[builtins.bool] = None,
+        port: typing.Optional[jsii.Number] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        target_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Base properties of an SVCB ServiceMode record value.
+
+        :param alpn: Indicates the set of Application-Layer Protocol Negotiation (ALPN) protocol identifiers and associated transport protocols supported by this service endpoint. Default: - No ALPN protocol identifiers
+        :param ipv4hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param ipv6hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param mandatory: Indicates mandatory keys. Default: - No mandatory keys
+        :param no_default_alpn: Indicates no default ALPN protocol identifiers. The ``alpn`` parameter must be supplied together. Default: false
+        :param port: The alternative port number. Default: - Use the default port
+        :param priority: The priority. Default: 1
+        :param target_name: The domain name of the alternative endpoint. Default: '.' - The record name of the record itself
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_route53 as route53
+            
+            # alpn: route53.Alpn
+            
+            svcb_record_service_mode_props = route53.SvcbRecordServiceModeProps(
+                alpn=[alpn],
+                ipv4hint=["ipv4hint"],
+                ipv6hint=["ipv6hint"],
+                mandatory=["mandatory"],
+                no_default_alpn=False,
+                port=123,
+                priority=123,
+                target_name="targetName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3501c5e879f1c27579f5bde50c7b03eb1a69ce693accf0c4c3f8605bb569e7d)
+            check_type(argname="argument alpn", value=alpn, expected_type=type_hints["alpn"])
+            check_type(argname="argument ipv4hint", value=ipv4hint, expected_type=type_hints["ipv4hint"])
+            check_type(argname="argument ipv6hint", value=ipv6hint, expected_type=type_hints["ipv6hint"])
+            check_type(argname="argument mandatory", value=mandatory, expected_type=type_hints["mandatory"])
+            check_type(argname="argument no_default_alpn", value=no_default_alpn, expected_type=type_hints["no_default_alpn"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if alpn is not None:
+            self._values["alpn"] = alpn
+        if ipv4hint is not None:
+            self._values["ipv4hint"] = ipv4hint
+        if ipv6hint is not None:
+            self._values["ipv6hint"] = ipv6hint
+        if mandatory is not None:
+            self._values["mandatory"] = mandatory
+        if no_default_alpn is not None:
+            self._values["no_default_alpn"] = no_default_alpn
+        if port is not None:
+            self._values["port"] = port
+        if priority is not None:
+            self._values["priority"] = priority
+        if target_name is not None:
+            self._values["target_name"] = target_name
+
+    @builtins.property
+    def alpn(self) -> typing.Optional[typing.List[Alpn]]:
+        '''Indicates the set of Application-Layer Protocol Negotiation (ALPN) protocol identifiers and associated transport protocols supported by this service endpoint.
+
+        :default: - No ALPN protocol identifiers
+        '''
+        result = self._values.get("alpn")
+        return typing.cast(typing.Optional[typing.List[Alpn]], result)
+
+    @builtins.property
+    def ipv4hint(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Conveys that clients may use to reach the service.
+
+        :default: - No hints.
+        '''
+        result = self._values.get("ipv4hint")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def ipv6hint(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Conveys that clients may use to reach the service.
+
+        :default: - No hints.
+        '''
+        result = self._values.get("ipv6hint")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def mandatory(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Indicates mandatory keys.
+
+        :default: - No mandatory keys
+        '''
+        result = self._values.get("mandatory")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def no_default_alpn(self) -> typing.Optional[builtins.bool]:
+        '''Indicates no default ALPN protocol identifiers.
+
+        The ``alpn`` parameter must be supplied together.
+
+        :default: false
+        '''
+        result = self._values.get("no_default_alpn")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The alternative port number.
+
+        :default: - Use the default port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''The priority.
+
+        :default: 1
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def target_name(self) -> typing.Optional[builtins.str]:
+        '''The domain name of the alternative endpoint.
+
+        :default: '.' - The record name of the record itself
+        '''
+        result = self._values.get("target_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SvcbRecordServiceModeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class SvcbRecordValue(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.SvcbRecordValue",
+):
+    '''Represents an SVCB record value.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_route53 as route53
+        
+        svcb_record_value = route53.SvcbRecordValue.alias("targetName")
+    '''
+
+    @jsii.member(jsii_name="alias")
+    @builtins.classmethod
+    def alias(cls, target_name: builtins.str) -> "SvcbRecordValue":
+        '''An SVCB AliasMode record value.
+
+        :param target_name: The domain name of the alternative endpoint.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e92bc3e42a3ca92b69d7539f184c7bdd1dfd88c7500ba82c13cb5cb137835c14)
+            check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
+        return typing.cast("SvcbRecordValue", jsii.sinvoke(cls, "alias", [target_name]))
+
+    @jsii.member(jsii_name="service")
+    @builtins.classmethod
+    def service(
+        cls,
+        *,
+        alpn: typing.Optional[typing.Sequence[Alpn]] = None,
+        ipv4hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ipv6hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        mandatory: typing.Optional[typing.Sequence[builtins.str]] = None,
+        no_default_alpn: typing.Optional[builtins.bool] = None,
+        port: typing.Optional[jsii.Number] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        target_name: typing.Optional[builtins.str] = None,
+    ) -> "SvcbRecordValue":
+        '''An SVCB ServiceMode record value.
+
+        :param alpn: Indicates the set of Application-Layer Protocol Negotiation (ALPN) protocol identifiers and associated transport protocols supported by this service endpoint. Default: - No ALPN protocol identifiers
+        :param ipv4hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param ipv6hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param mandatory: Indicates mandatory keys. Default: - No mandatory keys
+        :param no_default_alpn: Indicates no default ALPN protocol identifiers. The ``alpn`` parameter must be supplied together. Default: false
+        :param port: The alternative port number. Default: - Use the default port
+        :param priority: The priority. Default: 1
+        :param target_name: The domain name of the alternative endpoint. Default: '.' - The record name of the record itself
+        '''
+        props = SvcbRecordServiceModeProps(
+            alpn=alpn,
+            ipv4hint=ipv4hint,
+            ipv6hint=ipv6hint,
+            mandatory=mandatory,
+            no_default_alpn=no_default_alpn,
+            port=port,
+            priority=priority,
+            target_name=target_name,
+        )
+
+        return typing.cast("SvcbRecordValue", jsii.sinvoke(cls, "service", [props]))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Returns the string representation of SVCB and HTTPS record value.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
 
 
 class TxtRecord(
@@ -14871,6 +15699,591 @@ class HostedZone(
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "hostedZoneNameServers"))
 
 
+class HttpsRecord(
+    RecordSet,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_route53.HttpsRecord",
+):
+    '''A DNS HTTPS record.
+
+    :resource: AWS::Route53::RecordSet
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_cloudfront as cloudfront
+        
+        # my_zone: route53.HostedZone
+        # distribution: cloudfront.CloudFrontWebDistribution
+        
+        # Alias to CloudFront target
+        route53.HttpsRecord(self, "HttpsRecord-CloudFrontAlias",
+            zone=my_zone,
+            target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution))
+        )
+        # ServiceMode (priority >= 1)
+        route53.HttpsRecord(self, "HttpsRecord-ServiceMode",
+            zone=my_zone,
+            values=[route53.HttpsRecordValue.service(alpn=[route53.Alpn.H3, route53.Alpn.H2])]
+        )
+        # AliasMode (priority = 0)
+        route53.HttpsRecord(self, "HttpsRecord-AliasMode",
+            zone=my_zone,
+            values=[route53.HttpsRecordValue.alias("service.example.com")]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        target: typing.Optional[RecordTarget] = None,
+        values: typing.Optional[typing.Sequence[HttpsRecordValue]] = None,
+        zone: IHostedZone,
+        cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+        comment: typing.Optional[builtins.str] = None,
+        delete_existing: typing.Optional[builtins.bool] = None,
+        geo_location: typing.Optional[GeoLocation] = None,
+        health_check: typing.Optional[IHealthCheck] = None,
+        multi_value_answer: typing.Optional[builtins.bool] = None,
+        record_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+        set_identifier: typing.Optional[builtins.str] = None,
+        ttl: typing.Optional[_Duration_4839e8c3] = None,
+        weight: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param target: The target (mostly used as an alias target to CloudFront). Default: - Specify exactly one of either ``values`` or ``target``.
+        :param values: The values. Default: - Specify exactly one of either ``values`` or ``target``.
+        :param zone: The hosted zone in which to define the new record.
+        :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
+        :param comment: A comment to add on the record. Default: no comment
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
+        :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
+        :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
+        :param record_name: The subdomain name for this record. This should be relative to the zone root name. For example, if you want to create a record for acme.example.com, specify "acme". You can also specify the fully qualified domain name which terminates with a ".". For example, "acme.example.com.". Default: zone root
+        :param region: The Amazon EC2 Region where you created the resource that this resource record set refers to. The resource typically is an AWS resource, such as an EC2 instance or an ELB load balancer, and is referred to by an IP address or a DNS domain name, depending on the record type. When Amazon Route 53 receives a DNS query for a domain name and type for which you have created latency resource record sets, Route 53 selects the latency resource record set that has the lowest latency between the end user and the associated Amazon EC2 Region. Route 53 then returns the value that is associated with the selected resource record set. Default: - Do not set latency based routing
+        :param set_identifier: A string used to distinguish between different records with the same combination of DNS name and type. It can only be set when either weight or geoLocation is defined. This parameter must be between 1 and 128 characters in length. Default: - Auto generated string
+        :param ttl: The resource record cache time to live (TTL). Default: Duration.minutes(30)
+        :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff083afb33933cff325e491e0f1834d5f30a115ee1b13b2886599061ee8f59fc)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = HttpsRecordProps(
+            target=target,
+            values=values,
+            zone=zone,
+            cidr_routing_config=cidr_routing_config,
+            comment=comment,
+            delete_existing=delete_existing,
+            geo_location=geo_location,
+            health_check=health_check,
+            multi_value_answer=multi_value_answer,
+            record_name=record_name,
+            region=region,
+            set_identifier=set_identifier,
+            ttl=ttl,
+            weight=weight,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.HttpsRecordProps",
+    jsii_struct_bases=[RecordSetOptions],
+    name_mapping={
+        "zone": "zone",
+        "cidr_routing_config": "cidrRoutingConfig",
+        "comment": "comment",
+        "delete_existing": "deleteExisting",
+        "geo_location": "geoLocation",
+        "health_check": "healthCheck",
+        "multi_value_answer": "multiValueAnswer",
+        "record_name": "recordName",
+        "region": "region",
+        "set_identifier": "setIdentifier",
+        "ttl": "ttl",
+        "weight": "weight",
+        "target": "target",
+        "values": "values",
+    },
+)
+class HttpsRecordProps(RecordSetOptions):
+    def __init__(
+        self,
+        *,
+        zone: IHostedZone,
+        cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+        comment: typing.Optional[builtins.str] = None,
+        delete_existing: typing.Optional[builtins.bool] = None,
+        geo_location: typing.Optional[GeoLocation] = None,
+        health_check: typing.Optional[IHealthCheck] = None,
+        multi_value_answer: typing.Optional[builtins.bool] = None,
+        record_name: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
+        set_identifier: typing.Optional[builtins.str] = None,
+        ttl: typing.Optional[_Duration_4839e8c3] = None,
+        weight: typing.Optional[jsii.Number] = None,
+        target: typing.Optional[RecordTarget] = None,
+        values: typing.Optional[typing.Sequence[HttpsRecordValue]] = None,
+    ) -> None:
+        '''Construction properties for an HttpsRecord.
+
+        :param zone: The hosted zone in which to define the new record.
+        :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
+        :param comment: A comment to add on the record. Default: no comment
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
+        :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
+        :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
+        :param record_name: The subdomain name for this record. This should be relative to the zone root name. For example, if you want to create a record for acme.example.com, specify "acme". You can also specify the fully qualified domain name which terminates with a ".". For example, "acme.example.com.". Default: zone root
+        :param region: The Amazon EC2 Region where you created the resource that this resource record set refers to. The resource typically is an AWS resource, such as an EC2 instance or an ELB load balancer, and is referred to by an IP address or a DNS domain name, depending on the record type. When Amazon Route 53 receives a DNS query for a domain name and type for which you have created latency resource record sets, Route 53 selects the latency resource record set that has the lowest latency between the end user and the associated Amazon EC2 Region. Route 53 then returns the value that is associated with the selected resource record set. Default: - Do not set latency based routing
+        :param set_identifier: A string used to distinguish between different records with the same combination of DNS name and type. It can only be set when either weight or geoLocation is defined. This parameter must be between 1 and 128 characters in length. Default: - Auto generated string
+        :param ttl: The resource record cache time to live (TTL). Default: Duration.minutes(30)
+        :param weight: Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set. Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type. Route 53 then responds to queries based on the ratio of a resource's weight to the total. This value can be a number between 0 and 255. Default: - Do not set weighted routing
+        :param target: The target (mostly used as an alias target to CloudFront). Default: - Specify exactly one of either ``values`` or ``target``.
+        :param values: The values. Default: - Specify exactly one of either ``values`` or ``target``.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_cloudfront as cloudfront
+            
+            # my_zone: route53.HostedZone
+            # distribution: cloudfront.CloudFrontWebDistribution
+            
+            # Alias to CloudFront target
+            route53.HttpsRecord(self, "HttpsRecord-CloudFrontAlias",
+                zone=my_zone,
+                target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution))
+            )
+            # ServiceMode (priority >= 1)
+            route53.HttpsRecord(self, "HttpsRecord-ServiceMode",
+                zone=my_zone,
+                values=[route53.HttpsRecordValue.service(alpn=[route53.Alpn.H3, route53.Alpn.H2])]
+            )
+            # AliasMode (priority = 0)
+            route53.HttpsRecord(self, "HttpsRecord-AliasMode",
+                zone=my_zone,
+                values=[route53.HttpsRecordValue.alias("service.example.com")]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cf6861ea84fe14136ab579991edb5a69203a95df9329264fb29805dcc4d64e6)
+            check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
+            check_type(argname="argument cidr_routing_config", value=cidr_routing_config, expected_type=type_hints["cidr_routing_config"])
+            check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
+            check_type(argname="argument delete_existing", value=delete_existing, expected_type=type_hints["delete_existing"])
+            check_type(argname="argument geo_location", value=geo_location, expected_type=type_hints["geo_location"])
+            check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+            check_type(argname="argument multi_value_answer", value=multi_value_answer, expected_type=type_hints["multi_value_answer"])
+            check_type(argname="argument record_name", value=record_name, expected_type=type_hints["record_name"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            check_type(argname="argument set_identifier", value=set_identifier, expected_type=type_hints["set_identifier"])
+            check_type(argname="argument ttl", value=ttl, expected_type=type_hints["ttl"])
+            check_type(argname="argument weight", value=weight, expected_type=type_hints["weight"])
+            check_type(argname="argument target", value=target, expected_type=type_hints["target"])
+            check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "zone": zone,
+        }
+        if cidr_routing_config is not None:
+            self._values["cidr_routing_config"] = cidr_routing_config
+        if comment is not None:
+            self._values["comment"] = comment
+        if delete_existing is not None:
+            self._values["delete_existing"] = delete_existing
+        if geo_location is not None:
+            self._values["geo_location"] = geo_location
+        if health_check is not None:
+            self._values["health_check"] = health_check
+        if multi_value_answer is not None:
+            self._values["multi_value_answer"] = multi_value_answer
+        if record_name is not None:
+            self._values["record_name"] = record_name
+        if region is not None:
+            self._values["region"] = region
+        if set_identifier is not None:
+            self._values["set_identifier"] = set_identifier
+        if ttl is not None:
+            self._values["ttl"] = ttl
+        if weight is not None:
+            self._values["weight"] = weight
+        if target is not None:
+            self._values["target"] = target
+        if values is not None:
+            self._values["values"] = values
+
+    @builtins.property
+    def zone(self) -> IHostedZone:
+        '''The hosted zone in which to define the new record.'''
+        result = self._values.get("zone")
+        assert result is not None, "Required property 'zone' is missing"
+        return typing.cast(IHostedZone, result)
+
+    @builtins.property
+    def cidr_routing_config(self) -> typing.Optional[CidrRoutingConfig]:
+        '''The object that is specified in resource record set object when you are linking a resource record set to a CIDR location.
+
+        A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record.
+
+        :default: - No CIDR routing configured
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-cidrroutingconfig
+        '''
+        result = self._values.get("cidr_routing_config")
+        return typing.cast(typing.Optional[CidrRoutingConfig], result)
+
+    @builtins.property
+    def comment(self) -> typing.Optional[builtins.str]:
+        '''A comment to add on the record.
+
+        :default: no comment
+        '''
+        result = self._values.get("comment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def delete_existing(self) -> typing.Optional[builtins.bool]:
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+
+        This allows to deploy a new record set while minimizing the downtime because the
+        new record set will be created immediately after the existing one is deleted. It
+        also avoids "manual" actions to delete existing record sets.
+        .. epigraph::
+
+           **N.B.:** this feature is dangerous, use with caution! It can only be used safely when
+           ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing
+           an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment
+           will delete the record!
+
+        :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("delete_existing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def geo_location(self) -> typing.Optional[GeoLocation]:
+        '''The geographical origin for this record to return DNS records based on the user's location.'''
+        result = self._values.get("geo_location")
+        return typing.cast(typing.Optional[GeoLocation], result)
+
+    @builtins.property
+    def health_check(self) -> typing.Optional[IHealthCheck]:
+        '''The health check to associate with the record set.
+
+        Route53 will return this record set in response to DNS queries only if the health check is passing.
+
+        :default: - No health check configured
+        '''
+        result = self._values.get("health_check")
+        return typing.cast(typing.Optional[IHealthCheck], result)
+
+    @builtins.property
+    def multi_value_answer(self) -> typing.Optional[builtins.bool]:
+        '''Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries.
+
+        :default: false
+        '''
+        result = self._values.get("multi_value_answer")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def record_name(self) -> typing.Optional[builtins.str]:
+        '''The subdomain name for this record. This should be relative to the zone root name.
+
+        For example, if you want to create a record for acme.example.com, specify
+        "acme".
+
+        You can also specify the fully qualified domain name which terminates with a
+        ".". For example, "acme.example.com.".
+
+        :default: zone root
+        '''
+        result = self._values.get("record_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''The Amazon EC2 Region where you created the resource that this resource record set refers to.
+
+        The resource typically is an AWS resource, such as an EC2 instance or an ELB load balancer,
+        and is referred to by an IP address or a DNS domain name, depending on the record type.
+
+        When Amazon Route 53 receives a DNS query for a domain name and type for which you have created latency resource record sets,
+        Route 53 selects the latency resource record set that has the lowest latency between the end user and the associated Amazon EC2 Region.
+        Route 53 then returns the value that is associated with the selected resource record set.
+
+        :default: - Do not set latency based routing
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-route53-recordset.html#cfn-route53-recordset-region
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def set_identifier(self) -> typing.Optional[builtins.str]:
+        '''A string used to distinguish between different records with the same combination of DNS name and type.
+
+        It can only be set when either weight or geoLocation is defined.
+
+        This parameter must be between 1 and 128 characters in length.
+
+        :default: - Auto generated string
+        '''
+        result = self._values.get("set_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ttl(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The resource record cache time to live (TTL).
+
+        :default: Duration.minutes(30)
+        '''
+        result = self._values.get("ttl")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def weight(self) -> typing.Optional[jsii.Number]:
+        '''Among resource record sets that have the same combination of DNS name and type, a value that determines the proportion of DNS queries that Amazon Route 53 responds to using the current resource record set.
+
+        Route 53 calculates the sum of the weights for the resource record sets that have the same combination of DNS name and type.
+        Route 53 then responds to queries based on the ratio of a resource's weight to the total.
+
+        This value can be a number between 0 and 255.
+
+        :default: - Do not set weighted routing
+
+        :see: https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-weighted.html
+        '''
+        result = self._values.get("weight")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def target(self) -> typing.Optional[RecordTarget]:
+        '''The target (mostly used as an alias target to CloudFront).
+
+        :default: - Specify exactly one of either ``values`` or ``target``.
+        '''
+        result = self._values.get("target")
+        return typing.cast(typing.Optional[RecordTarget], result)
+
+    @builtins.property
+    def values(self) -> typing.Optional[typing.List[HttpsRecordValue]]:
+        '''The values.
+
+        :default: - Specify exactly one of either ``values`` or ``target``.
+        '''
+        result = self._values.get("values")
+        return typing.cast(typing.Optional[typing.List[HttpsRecordValue]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpsRecordProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_route53.HttpsRecordServiceModeProps",
+    jsii_struct_bases=[SvcbRecordServiceModeProps],
+    name_mapping={
+        "alpn": "alpn",
+        "ipv4hint": "ipv4hint",
+        "ipv6hint": "ipv6hint",
+        "mandatory": "mandatory",
+        "no_default_alpn": "noDefaultAlpn",
+        "port": "port",
+        "priority": "priority",
+        "target_name": "targetName",
+    },
+)
+class HttpsRecordServiceModeProps(SvcbRecordServiceModeProps):
+    def __init__(
+        self,
+        *,
+        alpn: typing.Optional[typing.Sequence[Alpn]] = None,
+        ipv4hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ipv6hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+        mandatory: typing.Optional[typing.Sequence[builtins.str]] = None,
+        no_default_alpn: typing.Optional[builtins.bool] = None,
+        port: typing.Optional[jsii.Number] = None,
+        priority: typing.Optional[jsii.Number] = None,
+        target_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties of an HTTPS ServiceMode record.
+
+        :param alpn: Indicates the set of Application-Layer Protocol Negotiation (ALPN) protocol identifiers and associated transport protocols supported by this service endpoint. Default: - No ALPN protocol identifiers
+        :param ipv4hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param ipv6hint: Conveys that clients may use to reach the service. Default: - No hints.
+        :param mandatory: Indicates mandatory keys. Default: - No mandatory keys
+        :param no_default_alpn: Indicates no default ALPN protocol identifiers. The ``alpn`` parameter must be supplied together. Default: false
+        :param port: The alternative port number. Default: - Use the default port
+        :param priority: The priority. Default: 1
+        :param target_name: The domain name of the alternative endpoint. Default: '.' - The record name of the record itself
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_cloudfront as cloudfront
+            
+            # my_zone: route53.HostedZone
+            # distribution: cloudfront.CloudFrontWebDistribution
+            
+            # Alias to CloudFront target
+            route53.HttpsRecord(self, "HttpsRecord-CloudFrontAlias",
+                zone=my_zone,
+                target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(distribution))
+            )
+            # ServiceMode (priority >= 1)
+            route53.HttpsRecord(self, "HttpsRecord-ServiceMode",
+                zone=my_zone,
+                values=[route53.HttpsRecordValue.service(alpn=[route53.Alpn.H3, route53.Alpn.H2])]
+            )
+            # AliasMode (priority = 0)
+            route53.HttpsRecord(self, "HttpsRecord-AliasMode",
+                zone=my_zone,
+                values=[route53.HttpsRecordValue.alias("service.example.com")]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__979e830ad3373e7fc0d0343a2f25a869ffc9da95f9a63de3403250963044e9cf)
+            check_type(argname="argument alpn", value=alpn, expected_type=type_hints["alpn"])
+            check_type(argname="argument ipv4hint", value=ipv4hint, expected_type=type_hints["ipv4hint"])
+            check_type(argname="argument ipv6hint", value=ipv6hint, expected_type=type_hints["ipv6hint"])
+            check_type(argname="argument mandatory", value=mandatory, expected_type=type_hints["mandatory"])
+            check_type(argname="argument no_default_alpn", value=no_default_alpn, expected_type=type_hints["no_default_alpn"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument target_name", value=target_name, expected_type=type_hints["target_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if alpn is not None:
+            self._values["alpn"] = alpn
+        if ipv4hint is not None:
+            self._values["ipv4hint"] = ipv4hint
+        if ipv6hint is not None:
+            self._values["ipv6hint"] = ipv6hint
+        if mandatory is not None:
+            self._values["mandatory"] = mandatory
+        if no_default_alpn is not None:
+            self._values["no_default_alpn"] = no_default_alpn
+        if port is not None:
+            self._values["port"] = port
+        if priority is not None:
+            self._values["priority"] = priority
+        if target_name is not None:
+            self._values["target_name"] = target_name
+
+    @builtins.property
+    def alpn(self) -> typing.Optional[typing.List[Alpn]]:
+        '''Indicates the set of Application-Layer Protocol Negotiation (ALPN) protocol identifiers and associated transport protocols supported by this service endpoint.
+
+        :default: - No ALPN protocol identifiers
+        '''
+        result = self._values.get("alpn")
+        return typing.cast(typing.Optional[typing.List[Alpn]], result)
+
+    @builtins.property
+    def ipv4hint(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Conveys that clients may use to reach the service.
+
+        :default: - No hints.
+        '''
+        result = self._values.get("ipv4hint")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def ipv6hint(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Conveys that clients may use to reach the service.
+
+        :default: - No hints.
+        '''
+        result = self._values.get("ipv6hint")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def mandatory(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Indicates mandatory keys.
+
+        :default: - No mandatory keys
+        '''
+        result = self._values.get("mandatory")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def no_default_alpn(self) -> typing.Optional[builtins.bool]:
+        '''Indicates no default ALPN protocol identifiers.
+
+        The ``alpn`` parameter must be supplied together.
+
+        :default: false
+        '''
+        result = self._values.get("no_default_alpn")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The alternative port number.
+
+        :default: - Use the default port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def priority(self) -> typing.Optional[jsii.Number]:
+        '''The priority.
+
+        :default: 1
+        '''
+        result = self._values.get("priority")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def target_name(self) -> typing.Optional[builtins.str]:
+        '''The domain name of the alternative endpoint.
+
+        :default: '.' - The record name of the record itself
+        '''
+        result = self._values.get("target_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpsRecordServiceModeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class MxRecord(
     RecordSet,
     metaclass=jsii.JSIIMeta,
@@ -16025,6 +17438,7 @@ __all__ = [
     "AaaaRecordProps",
     "AlarmIdentifier",
     "AliasRecordTargetConfig",
+    "Alpn",
     "CaaAmazonRecord",
     "CaaAmazonRecordProps",
     "CaaRecord",
@@ -16067,6 +17481,10 @@ __all__ = [
     "HostedZoneProps",
     "HostedZoneProviderProps",
     "HostedZoneReference",
+    "HttpsRecord",
+    "HttpsRecordProps",
+    "HttpsRecordServiceModeProps",
+    "HttpsRecordValue",
     "IAliasRecordTarget",
     "ICidrCollectionRef",
     "IDNSSECRef",
@@ -16107,6 +17525,10 @@ __all__ = [
     "SrvRecord",
     "SrvRecordProps",
     "SrvRecordValue",
+    "SvcbRecord",
+    "SvcbRecordProps",
+    "SvcbRecordServiceModeProps",
+    "SvcbRecordValue",
     "TxtRecord",
     "TxtRecordProps",
     "VpcEndpointServiceDomainName",
@@ -16132,6 +17554,12 @@ def _typecheckingstub__387b486cd004971b31128e4032ad0c37e74eea08888305d1660803aa6
     dns_name: builtins.str,
     hosted_zone_id: builtins.str,
     evaluate_target_health: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d9ef0a4a7247c6d4a71f3fa246dc19c356186767877913ae8a1b1123c46a69e(
+    protocol: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16369,6 +17797,12 @@ def _typecheckingstub__77dfce5cb4e026f34aa8dfde1dcd4aacac66aa9d7b2466bbb97ebb9db
 def _typecheckingstub__23e9284fc0c4191585eb7577a6b5911bcc4ef0f86ea25e1d0344f0c95affa193(
     *,
     hosted_zone_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00426d6aef7715125de0a287a45d208ba1f76ffc095e09ee726de5a1536b46c9(
+    target_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16619,6 +18053,66 @@ def _typecheckingstub__c6c9da4f91ee9021e13a985564e2b781386a5d9cfc61b96742f9b7103
     port: jsii.Number,
     priority: jsii.Number,
     weight: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9061fb94be4da039b0429a165062a427f90914b268a3f15ef9424a45850e1a4c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    values: typing.Sequence[SvcbRecordValue],
+    zone: IHostedZone,
+    cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+    comment: typing.Optional[builtins.str] = None,
+    delete_existing: typing.Optional[builtins.bool] = None,
+    geo_location: typing.Optional[GeoLocation] = None,
+    health_check: typing.Optional[IHealthCheck] = None,
+    multi_value_answer: typing.Optional[builtins.bool] = None,
+    record_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+    set_identifier: typing.Optional[builtins.str] = None,
+    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f178a06653341a87070700e1fbb7000faa1c8b33ac5fae5287b9cf8e15cdf6e(
+    *,
+    zone: IHostedZone,
+    cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+    comment: typing.Optional[builtins.str] = None,
+    delete_existing: typing.Optional[builtins.bool] = None,
+    geo_location: typing.Optional[GeoLocation] = None,
+    health_check: typing.Optional[IHealthCheck] = None,
+    multi_value_answer: typing.Optional[builtins.bool] = None,
+    record_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+    set_identifier: typing.Optional[builtins.str] = None,
+    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    weight: typing.Optional[jsii.Number] = None,
+    values: typing.Sequence[SvcbRecordValue],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3501c5e879f1c27579f5bde50c7b03eb1a69ce693accf0c4c3f8605bb569e7d(
+    *,
+    alpn: typing.Optional[typing.Sequence[Alpn]] = None,
+    ipv4hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ipv6hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+    mandatory: typing.Optional[typing.Sequence[builtins.str]] = None,
+    no_default_alpn: typing.Optional[builtins.bool] = None,
+    port: typing.Optional[jsii.Number] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    target_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e92bc3e42a3ca92b69d7539f184c7bdd1dfd88c7500ba82c13cb5cb137835c14(
+    target_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17658,6 +19152,62 @@ def _typecheckingstub__5c63a3fccbc53f093c8e4d46a2848bf83b386d2ca5206e82ecd8ecd3d
 
 def _typecheckingstub__8e256ece77d93011f031e05a119f03b248a4b68d267c298052b0cea131943ab5(
     grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff083afb33933cff325e491e0f1834d5f30a115ee1b13b2886599061ee8f59fc(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    target: typing.Optional[RecordTarget] = None,
+    values: typing.Optional[typing.Sequence[HttpsRecordValue]] = None,
+    zone: IHostedZone,
+    cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+    comment: typing.Optional[builtins.str] = None,
+    delete_existing: typing.Optional[builtins.bool] = None,
+    geo_location: typing.Optional[GeoLocation] = None,
+    health_check: typing.Optional[IHealthCheck] = None,
+    multi_value_answer: typing.Optional[builtins.bool] = None,
+    record_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+    set_identifier: typing.Optional[builtins.str] = None,
+    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    weight: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cf6861ea84fe14136ab579991edb5a69203a95df9329264fb29805dcc4d64e6(
+    *,
+    zone: IHostedZone,
+    cidr_routing_config: typing.Optional[CidrRoutingConfig] = None,
+    comment: typing.Optional[builtins.str] = None,
+    delete_existing: typing.Optional[builtins.bool] = None,
+    geo_location: typing.Optional[GeoLocation] = None,
+    health_check: typing.Optional[IHealthCheck] = None,
+    multi_value_answer: typing.Optional[builtins.bool] = None,
+    record_name: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
+    set_identifier: typing.Optional[builtins.str] = None,
+    ttl: typing.Optional[_Duration_4839e8c3] = None,
+    weight: typing.Optional[jsii.Number] = None,
+    target: typing.Optional[RecordTarget] = None,
+    values: typing.Optional[typing.Sequence[HttpsRecordValue]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__979e830ad3373e7fc0d0343a2f25a869ffc9da95f9a63de3403250963044e9cf(
+    *,
+    alpn: typing.Optional[typing.Sequence[Alpn]] = None,
+    ipv4hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ipv6hint: typing.Optional[typing.Sequence[builtins.str]] = None,
+    mandatory: typing.Optional[typing.Sequence[builtins.str]] = None,
+    no_default_alpn: typing.Optional[builtins.bool] = None,
+    port: typing.Optional[jsii.Number] = None,
+    priority: typing.Optional[jsii.Number] = None,
+    target_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

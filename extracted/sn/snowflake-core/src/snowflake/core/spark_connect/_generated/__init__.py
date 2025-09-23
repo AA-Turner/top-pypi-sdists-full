@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Spark Connect API
+Snowflake Spark Connect API.
 
 The Snowflake Spark Connect API is a REST API that you can use to access, update, and perform certain actions on Spark Connect resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.spark_connect._generated.api.spark_connect_api import SparkConnectApi
-
-# import ApiClient
-from snowflake.core.spark_connect._generated.api_client import ApiClient
-from snowflake.core.spark_connect._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.spark_connect._generated.models.error_response import ErrorResponse

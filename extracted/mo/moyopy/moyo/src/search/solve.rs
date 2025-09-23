@@ -100,13 +100,12 @@ pub fn pivot_site_indices(numbers: &[AtomicSpecie]) -> Vec<usize> {
         *count += 1;
     }
     let pivot_atomic_specie = *counter.iter().min_by_key(|(_, count)| *count).unwrap().0;
-    let pivot_site_indices = numbers
+    numbers
         .iter()
         .enumerate()
         .filter(|(_, number)| *number == pivot_atomic_specie)
         .map(|(i, _)| i)
-        .collect::<Vec<_>>();
-    pivot_site_indices
+        .collect::<Vec<_>>()
 }
 
 /// Return correspondence between the input and acted positions.
@@ -128,7 +127,7 @@ pub fn solve_correspondence(
         if reduced_cell.numbers[i] != reduced_cell.numbers[j] {
             return None;
         }
-        if let Some(_) = mapping[i] {
+        if mapping[i].is_some() {
             return None;
         }
 
@@ -231,8 +230,8 @@ mod tests {
     use crate::base::{Cell, Lattice, Permutation, Rotation, Translation};
 
     use super::{
-        pivot_site_indices, solve_correspondence, solve_correspondence_naive,
-        symmetrize_translation_from_permutation, PeriodicKdTree,
+        PeriodicKdTree, pivot_site_indices, solve_correspondence, solve_correspondence_naive,
+        symmetrize_translation_from_permutation,
     };
 
     #[test]

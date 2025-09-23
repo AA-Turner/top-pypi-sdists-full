@@ -1,3 +1,4 @@
+# ruff: noqa: T201
 import argparse
 import datetime
 import os

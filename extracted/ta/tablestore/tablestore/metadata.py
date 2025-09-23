@@ -56,6 +56,7 @@ class FieldType(IntEnum):
     GEOPOINT = search_pb2.GEO_POINT
     DATE = search_pb2.DATE
     VECTOR = search_pb2.VECTOR
+    JSON = search_pb2.JSON
 
 
 class AnalyzerType(object):
@@ -180,13 +181,18 @@ class VectorOptions(DefaultJsonObject):
         self.dimension = dimension
 
 
+class JsonType(IntEnum):
+    OBJECT_JSON = search_pb2.OBJECT_JSON
+    NESTED_JSON = search_pb2.NESTED_JSON
+
+
 class FieldSchema(DefaultJsonObject):
 
     def __init__(self, field_name, field_type, index=None,
                  store=None, is_array=None, enable_sort_and_agg=None,
                  analyzer=None, sub_field_schemas=[], analyzer_parameter=None,
                  date_formats=[], is_virtual_field=False, source_fields=[], vector_options=None,
-                 enable_highlighting=None):
+                 enable_highlighting=None, json_type=None):
         self.field_name = field_name
         self.field_type = field_type
         self.index = index
@@ -201,6 +207,7 @@ class FieldSchema(DefaultJsonObject):
         self.source_fields = source_fields
         self.vector_options = vector_options
         self.enable_highlighting = enable_highlighting
+        self.json_type = json_type
 
 
 class SyncPhase(IntEnum):

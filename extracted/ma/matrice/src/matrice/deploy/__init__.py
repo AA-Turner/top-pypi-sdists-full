@@ -20,6 +20,8 @@ base = [
     "imagehash",
     "pandas",
     "xgboost",
+    "Pillow",
+    "transformers",
 ]
 
 # Install base dependencies first

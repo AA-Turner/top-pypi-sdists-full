@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
 
 from snowflake.core import PollingOperation
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core.cortex.chat_service._generated.api import CortexChatApi
-from snowflake.core.cortex.chat_service._generated.api_client import StoredProcApiClient
 from snowflake.core.cortex.chat_service._generated.models import ChatRequest
 from snowflake.core.rest import SSEClient
 

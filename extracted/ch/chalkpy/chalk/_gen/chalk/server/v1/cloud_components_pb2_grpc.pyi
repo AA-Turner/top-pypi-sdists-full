@@ -8,18 +8,36 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
+    CreateBindingClusterBackgroundPersistenceDeploymentRequest,
+    CreateBindingClusterBackgroundPersistenceDeploymentResponse,
+    CreateBindingClusterGatewayRequest,
+    CreateBindingClusterGatewayResponse,
+    CreateBindingClusterTelemetryDeploymentRequest,
+    CreateBindingClusterTelemetryDeploymentResponse,
     CreateCloudComponentClusterRequest,
     CreateCloudComponentClusterResponse,
     CreateCloudComponentStorageRequest,
     CreateCloudComponentStorageResponse,
     CreateCloudComponentVpcRequest,
     CreateCloudComponentVpcResponse,
+    DeleteBindingClusterBackgroundPersistenceDeploymentRequest,
+    DeleteBindingClusterBackgroundPersistenceDeploymentResponse,
+    DeleteBindingClusterGatewayRequest,
+    DeleteBindingClusterGatewayResponse,
+    DeleteBindingClusterTelemetryDeploymentRequest,
+    DeleteBindingClusterTelemetryDeploymentResponse,
     DeleteCloudComponentClusterRequest,
     DeleteCloudComponentClusterResponse,
     DeleteCloudComponentStorageRequest,
     DeleteCloudComponentStorageResponse,
     DeleteCloudComponentVpcRequest,
     DeleteCloudComponentVpcResponse,
+    GetBindingClusterBackgroundPersistenceDeploymentRequest,
+    GetBindingClusterBackgroundPersistenceDeploymentResponse,
+    GetBindingClusterGatewayRequest,
+    GetBindingClusterGatewayResponse,
+    GetBindingClusterTelemetryDeploymentRequest,
+    GetBindingClusterTelemetryDeploymentResponse,
     GetCloudComponentClusterRequest,
     GetCloudComponentClusterResponse,
     GetCloudComponentStorageRequest,
@@ -77,6 +95,42 @@ class CloudComponentsServiceStub:
     DeleteCloudComponentStorage: UnaryUnaryMultiCallable[
         DeleteCloudComponentStorageRequest,
         DeleteCloudComponentStorageResponse,
+    ]
+    CreateBindingClusterGateway: UnaryUnaryMultiCallable[
+        CreateBindingClusterGatewayRequest,
+        CreateBindingClusterGatewayResponse,
+    ]
+    GetBindingClusterGateway: UnaryUnaryMultiCallable[
+        GetBindingClusterGatewayRequest,
+        GetBindingClusterGatewayResponse,
+    ]
+    DeleteBindingClusterGateway: UnaryUnaryMultiCallable[
+        DeleteBindingClusterGatewayRequest,
+        DeleteBindingClusterGatewayResponse,
+    ]
+    CreateBindingClusterBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        CreateBindingClusterBackgroundPersistenceDeploymentRequest,
+        CreateBindingClusterBackgroundPersistenceDeploymentResponse,
+    ]
+    GetBindingClusterBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        GetBindingClusterBackgroundPersistenceDeploymentRequest,
+        GetBindingClusterBackgroundPersistenceDeploymentResponse,
+    ]
+    DeleteBindingClusterBackgroundPersistenceDeployment: UnaryUnaryMultiCallable[
+        DeleteBindingClusterBackgroundPersistenceDeploymentRequest,
+        DeleteBindingClusterBackgroundPersistenceDeploymentResponse,
+    ]
+    CreateBindingClusterTelemetryDeployment: UnaryUnaryMultiCallable[
+        CreateBindingClusterTelemetryDeploymentRequest,
+        CreateBindingClusterTelemetryDeploymentResponse,
+    ]
+    GetBindingClusterTelemetryDeployment: UnaryUnaryMultiCallable[
+        GetBindingClusterTelemetryDeploymentRequest,
+        GetBindingClusterTelemetryDeploymentResponse,
+    ]
+    DeleteBindingClusterTelemetryDeployment: UnaryUnaryMultiCallable[
+        DeleteBindingClusterTelemetryDeploymentRequest,
+        DeleteBindingClusterTelemetryDeploymentResponse,
     ]
 
 class CloudComponentsServiceServicer(metaclass=ABCMeta):
@@ -140,5 +194,59 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: DeleteCloudComponentStorageRequest,
         context: ServicerContext,
     ) -> DeleteCloudComponentStorageResponse: ...
+    @abstractmethod
+    def CreateBindingClusterGateway(
+        self,
+        request: CreateBindingClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> CreateBindingClusterGatewayResponse: ...
+    @abstractmethod
+    def GetBindingClusterGateway(
+        self,
+        request: GetBindingClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> GetBindingClusterGatewayResponse: ...
+    @abstractmethod
+    def DeleteBindingClusterGateway(
+        self,
+        request: DeleteBindingClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingClusterGatewayResponse: ...
+    @abstractmethod
+    def CreateBindingClusterBackgroundPersistenceDeployment(
+        self,
+        request: CreateBindingClusterBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> CreateBindingClusterBackgroundPersistenceDeploymentResponse: ...
+    @abstractmethod
+    def GetBindingClusterBackgroundPersistenceDeployment(
+        self,
+        request: GetBindingClusterBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> GetBindingClusterBackgroundPersistenceDeploymentResponse: ...
+    @abstractmethod
+    def DeleteBindingClusterBackgroundPersistenceDeployment(
+        self,
+        request: DeleteBindingClusterBackgroundPersistenceDeploymentRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingClusterBackgroundPersistenceDeploymentResponse: ...
+    @abstractmethod
+    def CreateBindingClusterTelemetryDeployment(
+        self,
+        request: CreateBindingClusterTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> CreateBindingClusterTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def GetBindingClusterTelemetryDeployment(
+        self,
+        request: GetBindingClusterTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> GetBindingClusterTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def DeleteBindingClusterTelemetryDeployment(
+        self,
+        request: DeleteBindingClusterTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingClusterTelemetryDeploymentResponse: ...
 
 def add_CloudComponentsServiceServicer_to_server(servicer: CloudComponentsServiceServicer, server: Server) -> None: ...

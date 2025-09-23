@@ -25,6 +25,7 @@ except ImportError:
 import lark
 from lark import logger
 from lark.lark import Lark
+from lark.utils import TextSlice
 from lark.exceptions import GrammarError, ParseError, UnexpectedToken, UnexpectedInput, UnexpectedCharacters
 from lark.tree import Tree
 from lark.visitors import Transformer, Transformer_InPlace, v_args, Transformer_InPlaceRecursive
@@ -836,14 +837,14 @@ def _make_full_earley_test(LEXER):
             tree = l.parse('x')
 
             expected = Tree('_ambig', [
+                Tree('start', [Tree('a', ['x'])]),
                 Tree('start', ['x']),
-                Tree('start', [Tree('a', ['x'])])]
-            )
+            ])
             self.assertEqual(tree, expected)
 
             l = Lark(grammar, ambiguity='resolve', lexer=LEXER)
             tree = l.parse('x')
-            assert tree == Tree('start', ['x'])
+            assert tree == Tree('start', [Tree('a', ['x'])])
 
 
         def test_cycle(self):
@@ -872,10 +873,7 @@ def _make_full_earley_test(LEXER):
             tree = l.parse("ab")
             expected = (
                 Tree('start', [
-                    Tree('_ambig', [
-                        Tree('v', [Tree('v', [])]),
-                        Tree('v', [Tree('v', [Tree('v', [])])])
-                    ])
+                    Tree('v', [Tree('v', [])]),
                 ])
             )
             self.assertEqual(tree, expected)
@@ -990,7 +988,7 @@ def _make_full_earley_test(LEXER):
             ''', lexer=LEXER)
 
             tree = parser.parse('..')
-            n = Tree('a', [Tree('b', [])])
+            n = Tree('a', [])
             assert tree == Tree('start', [n, n])
 
     _NAME = "TestFullEarley" + LEXER.capitalize()
@@ -1008,9 +1006,21 @@ class CustomLexerNew(Lexer):
     def lex(self, lexer_state, parser_state):
         return self.lexer.lex(lexer_state, parser_state)
 
-    __future_interface__ = True
+    __future_interface__ = 2
 
-class CustomLexerOld(Lexer):
+class CustomLexerOld1(Lexer):
+    """
+    Purpose of this custom lexer is to test the integration,
+    so it uses the traditionalparser as implementation without custom lexing behaviour.
+    """
+    def __init__(self, lexer_conf):
+        self.lexer = BasicLexer(copy(lexer_conf))
+    def lex(self, lexer_state, parser_state):
+        return self.lexer.lex(lexer_state, parser_state)
+
+    __future_interface__ = 1
+
+class CustomLexerOld0(Lexer):
     """
     Purpose of this custom lexer is to test the integration,
     so it uses the traditionalparser as implementation without custom lexing behaviour.
@@ -1021,7 +1031,7 @@ class CustomLexerOld(Lexer):
         ls = self.lexer.make_lexer_state(text)
         return self.lexer.lex(ls, None)
 
-    __future_interface__ = False
+    __future_interface__ = 0
 
 def _tree_structure_check(a, b):
     """
@@ -1097,7 +1107,8 @@ class DualBytesLark:
 def _make_parser_test(LEXER, PARSER):
     lexer_class_or_name = {
         'custom_new': CustomLexerNew,
-        'custom_old': CustomLexerOld,
+        'custom_old1': CustomLexerOld1,
+        'custom_old0': CustomLexerOld0,
     }.get(LEXER, LEXER)
 
     def _Lark(grammar, **kwargs):
@@ -1651,7 +1662,7 @@ def _make_parser_test(LEXER, PARSER):
             tree = l.parse('AB,a')
             self.assertEqual(tree.children, ['AB'])
 
-        @unittest.skipIf(LEXER in ('basic', 'custom_old', 'custom_new'), "Requires context sensitive terminal selection")
+        @unittest.skipIf(LEXER in ('basic', 'custom_old0', 'custom_old1', 'custom_new'), "Requires context sensitive terminal selection")
         def test_token_flags_collision(self):
 
             g = """!start: "a"i "a"
@@ -2410,7 +2421,7 @@ def _make_parser_test(LEXER, PARSER):
             parser = _Lark(grammar)
 
 
-        @unittest.skipIf(PARSER!='lalr' or LEXER == 'custom_old', "Serialize currently only works for LALR parsers without custom lexers (though it should be easy to extend)")
+        @unittest.skipIf(PARSER!='lalr' or LEXER == 'custom_old0', "Serialize currently only works for LALR parsers without custom lexers (though it should be easy to extend)")
         def test_serialize(self):
             grammar = """
                 start: _ANY b "C"
@@ -2456,7 +2467,7 @@ def _make_parser_test(LEXER, PARSER):
                 self.assertEqual(a.line, 1)
                 self.assertEqual(b.line, 2)
 
-        @unittest.skipIf(PARSER=='cyk' or LEXER=='custom_old', "match_examples() not supported for CYK/old custom lexer")
+        @unittest.skipIf(PARSER=='cyk' or LEXER=='custom_old0', "match_examples() not supported for CYK/old custom lexer")
         def test_match_examples(self):
             p = _Lark(r"""
                 start: "a" "b" "c"
@@ -2587,6 +2598,11 @@ def _make_parser_test(LEXER, PARSER):
             s = "[0 1, 2,@, 3,,, 4, 5 6 ]$"
             tree = g.parse(s, on_error=ignore_errors)
 
+        @unittest.skipIf(PARSER == 'lalr', "test on_error only works with lalr")
+        def test_on_error_without_lalr(self):
+            p = _Lark(r"""start: "A" """)
+            self.assertRaises(NotImplementedError, p.parse, "", on_error=print)
+
         @unittest.skipIf(PARSER != 'lalr', "interactive_parser error handling only works with LALR for now")
         def test_iter_parse(self):
             ab_grammar = '!start: "a"* "b"*'
@@ -2665,6 +2681,57 @@ def _make_parser_test(LEXER, PARSER):
             """
             self.assertRaises(GrammarError, _Lark, grammar, strict=True)
 
+        @unittest.skipIf(LEXER in ('dynamic', 'dynamic_complete', 'custom_old0', 'custom_old1'),
+                         "start_pos and end_pos not compatible with old style custom/dynamic lexer ")
+        def test_parse_textslice(self):
+            grammar = r"""
+            start: (WORD|FRAG_END|FRAG_START)+
+            WORD: /\b\w+\b/ # match full word
+            FRAG_END: /\B\w+/ # end of a word, i.e. start is not at a word boundary
+            FRAG_START: /\w+\B/ # start of a word, i.e. end is not at a word boundary
+            %ignore /\s+/
+            """
+
+            parser = _Lark(grammar)
+            self.assertEqual(parser.parse(TextSlice(" abc def ", 1, -1)),
+                             Tree('start', [Token('WORD', 'abc'), Token('WORD', 'def')]))
+            self.assertEqual(parser.parse(TextSlice(" abc def ", 1-9, -1+9)),
+                             Tree('start', [Token('WORD', 'abc'), Token('WORD', 'def')]))
+            self.assertEqual(parser.parse(TextSlice("xabc def ", 1, -1)),
+                             Tree('start', [Token('FRAG_END', 'abc'), Token('WORD', 'def')]))
+
+            # We match the behavior of python's re module here: It doesn't look ahead beyond `end_pos`,
+            # despite looking behind before `start_pos`
+            self.assertEqual(parser.parse(TextSlice(" abc defx", 1, -1)),
+                             Tree('start', [Token('WORD', 'abc'), Token('WORD', 'def')]))
+
+            grammar = r"""
+            start: (_NL | ANY)+
+            _NL: "\n"
+            ANY: /[^\n]/
+            """
+            parser = _Lark(grammar)
+            digits = "\n".join("123456789")
+            tree = parser.parse(TextSlice(digits, 2, 3))
+            self.assertEqual(tree.children, ["2"])
+            t:Token = tree.children[0]
+            assert t.start_pos == (2-1)*2
+            assert t.line == 2
+
+            tree = parser.parse(TextSlice(digits, -1, None))
+            self.assertEqual(tree.children, ["9"])
+            t:Token = tree.children[0]
+            assert t.start_pos == (9-1)*2
+            assert t.line == 9
+
+
+        @unittest.skipIf(LEXER not in ('dynamic', 'dynamic_complete', 'custom_old0', 'custom_old1'),
+                         "start_pos and end_pos not compatible with old style custom/dynamic lexer ")
+        def test_parse_textslice_fails(self):
+            parser = _Lark("start: ")
+            s = TextSlice("hello", 2, 3)
+            self.assertRaises(TypeError, parser.parse, s)
+
 
     _NAME = "Test" + PARSER.capitalize() + LEXER.capitalize()
     _TestParser.__name__ = _NAME
@@ -2684,7 +2751,8 @@ _TO_TEST = [
 
         ('custom_new', 'lalr'),
         ('custom_new', 'cyk'),
-        ('custom_old', 'earley'),
+        ('custom_old0', 'earley'),
+        ('custom_old1', 'earley'),
 ]
 
 for _LEXER, _PARSER in _TO_TEST:

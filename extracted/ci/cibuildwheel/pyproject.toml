@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cibuildwheel"
-version = "3.1.4"
+version = "3.2.0"
 description = "Build Python wheels on CI with minimal configuration."
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -83,6 +83,9 @@ docs = [
     "mkdocs==1.6.1",
     "pymdown-extensions",
     "rich",
+    # transitive dep of mkdocs-macros-plugin
+    # https://github.com/fralau/mkdocs-macros-plugin/issues/269
+    "requests",
 ]
 test = [
     "build",
@@ -90,7 +93,7 @@ test = [
     "jinja2",
     "pytest-timeout",
     "pytest-xdist",
-    "pytest-rerunfailures",
+    "pytest-rerunfailures!=16.0",
     "pytest>=6",
     "setuptools",
     "tomli_w",

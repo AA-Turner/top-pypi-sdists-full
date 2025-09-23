@@ -1,7 +1,7 @@
 r'''
 # `data_aws_billing_views`
 
-Refer to the Terraform Registry for docs: [`data_aws_billing_views`](https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/billing_views).
+Refer to the Terraform Registry for docs: [`data_aws_billing_views`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/billing_views).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsBillingViews(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsBillingViews.DataAwsBillingViews",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/billing_views aws_billing_views}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/billing_views aws_billing_views}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataAwsBillingViews(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/billing_views aws_billing_views} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/billing_views aws_billing_views} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param billing_view_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/billing_views#billing_view_types DataAwsBillingViews#billing_view_types}.
+        :param billing_view_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/billing_views#billing_view_types DataAwsBillingViews#billing_view_types}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataAwsBillingViews(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsBillingViews to import.
-        :param import_from_id: The id of the existing DataAwsBillingViews that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/billing_views#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsBillingViews that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/billing_views#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsBillingViews to import is found.
         '''
         if __debug__:
@@ -353,7 +353,7 @@ class DataAwsBillingViewsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param billing_view_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/billing_views#billing_view_types DataAwsBillingViews#billing_view_types}.
+        :param billing_view_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/billing_views#billing_view_types DataAwsBillingViews#billing_view_types}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -451,7 +451,7 @@ class DataAwsBillingViewsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def billing_view_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/billing_views#billing_view_types DataAwsBillingViews#billing_view_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/billing_views#billing_view_types DataAwsBillingViews#billing_view_types}.'''
         result = self._values.get("billing_view_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

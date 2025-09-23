@@ -1,6 +1,5 @@
-
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 
@@ -34,13 +33,9 @@ class Image(BaseModel):
     __________
     type : str, optional
 
-
     details : ImageDetails, optional
 
-
     cache_control : CacheControl, optional
-
-
     """
 
     type: Optional[StrictStr] = None
@@ -73,14 +68,14 @@ class Image(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Image:
-        """Create an instance of Image from a JSON string"""
+        """Create an instance of Image from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -146,7 +141,6 @@ class ImageModel:
         details : ImageDetails, optional
 
         cache_control : CacheControl, optional
-
         """
         self.type = type
         self.details = details
@@ -168,7 +162,7 @@ class ImageModel:
     def _from_model(cls, model) -> ImageModel:
         return ImageModel(
             type=model.type,
-            details=ImageDetailsModel._from_model(model.details) if model.details is not None else None,
+            details=ImageDetailsModel._from_model(model.details) if model.details else None,
             cache_control=CacheControlModel._from_model(model.cache_control) if model.cache_control else None,
         )
 

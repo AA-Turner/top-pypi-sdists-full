@@ -1,8 +1,7 @@
-from __future__ import annotations
-
 import copy
 from typing import Annotated
 from typing import Any
+from typing import Union
 
 import pytest
 from pycountry import countries  # type: ignore
@@ -248,6 +247,27 @@ def test_iban_properties_is() -> None:
     assert iban.bank_code == "01"
 
 
+def test_iban_properties_pl() -> None:
+    iban = IBAN("PL66114010100000123400005678")
+    assert iban.is_valid
+    assert iban.bank_code == "11401010"
+    assert iban.branch_code == ""
+    assert iban.account_code == "0000123400005678"
+    assert iban.account_id == ""
+    assert iban.account_type == ""
+    assert iban.country_code == "PL"
+    assert iban.currency_code == ""
+    assert iban.account_holder_id == ""
+    assert iban.national_checksum_digits == "0"
+    assert iban.bic == "BREXPLPWWA1"
+    assert iban.formatted == "PL66 1140 1010 0000 1234 0000 5678"
+    assert iban.length == len(iban) == 28
+    assert iban.country == countries.get(alpha_2="PL")
+    assert iban.bank_name == "mBank Spółka Akcyjna"
+    assert iban.bank_short_name == "mBank Spółka Akcyjna"
+    assert iban.in_sepa_zone
+
+
 @pytest.mark.parametrize(
     ("components", "compact"),
     [
@@ -281,6 +301,10 @@ def test_iban_properties_is() -> None:
         (("IT", "43482", "DNNDKPHAGTIB", "07900"), "IT22K4348207900DNNDKPHAGTIB"),
         (("IT", "70000", "Mq8gyacBzEqP", "30810"), "IT39M7000030810MQ8GYACBZEQP"),
         (("IT", "76494", "2Sbpqelox4wG", "16460"), "IT87A76494164602SBPQELOX4WG"),
+        (("PL", "11401010", "0000123400005678"), "PL66114010100000123400005678"),
+        (("PL", "11401010", "123400005678"), "PL66114010100000123400005678"),
+        (("PL", "11401010", "12340000"), "PL04114010100000000012340000"),
+        (("PL", "11401010", "1234"), "PL89114010100000000000001234"),
     ],
 )
 def test_generate_iban(components: tuple[str, ...], compact: str) -> None:
@@ -295,6 +319,8 @@ def test_generate_iban(components: tuple[str, ...], compact: str) -> None:
         ("DE", "012345678", "7000123456"),
         ("DE", "51230800", "01234567891"),
         ("GB", "NWBK", "31926819", "1234567"),
+        ("PL", "11401010", "ABCD"),
+        ("PL", "11401010", "10000123400005678"),
     ],
 )
 def test_generate_iban_invalid(components: tuple[str, ...]) -> None:
@@ -350,12 +376,14 @@ def test_magic_methods() -> None:
         ("NL02ABNA0123456789", "ABNANL2A"),
         ("NO8330001234567", "SPSONO22"),
         ("PL50860000020000000000093122", "POLUPLPRXXX"),
+        ("PL66114010100000123400005678", "BREXPLPWWA1"),
         ("PT50002700000001234567833", "BPIPPTPLXXX"),
         ("RO66BACX0000001234567890", "BACXROBU"),
         ("RS35105008123123123173", "AIKBRS22XXX"),
         ("SE7280000810340009783242", "SWEDSESS"),
         ("SI56192001234567892", "SZKBSI2XXXX"),
         ("SK8975000000000012345671", "CEKOSKBX"),
+        ("LI21088100002324013AA", "BLFLLI2XXXX"),
         # ("UA903052992990004149123456789", "PBANUA2X"),
     ],
 )
@@ -442,7 +470,7 @@ def test_pydantic_union_type() -> None:
     from pydantic import BaseModel
 
     class Model(BaseModel):
-        iban_or_dict: IBAN | dict[str, Any]
+        iban_or_dict: Union[IBAN, dict[str, Any]]
 
     model = Model(iban_or_dict="GL89 6471 0001 0002 06")  # type: ignore[arg-type]
     assert isinstance(model.iban_or_dict, IBAN)

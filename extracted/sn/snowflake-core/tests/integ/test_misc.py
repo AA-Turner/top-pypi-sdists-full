@@ -59,12 +59,12 @@ def test_url_embedding_into_url(schemas, caplog):
     """
     # We use schema because it's one of the top level objects that have db above
     new_schema = Schema(random_string(5, "test_url_embedding_into_url_"))
-    with caplog.at_level(logging.INFO, logger="snowflake.core.schema._generated.api_client"):
+    with caplog.at_level(logging.INFO, logger="snowflake.core._generated.api_client"):
         s = schemas.create(new_schema)
     assert "{database}" not in caplog.text
     assert (f"performing a HTTP POST call to /api/v2/databases/{schemas.database.name}/schemas\n") in caplog.text
     caplog.clear()
-    with caplog.at_level(logging.INFO, logger="snowflake.core.schema._generated.api_client"):
+    with caplog.at_level(logging.INFO, logger="snowflake.core._generated.api_client"):
         s.drop()
     assert "{database}" not in caplog.text
     assert (

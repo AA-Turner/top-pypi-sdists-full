@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apispec
-Version: 6.8.3
+Version: 6.8.4
 Summary: A pluggable API specification generator. Currently supports the OpenAPI Specification (f.k.a. the Swagger specification).
 Keywords: apispec,swagger,openapi,specification,oas,documentation,spec,rest,api
 Author-email: Steven Loria <sloria1@gmail.com>

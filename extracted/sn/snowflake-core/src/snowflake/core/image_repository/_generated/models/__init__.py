@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Image Repository API
+Snowflake Image Repository API.
 
 The Snowflake Image Repository API is a REST API that you can use to access, update, and perform common actions on Image Repository resource in Snowflake.  # noqa: E501
 

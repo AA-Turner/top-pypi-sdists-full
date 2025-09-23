@@ -508,6 +508,9 @@ class OTSProtoBufferEncoder(object):
         if field_schema.vector_options is not None:
             self._make_vector_options(proto.vector_options, field_schema.vector_options)
 
+        if field_schema.json_type is not None:
+            proto.json_type = self._get_enum(field_schema.json_type)
+
     def _make_vector_options(self, proto_vector_options, vector_options):
         if vector_options.data_type is not None:
             proto_vector_options.data_type = self._get_enum(vector_options.data_type)

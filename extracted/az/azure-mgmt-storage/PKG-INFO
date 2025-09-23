@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-storage
-Version: 23.0.1
+Version: 23.1.0
 Summary: Microsoft Azure Storage Management Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
@@ -22,7 +23,19 @@ License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
 Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.5.0
+Requires-Dist: azure-mgmt-core>=1.6.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Microsoft Azure SDK for Python
 
@@ -88,6 +101,35 @@ section of the project.
 
 
 # Release History
+
+## 23.1.0 (2025-09-22)
+
+### Features Added
+
+  - Model `AzureFilesIdentityBasedAuthentication` added property `smb_o_auth_settings`
+  - Model `Endpoints` added property `ipv6_endpoints`
+  - Model `NetworkRuleSet` added property `ipv6_rules`
+  - Model `ProtocolSettings` added property `nfs`
+  - Model `SkuInformation` added property `location_info`
+  - Model `SmbSetting` added property `encryption_in_transit`
+  - Model `StorageAccount` added property `zones`
+  - Model `StorageAccount` added property `placement`
+  - Model `StorageAccount` added property `dual_stack_endpoint_preference`
+  - Model `StorageAccountCreateParameters` added property `zones`
+  - Model `StorageAccountCreateParameters` added property `placement`
+  - Model `StorageAccountCreateParameters` added property `dual_stack_endpoint_preference`
+  - Model `StorageAccountUpdateParameters` added property `zones`
+  - Model `StorageAccountUpdateParameters` added property `placement`
+  - Model `StorageAccountUpdateParameters` added property `dual_stack_endpoint_preference`
+  - Added model `DualStackEndpointPreference`
+  - Added model `EncryptionInTransit`
+  - Added enum `IntervalUnit`
+  - Added model `NfsSetting`
+  - Added model `Placement`
+  - Added model `SkuInformationLocationInfoItem`
+  - Added model `SmbOAuthSettings`
+  - Added model `StorageAccountIpv6Endpoints`
+  - Added enum `ZonePlacementPolicy`
 
 ## 23.0.1 (2025-06-30)
 

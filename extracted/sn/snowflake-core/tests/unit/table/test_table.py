@@ -8,7 +8,7 @@ from snowflake.core.table import Table, TableResource
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.table._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 TABLE = Table(name="my_tab", kind="TRANSIENT")
 
 

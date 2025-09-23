@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Alert API
+Snowflake Alert API.
 
 The Snowflake Alert API is a REST API that you can use to access, update, and perform certain actions on Alert resource in a Snowflake database.  # noqa: E501
 

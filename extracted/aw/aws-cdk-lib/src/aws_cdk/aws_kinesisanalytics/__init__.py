@@ -82,10 +82,13 @@ class ApplicationCloudWatchLoggingOptionV2Reference:
         *,
         application_cloud_watch_logging_option_id: builtins.str,
     ) -> None:
-        '''A reference to a ApplicationCloudWatchLoggingOption resource.
+        '''(deprecated) A reference to a ApplicationCloudWatchLoggingOption resource.
 
-        :param application_cloud_watch_logging_option_id: The Id of the ApplicationCloudWatchLoggingOption resource.
+        :param application_cloud_watch_logging_option_id: (deprecated) The Id of the ApplicationCloudWatchLoggingOption resource.
 
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -107,7 +110,10 @@ class ApplicationCloudWatchLoggingOptionV2Reference:
 
     @builtins.property
     def application_cloud_watch_logging_option_id(self) -> builtins.str:
-        '''The Id of the ApplicationCloudWatchLoggingOption resource.'''
+        '''(deprecated) The Id of the ApplicationCloudWatchLoggingOption resource.
+
+        :stability: deprecated
+        '''
         result = self._values.get("application_cloud_watch_logging_option_id")
         assert result is not None, "Required property 'application_cloud_watch_logging_option_id' is missing"
         return typing.cast(builtins.str, result)
@@ -180,10 +186,13 @@ class ApplicationOutputReference:
 )
 class ApplicationOutputV2Reference:
     def __init__(self, *, application_output_id: builtins.str) -> None:
-        '''A reference to a ApplicationOutput resource.
+        '''(deprecated) A reference to a ApplicationOutput resource.
 
-        :param application_output_id: The Id of the ApplicationOutput resource.
+        :param application_output_id: (deprecated) The Id of the ApplicationOutput resource.
 
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -205,7 +214,10 @@ class ApplicationOutputV2Reference:
 
     @builtins.property
     def application_output_id(self) -> builtins.str:
-        '''The Id of the ApplicationOutput resource.'''
+        '''(deprecated) The Id of the ApplicationOutput resource.
+
+        :stability: deprecated
+        '''
         result = self._values.get("application_output_id")
         assert result is not None, "Required property 'application_output_id' is missing"
         return typing.cast(builtins.str, result)
@@ -331,10 +343,13 @@ class ApplicationReferenceDataSourceReference:
 )
 class ApplicationReferenceDataSourceV2Reference:
     def __init__(self, *, application_reference_data_source_id: builtins.str) -> None:
-        '''A reference to a ApplicationReferenceDataSource resource.
+        '''(deprecated) A reference to a ApplicationReferenceDataSource resource.
 
-        :param application_reference_data_source_id: The Id of the ApplicationReferenceDataSource resource.
+        :param application_reference_data_source_id: (deprecated) The Id of the ApplicationReferenceDataSource resource.
 
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -356,7 +371,10 @@ class ApplicationReferenceDataSourceV2Reference:
 
     @builtins.property
     def application_reference_data_source_id(self) -> builtins.str:
-        '''The Id of the ApplicationReferenceDataSource resource.'''
+        '''(deprecated) The Id of the ApplicationReferenceDataSource resource.
+
+        :stability: deprecated
+        '''
         result = self._values.get("application_reference_data_source_id")
         assert result is not None, "Required property 'application_reference_data_source_id' is missing"
         return typing.cast(builtins.str, result)
@@ -380,10 +398,13 @@ class ApplicationReferenceDataSourceV2Reference:
 )
 class ApplicationV2Reference:
     def __init__(self, *, application_name: builtins.str) -> None:
-        '''A reference to a Application resource.
+        '''(deprecated) A reference to a Application resource.
 
-        :param application_name: The ApplicationName of the Application resource.
+        :param application_name: (deprecated) The ApplicationName of the Application resource.
 
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -405,7 +426,10 @@ class ApplicationV2Reference:
 
     @builtins.property
     def application_name(self) -> builtins.str:
-        '''The ApplicationName of the Application resource.'''
+        '''(deprecated) The ApplicationName of the Application resource.
+
+        :stability: deprecated
+        '''
         result = self._values.get("application_name")
         assert result is not None, "Required property 'application_name' is missing"
         return typing.cast(builtins.str, result)
@@ -437,12 +461,15 @@ class CfnApplicationCloudWatchLoggingOptionV2Props:
         application_name: builtins.str,
         cloud_watch_logging_option: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''Properties for defining a ``CfnApplicationCloudWatchLoggingOption``.
+        '''(deprecated) Properties for defining a ``CfnApplicationCloudWatchLoggingOption``.
 
-        :param application_name: The name of the application.
-        :param cloud_watch_logging_option: Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+        :param application_name: (deprecated) The name of the application.
+        :param cloud_watch_logging_option: (deprecated) Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -469,9 +496,10 @@ class CfnApplicationCloudWatchLoggingOptionV2Props:
 
     @builtins.property
     def application_name(self) -> builtins.str:
-        '''The name of the application.
+        '''(deprecated) The name of the application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html#cfn-kinesisanalyticsv2-applicationcloudwatchloggingoption-applicationname
+        :stability: deprecated
         '''
         result = self._values.get("application_name")
         assert result is not None, "Required property 'application_name' is missing"
@@ -481,9 +509,10 @@ class CfnApplicationCloudWatchLoggingOptionV2Props:
     def cloud_watch_logging_option(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty"]:
-        '''Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+        '''(deprecated) Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html#cfn-kinesisanalyticsv2-applicationcloudwatchloggingoption-cloudwatchloggingoption
+        :stability: deprecated
         '''
         result = self._values.get("cloud_watch_logging_option")
         assert result is not None, "Required property 'cloud_watch_logging_option' is missing"
@@ -608,12 +637,15 @@ class CfnApplicationOutputV2Props:
         application_name: builtins.str,
         output: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationOutputV2.OutputProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''Properties for defining a ``CfnApplicationOutput``.
+        '''(deprecated) Properties for defining a ``CfnApplicationOutput``.
 
-        :param application_name: The name of the application.
-        :param output: Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written. The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
+        :param application_name: (deprecated) The name of the application.
+        :param output: (deprecated) Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written. The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
+
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -654,9 +686,10 @@ class CfnApplicationOutputV2Props:
 
     @builtins.property
     def application_name(self) -> builtins.str:
-        '''The name of the application.
+        '''(deprecated) The name of the application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html#cfn-kinesisanalyticsv2-applicationoutput-applicationname
+        :stability: deprecated
         '''
         result = self._values.get("application_name")
         assert result is not None, "Required property 'application_name' is missing"
@@ -666,11 +699,12 @@ class CfnApplicationOutputV2Props:
     def output(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationOutputV2.OutputProperty"]:
-        '''Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.
+        '''(deprecated) Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.
 
         The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html#cfn-kinesisanalyticsv2-applicationoutput-output
+        :stability: deprecated
         '''
         result = self._values.get("output")
         assert result is not None, "Required property 'output' is missing"
@@ -987,12 +1021,15 @@ class CfnApplicationReferenceDataSourceV2Props:
         application_name: builtins.str,
         reference_data_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
-        '''Properties for defining a ``CfnApplicationReferenceDataSource``.
+        '''(deprecated) Properties for defining a ``CfnApplicationReferenceDataSource``.
 
-        :param application_name: The name of the application.
-        :param reference_data_source: For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+        :param application_name: (deprecated) The name of the application.
+        :param reference_data_source: (deprecated) For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -1051,9 +1088,10 @@ class CfnApplicationReferenceDataSourceV2Props:
 
     @builtins.property
     def application_name(self) -> builtins.str:
-        '''The name of the application.
+        '''(deprecated) The name of the application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-applicationname
+        :stability: deprecated
         '''
         result = self._values.get("application_name")
         assert result is not None, "Required property 'application_name' is missing"
@@ -1063,9 +1101,10 @@ class CfnApplicationReferenceDataSourceV2Props:
     def reference_data_source(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty"]:
-        '''For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+        '''(deprecated) For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html#cfn-kinesisanalyticsv2-applicationreferencedatasource-referencedatasource
+        :stability: deprecated
         '''
         result = self._values.get("reference_data_source")
         assert result is not None, "Required property 'reference_data_source' is missing"
@@ -1112,19 +1151,22 @@ class CfnApplicationV2Props:
         run_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationV2.RunConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''Properties for defining a ``CfnApplication``.
+        '''(deprecated) Properties for defining a ``CfnApplication``.
 
-        :param runtime_environment: The runtime environment for the application.
-        :param service_execution_role: Specifies the IAM role that the application uses to access external resources.
-        :param application_configuration: Use this parameter to configure the application.
-        :param application_description: The description of the application. Default: - ""
-        :param application_maintenance_configuration: Specifies the maintenance window parameters for a Kinesis Data Analytics application.
-        :param application_mode: To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` . However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
-        :param application_name: The name of the application.
-        :param run_configuration: Describes the starting parameters for an Managed Service for Apache Flink application.
-        :param tags: A list of one or more tags to assign to the application. A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
+        :param runtime_environment: (deprecated) The runtime environment for the application.
+        :param service_execution_role: (deprecated) Specifies the IAM role that the application uses to access external resources.
+        :param application_configuration: (deprecated) Use this parameter to configure the application.
+        :param application_description: (deprecated) The description of the application. Default: - ""
+        :param application_maintenance_configuration: (deprecated) Specifies the maintenance window parameters for a Kinesis Data Analytics application.
+        :param application_mode: (deprecated) To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` . However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
+        :param application_name: (deprecated) The name of the application.
+        :param run_configuration: (deprecated) Describes the starting parameters for an Managed Service for Apache Flink application.
+        :param tags: (deprecated) A list of one or more tags to assign to the application. A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
+
+        :deprecated: use ``aws-kinesisanalyticsv2`` instead
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -1340,9 +1382,10 @@ class CfnApplicationV2Props:
 
     @builtins.property
     def runtime_environment(self) -> builtins.str:
-        '''The runtime environment for the application.
+        '''(deprecated) The runtime environment for the application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runtimeenvironment
+        :stability: deprecated
         '''
         result = self._values.get("runtime_environment")
         assert result is not None, "Required property 'runtime_environment' is missing"
@@ -1350,9 +1393,10 @@ class CfnApplicationV2Props:
 
     @builtins.property
     def service_execution_role(self) -> builtins.str:
-        '''Specifies the IAM role that the application uses to access external resources.
+        '''(deprecated) Specifies the IAM role that the application uses to access external resources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-serviceexecutionrole
+        :stability: deprecated
         '''
         result = self._values.get("service_execution_role")
         assert result is not None, "Required property 'service_execution_role' is missing"
@@ -1362,20 +1406,22 @@ class CfnApplicationV2Props:
     def application_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationConfigurationProperty"]]:
-        '''Use this parameter to configure the application.
+        '''(deprecated) Use this parameter to configure the application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationconfiguration
+        :stability: deprecated
         '''
         result = self._values.get("application_configuration")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationConfigurationProperty"]], result)
 
     @builtins.property
     def application_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the application.
+        '''(deprecated) The description of the application.
 
         :default: - ""
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationdescription
+        :stability: deprecated
         '''
         result = self._values.get("application_description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1384,29 +1430,32 @@ class CfnApplicationV2Props:
     def application_maintenance_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationMaintenanceConfigurationProperty"]]:
-        '''Specifies the maintenance window parameters for a Kinesis Data Analytics application.
+        '''(deprecated) Specifies the maintenance window parameters for a Kinesis Data Analytics application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationmaintenanceconfiguration
+        :stability: deprecated
         '''
         result = self._values.get("application_maintenance_configuration")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationMaintenanceConfigurationProperty"]], result)
 
     @builtins.property
     def application_mode(self) -> typing.Optional[builtins.str]:
-        '''To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` .
+        '''(deprecated) To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` .
 
         However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationmode
+        :stability: deprecated
         '''
         result = self._values.get("application_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def application_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the application.
+        '''(deprecated) The name of the application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-applicationname
+        :stability: deprecated
         '''
         result = self._values.get("application_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1415,20 +1464,22 @@ class CfnApplicationV2Props:
     def run_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.RunConfigurationProperty"]]:
-        '''Describes the starting parameters for an Managed Service for Apache Flink application.
+        '''(deprecated) Describes the starting parameters for an Managed Service for Apache Flink application.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-runconfiguration
+        :stability: deprecated
         '''
         result = self._values.get("run_configuration")
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.RunConfigurationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of one or more tags to assign to the application.
+        '''(deprecated) A list of one or more tags to assign to the application.
 
         A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html#cfn-kinesisanalyticsv2-application-tags
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
@@ -1452,9 +1503,11 @@ class IApplicationCloudWatchLoggingOptionV2Ref(
     _constructs_77d1e7e8.IConstruct,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
+    '''(deprecated) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     @builtins.property
@@ -1462,9 +1515,9 @@ class IApplicationCloudWatchLoggingOptionV2Ref(
     def application_cloud_watch_logging_option_ref(
         self,
     ) -> ApplicationCloudWatchLoggingOptionV2Reference:
-        '''(experimental) A reference to a ApplicationCloudWatchLoggingOption resource.
+        '''(deprecated) A reference to a ApplicationCloudWatchLoggingOption resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -1472,9 +1525,11 @@ class IApplicationCloudWatchLoggingOptionV2Ref(
 class _IApplicationCloudWatchLoggingOptionV2RefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
+    '''(deprecated) Indicates that this resource can be referenced as a ApplicationCloudWatchLoggingOption.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationCloudWatchLoggingOptionV2Ref"
@@ -1484,9 +1539,9 @@ class _IApplicationCloudWatchLoggingOptionV2RefProxy(
     def application_cloud_watch_logging_option_ref(
         self,
     ) -> ApplicationCloudWatchLoggingOptionV2Reference:
-        '''(experimental) A reference to a ApplicationCloudWatchLoggingOption resource.
+        '''(deprecated) A reference to a ApplicationCloudWatchLoggingOption resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(ApplicationCloudWatchLoggingOptionV2Reference, jsii.get(self, "applicationCloudWatchLoggingOptionRef"))
 
@@ -1542,17 +1597,19 @@ class IApplicationOutputV2Ref(
     _constructs_77d1e7e8.IConstruct,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
+    '''(deprecated) Indicates that this resource can be referenced as a ApplicationOutput.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="applicationOutputRef")
     def application_output_ref(self) -> ApplicationOutputV2Reference:
-        '''(experimental) A reference to a ApplicationOutput resource.
+        '''(deprecated) A reference to a ApplicationOutput resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -1560,9 +1617,11 @@ class IApplicationOutputV2Ref(
 class _IApplicationOutputV2RefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationOutput.
+    '''(deprecated) Indicates that this resource can be referenced as a ApplicationOutput.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationOutputV2Ref"
@@ -1570,9 +1629,9 @@ class _IApplicationOutputV2RefProxy(
     @builtins.property
     @jsii.member(jsii_name="applicationOutputRef")
     def application_output_ref(self) -> ApplicationOutputV2Reference:
-        '''(experimental) A reference to a ApplicationOutput resource.
+        '''(deprecated) A reference to a ApplicationOutput resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(ApplicationOutputV2Reference, jsii.get(self, "applicationOutputRef"))
 
@@ -1676,9 +1735,11 @@ class IApplicationReferenceDataSourceV2Ref(
     _constructs_77d1e7e8.IConstruct,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
+    '''(deprecated) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     @builtins.property
@@ -1686,9 +1747,9 @@ class IApplicationReferenceDataSourceV2Ref(
     def application_reference_data_source_ref(
         self,
     ) -> ApplicationReferenceDataSourceV2Reference:
-        '''(experimental) A reference to a ApplicationReferenceDataSource resource.
+        '''(deprecated) A reference to a ApplicationReferenceDataSource resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -1696,9 +1757,11 @@ class IApplicationReferenceDataSourceV2Ref(
 class _IApplicationReferenceDataSourceV2RefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
+    '''(deprecated) Indicates that this resource can be referenced as a ApplicationReferenceDataSource.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationReferenceDataSourceV2Ref"
@@ -1708,9 +1771,9 @@ class _IApplicationReferenceDataSourceV2RefProxy(
     def application_reference_data_source_ref(
         self,
     ) -> ApplicationReferenceDataSourceV2Reference:
-        '''(experimental) A reference to a ApplicationReferenceDataSource resource.
+        '''(deprecated) A reference to a ApplicationReferenceDataSource resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(ApplicationReferenceDataSourceV2Reference, jsii.get(self, "applicationReferenceDataSourceRef"))
 
@@ -1720,17 +1783,19 @@ typing.cast(typing.Any, IApplicationReferenceDataSourceV2Ref).__jsii_proxy_class
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_kinesisanalytics.IApplicationV2Ref")
 class IApplicationV2Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
+    '''(deprecated) Indicates that this resource can be referenced as a Application.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
     def application_ref(self) -> ApplicationV2Reference:
-        '''(experimental) A reference to a Application resource.
+        '''(deprecated) A reference to a Application resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -1738,9 +1803,11 @@ class IApplicationV2Ref(_constructs_77d1e7e8.IConstruct, typing_extensions.Proto
 class _IApplicationV2RefProxy(
     jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
+    '''(deprecated) Indicates that this resource can be referenced as a Application.
 
-    :stability: experimental
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_kinesisanalytics.IApplicationV2Ref"
@@ -1748,9 +1815,9 @@ class _IApplicationV2RefProxy(
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
     def application_ref(self) -> ApplicationV2Reference:
-        '''(experimental) A reference to a Application resource.
+        '''(deprecated) A reference to a Application resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(ApplicationV2Reference, jsii.get(self, "applicationRef"))
 
@@ -3038,13 +3105,16 @@ class CfnApplicationCloudWatchLoggingOptionV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationCloudWatchLoggingOptionV2",
 ):
-    '''Adds an Amazon CloudWatch log stream to monitor application configuration errors.
+    '''(deprecated) Adds an Amazon CloudWatch log stream to monitor application configuration errors.
 
     .. epigraph::
 
        Only one *ApplicationCloudWatchLoggingOption* resource can be attached per application.
 
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationcloudwatchloggingoption.html
+    :stability: deprecated
     :cloudformationResource: AWS::KinesisAnalyticsV2::ApplicationCloudWatchLoggingOption
     :exampleMetadata: fixture=_generated
 
@@ -3073,8 +3143,10 @@ class CfnApplicationCloudWatchLoggingOptionV2(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param application_name: The name of the application.
-        :param cloud_watch_logging_option: Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+        :param application_name: (deprecated) The name of the application.
+        :param cloud_watch_logging_option: (deprecated) Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdc9aaec6fa4f65f6738e4e1aaee7e90800e37a93c5aa29ea0f7f9fc3ea7a8dd)
@@ -3089,9 +3161,11 @@ class CfnApplicationCloudWatchLoggingOptionV2(
 
     @jsii.member(jsii_name="inspect")
     def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+        '''(deprecated) Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3e7c8138ea01464bfe8e4fe9a9650b90574f8bd326c71e4a45793852a9bc43e5)
@@ -3105,6 +3179,8 @@ class CfnApplicationCloudWatchLoggingOptionV2(
     ) -> typing.Mapping[builtins.str, typing.Any]:
         '''
         :param props: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4823faff69b817870b7ae2c7d07bd53cbfb2468b591efb8c9e092264c1976ac3)
@@ -3114,7 +3190,10 @@ class CfnApplicationCloudWatchLoggingOptionV2(
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
+        '''(deprecated) The CloudFormation resource type name for this resource class.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
@@ -3122,13 +3201,17 @@ class CfnApplicationCloudWatchLoggingOptionV2(
     def application_cloud_watch_logging_option_ref(
         self,
     ) -> ApplicationCloudWatchLoggingOptionV2Reference:
-        '''A reference to a ApplicationCloudWatchLoggingOption resource.'''
+        '''(deprecated) A reference to a ApplicationCloudWatchLoggingOption resource.
+
+        :stability: deprecated
+        '''
         return typing.cast(ApplicationCloudWatchLoggingOptionV2Reference, jsii.get(self, "applicationCloudWatchLoggingOptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
         '''
+        :stability: deprecated
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -3136,12 +3219,18 @@ class CfnApplicationCloudWatchLoggingOptionV2(
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: deprecated
+        '''
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
     def application_name(self) -> builtins.str:
-        '''The name of the application.'''
+        '''(deprecated) The name of the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.get(self, "applicationName"))
 
     @application_name.setter
@@ -3156,7 +3245,10 @@ class CfnApplicationCloudWatchLoggingOptionV2(
     def cloud_watch_logging_option(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty"]:
-        '''Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).'''
+        '''(deprecated) Provides a description of Amazon CloudWatch logging options, including the log stream Amazon Resource Name (ARN).
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationCloudWatchLoggingOptionV2.CloudWatchLoggingOptionProperty"], jsii.get(self, "cloudWatchLoggingOption"))
 
     @cloud_watch_logging_option.setter
@@ -3821,7 +3913,7 @@ class CfnApplicationOutputV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationOutputV2",
 ):
-    '''Adds an external destination to your SQL-based Amazon Kinesis Data Analytics application.
+    '''(deprecated) Adds an external destination to your SQL-based Amazon Kinesis Data Analytics application.
 
     If you want Kinesis Data Analytics to deliver data from an in-application stream within your application to an external destination (such as an Kinesis data stream, a Kinesis Data Firehose delivery stream, or an Amazon Lambda function), you add the relevant configuration to your application using this operation. You can configure one or more outputs for your application. Each output configuration maps an in-application stream and an external destination.
 
@@ -3832,7 +3924,10 @@ class CfnApplicationOutputV2(
 
        Creation of multiple outputs should be sequential (use of DependsOn) to avoid a problem with a stale application version ( *ConcurrentModificationException* ).
 
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationoutput.html
+    :stability: deprecated
     :cloudformationResource: AWS::KinesisAnalyticsV2::ApplicationOutput
     :exampleMetadata: fixture=_generated
 
@@ -3875,8 +3970,10 @@ class CfnApplicationOutputV2(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param application_name: The name of the application.
-        :param output: Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written. The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
+        :param application_name: (deprecated) The name of the application.
+        :param output: (deprecated) Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written. The destination can be a Kinesis data stream or a Kinesis Data Firehose delivery stream.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__271bacb10dd6a875577035705b436387f7a448fbf7028ee2ca502030ea3c17e2)
@@ -3890,9 +3987,11 @@ class CfnApplicationOutputV2(
 
     @jsii.member(jsii_name="inspect")
     def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+        '''(deprecated) Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2eebbb5fa9916b77258fc00b20bc5e1557b0df4a21bb462e48a53f4d726ef38)
@@ -3906,6 +4005,8 @@ class CfnApplicationOutputV2(
     ) -> typing.Mapping[builtins.str, typing.Any]:
         '''
         :param props: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9776518dba5052c06776fb1a642ec276220b4762e24054025dc1b81e6a1e229c)
@@ -3915,19 +4016,26 @@ class CfnApplicationOutputV2(
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
+        '''(deprecated) The CloudFormation resource type name for this resource class.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationOutputRef")
     def application_output_ref(self) -> ApplicationOutputV2Reference:
-        '''A reference to a ApplicationOutput resource.'''
+        '''(deprecated) A reference to a ApplicationOutput resource.
+
+        :stability: deprecated
+        '''
         return typing.cast(ApplicationOutputV2Reference, jsii.get(self, "applicationOutputRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
         '''
+        :stability: deprecated
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -3935,12 +4043,18 @@ class CfnApplicationOutputV2(
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: deprecated
+        '''
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
     def application_name(self) -> builtins.str:
-        '''The name of the application.'''
+        '''(deprecated) The name of the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.get(self, "applicationName"))
 
     @application_name.setter
@@ -3955,7 +4069,10 @@ class CfnApplicationOutputV2(
     def output(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationOutputV2.OutputProperty"]:
-        '''Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.'''
+        '''(deprecated) Describes a SQL-based Kinesis Data Analytics application's output configuration, in which you identify an in-application stream and a destination where you want the in-application stream data to be written.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationOutputV2.OutputProperty"], jsii.get(self, "output"))
 
     @output.setter
@@ -5247,11 +5364,14 @@ class CfnApplicationReferenceDataSourceV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationReferenceDataSourceV2",
 ):
-    '''Adds a reference data source to an existing SQL-based Kinesis Data Analytics application.
+    '''(deprecated) Adds a reference data source to an existing SQL-based Kinesis Data Analytics application.
 
     Kinesis Data Analytics reads reference data (that is, an Amazon S3 object) and creates an in-application table within your application. In the request, you provide the source (S3 bucket name and object key name), name of the in-application table to create, and the necessary mapping information that describes how data in an Amazon S3 object maps to columns in the resulting in-application table.
 
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-applicationreferencedatasource.html
+    :stability: deprecated
     :cloudformationResource: AWS::KinesisAnalyticsV2::ApplicationReferenceDataSource
     :exampleMetadata: fixture=_generated
 
@@ -5312,8 +5432,10 @@ class CfnApplicationReferenceDataSourceV2(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param application_name: The name of the application.
-        :param reference_data_source: For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+        :param application_name: (deprecated) The name of the application.
+        :param reference_data_source: (deprecated) For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f2c21e9367b4b82b411ec28921ad848b6f7487f126cfc392bff2c5844b5fd4bb)
@@ -5328,9 +5450,11 @@ class CfnApplicationReferenceDataSourceV2(
 
     @jsii.member(jsii_name="inspect")
     def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+        '''(deprecated) Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18e04355544d71ef14fdc1b4386b35998f0a08f085f76c537c90ab42f7493e9f)
@@ -5344,6 +5468,8 @@ class CfnApplicationReferenceDataSourceV2(
     ) -> typing.Mapping[builtins.str, typing.Any]:
         '''
         :param props: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0553ec653681501e087fd653ebd6d78808c0cbc4f4b80befa768eaf7e3bd378b)
@@ -5353,7 +5479,10 @@ class CfnApplicationReferenceDataSourceV2(
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
+        '''(deprecated) The CloudFormation resource type name for this resource class.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
@@ -5361,13 +5490,17 @@ class CfnApplicationReferenceDataSourceV2(
     def application_reference_data_source_ref(
         self,
     ) -> ApplicationReferenceDataSourceV2Reference:
-        '''A reference to a ApplicationReferenceDataSource resource.'''
+        '''(deprecated) A reference to a ApplicationReferenceDataSource resource.
+
+        :stability: deprecated
+        '''
         return typing.cast(ApplicationReferenceDataSourceV2Reference, jsii.get(self, "applicationReferenceDataSourceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
         '''
+        :stability: deprecated
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -5375,12 +5508,18 @@ class CfnApplicationReferenceDataSourceV2(
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: deprecated
+        '''
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
     def application_name(self) -> builtins.str:
-        '''The name of the application.'''
+        '''(deprecated) The name of the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.get(self, "applicationName"))
 
     @application_name.setter
@@ -5395,7 +5534,10 @@ class CfnApplicationReferenceDataSourceV2(
     def reference_data_source(
         self,
     ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty"]:
-        '''For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.'''
+        '''(deprecated) For a SQL-based Kinesis Data Analytics application, describes the reference data source by providing the source information (Amazon S3 bucket name and object key name), the resulting in-application table name that is created, and the necessary schema to map the data elements in the Amazon S3 object to the in-application table.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationReferenceDataSourceV2.ReferenceDataSourceProperty"], jsii.get(self, "referenceDataSource"))
 
     @reference_data_source.setter
@@ -6120,11 +6262,14 @@ class CfnApplicationV2(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisanalytics.CfnApplicationV2",
 ):
-    '''Creates an Amazon Kinesis Data Analytics application.
+    '''(deprecated) Creates an Amazon Kinesis Data Analytics application.
 
     For information about creating a Kinesis Data Analytics application, see `Creating an Application <https://docs.aws.amazon.com/managed-flink/latest/java/getting-started.html>`_ .
 
+    :deprecated: use ``aws-kinesisanalyticsv2`` instead
+
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kinesisanalyticsv2-application.html
+    :stability: deprecated
     :cloudformationResource: AWS::KinesisAnalyticsV2::Application
     :exampleMetadata: fixture=_generated
 
@@ -6328,15 +6473,17 @@ class CfnApplicationV2(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param runtime_environment: The runtime environment for the application.
-        :param service_execution_role: Specifies the IAM role that the application uses to access external resources.
-        :param application_configuration: Use this parameter to configure the application.
-        :param application_description: The description of the application. Default: - ""
-        :param application_maintenance_configuration: Specifies the maintenance window parameters for a Kinesis Data Analytics application.
-        :param application_mode: To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` . However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
-        :param application_name: The name of the application.
-        :param run_configuration: Describes the starting parameters for an Managed Service for Apache Flink application.
-        :param tags: A list of one or more tags to assign to the application. A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
+        :param runtime_environment: (deprecated) The runtime environment for the application.
+        :param service_execution_role: (deprecated) Specifies the IAM role that the application uses to access external resources.
+        :param application_configuration: (deprecated) Use this parameter to configure the application.
+        :param application_description: (deprecated) The description of the application. Default: - ""
+        :param application_maintenance_configuration: (deprecated) Specifies the maintenance window parameters for a Kinesis Data Analytics application.
+        :param application_mode: (deprecated) To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` . However, for a Kinesis Data Analytics for Apache Flink application, the mode is optional.
+        :param application_name: (deprecated) The name of the application.
+        :param run_configuration: (deprecated) Describes the starting parameters for an Managed Service for Apache Flink application.
+        :param tags: (deprecated) A list of one or more tags to assign to the application. A tag is a key-value pair that identifies an application. Note that the maximum number of application tags includes system tags. The maximum number of user-defined application tags is 50.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__68f6c265e7d219c8087ecccfd8c8908a6940a2b12916b5234453b46ae72ad9d3)
@@ -6358,9 +6505,11 @@ class CfnApplicationV2(
 
     @jsii.member(jsii_name="inspect")
     def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
+        '''(deprecated) Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ea17d8a69f816e0d5e0fe4c8ba39325dd561dac4af7c67c01d09dc75d750b92)
@@ -6374,6 +6523,8 @@ class CfnApplicationV2(
     ) -> typing.Mapping[builtins.str, typing.Any]:
         '''
         :param props: -
+
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb444bf83d09cf2d9587ec17a18e49deb775fb3624b3eeb9a1ef330d7c62aa8f)
@@ -6383,30 +6534,45 @@ class CfnApplicationV2(
     @jsii.python.classproperty
     @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
+        '''(deprecated) The CloudFormation resource type name for this resource class.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationRef")
     def application_ref(self) -> ApplicationV2Reference:
-        '''A reference to a Application resource.'''
+        '''(deprecated) A reference to a Application resource.
+
+        :stability: deprecated
+        '''
         return typing.cast(ApplicationV2Reference, jsii.get(self, "applicationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: deprecated
+        '''
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
+        '''(deprecated) Tag Manager which manages the tags for this resource.
+
+        :stability: deprecated
+        '''
         return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="runtimeEnvironment")
     def runtime_environment(self) -> builtins.str:
-        '''The runtime environment for the application.'''
+        '''(deprecated) The runtime environment for the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.get(self, "runtimeEnvironment"))
 
     @runtime_environment.setter
@@ -6419,7 +6585,10 @@ class CfnApplicationV2(
     @builtins.property
     @jsii.member(jsii_name="serviceExecutionRole")
     def service_execution_role(self) -> builtins.str:
-        '''Specifies the IAM role that the application uses to access external resources.'''
+        '''(deprecated) Specifies the IAM role that the application uses to access external resources.
+
+        :stability: deprecated
+        '''
         return typing.cast(builtins.str, jsii.get(self, "serviceExecutionRole"))
 
     @service_execution_role.setter
@@ -6434,7 +6603,10 @@ class CfnApplicationV2(
     def application_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationConfigurationProperty"]]:
-        '''Use this parameter to configure the application.'''
+        '''(deprecated) Use this parameter to configure the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationConfigurationProperty"]], jsii.get(self, "applicationConfiguration"))
 
     @application_configuration.setter
@@ -6450,7 +6622,10 @@ class CfnApplicationV2(
     @builtins.property
     @jsii.member(jsii_name="applicationDescription")
     def application_description(self) -> typing.Optional[builtins.str]:
-        '''The description of the application.'''
+        '''(deprecated) The description of the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationDescription"))
 
     @application_description.setter
@@ -6465,7 +6640,10 @@ class CfnApplicationV2(
     def application_maintenance_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationMaintenanceConfigurationProperty"]]:
-        '''Specifies the maintenance window parameters for a Kinesis Data Analytics application.'''
+        '''(deprecated) Specifies the maintenance window parameters for a Kinesis Data Analytics application.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.ApplicationMaintenanceConfigurationProperty"]], jsii.get(self, "applicationMaintenanceConfiguration"))
 
     @application_maintenance_configuration.setter
@@ -6481,7 +6659,10 @@ class CfnApplicationV2(
     @builtins.property
     @jsii.member(jsii_name="applicationMode")
     def application_mode(self) -> typing.Optional[builtins.str]:
-        '''To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` .'''
+        '''(deprecated) To create a Kinesis Data Analytics Studio notebook, you must set the mode to ``INTERACTIVE`` .
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationMode"))
 
     @application_mode.setter
@@ -6494,7 +6675,10 @@ class CfnApplicationV2(
     @builtins.property
     @jsii.member(jsii_name="applicationName")
     def application_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the application.'''
+        '''(deprecated) The name of the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationName"))
 
     @application_name.setter
@@ -6509,7 +6693,10 @@ class CfnApplicationV2(
     def run_configuration(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.RunConfigurationProperty"]]:
-        '''Describes the starting parameters for an Managed Service for Apache Flink application.'''
+        '''(deprecated) Describes the starting parameters for an Managed Service for Apache Flink application.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplicationV2.RunConfigurationProperty"]], jsii.get(self, "runConfiguration"))
 
     @run_configuration.setter
@@ -6525,7 +6712,10 @@ class CfnApplicationV2(
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of one or more tags to assign to the application.'''
+        '''(deprecated) A list of one or more tags to assign to the application.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter

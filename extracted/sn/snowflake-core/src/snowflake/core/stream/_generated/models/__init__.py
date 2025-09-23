@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Stream API
+Snowflake Stream API.
 
 The Snowflake Stream API is a REST API that you can use to access, update, and perform certain actions on Stream resource in a Snowflake database.  # noqa: E501
 

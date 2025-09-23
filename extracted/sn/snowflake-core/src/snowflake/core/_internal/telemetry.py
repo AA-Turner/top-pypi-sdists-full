@@ -1,18 +1,27 @@
 import contextlib
 import functools
+import hashlib
 import logging
+import os
 import platform
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
 
 from typing_extensions import Concatenate, ParamSpec
 
 from snowflake.connector import SnowflakeConnection
-from snowflake.connector.telemetry import TelemetryClient, TelemetryData
-from snowflake.connector.telemetry import TelemetryField as ConnectorTelemetryField
+from snowflake.connector.telemetry import (
+    TelemetryClient,
+    TelemetryData,
+)
+from snowflake.connector.telemetry import (
+    TelemetryField as ConnectorTelemetryField,
+)
 from snowflake.connector.time_util import get_time_millis
 
 from .._common import ObjectCollection, ObjectReferenceMixin
+from ..exceptions import SnowflakePythonError
 from ..version import __version__ as VERSION
 from .utils import TelemetryField, is_running_inside_stored_procedure
 
@@ -30,17 +39,76 @@ logger = logging.getLogger(__name__)
 # Constant to decide whether we are running tests
 _called_from_test = False
 
+TelemetryEvent = dict[str, Any]
+
+
+@dataclass
+class _TelemetryEventBuilder:
+    class_name: str
+    func_name: str
+    _type: Optional[str] = None
+    _data: Optional[dict[str, Any]] = None
+
+    @staticmethod
+    def _get_ci_environment_type() -> str:
+        if "SF_GITHUB_ACTION" in os.environ:
+            return "SF_GITHUB_ACTION"
+        if "GITHUB_ACTIONS" in os.environ:
+            return "GITHUB_ACTIONS"
+        if "GITLAB_CI" in os.environ:
+            return "GITLAB_CI"
+        if "CIRCLECI" in os.environ:
+            return "CIRCLECI"
+        if "JENKINS_URL" in os.environ or "HUDSON_URL" in os.environ:
+            return "JENKINS"
+        if "TF_BUILD" in os.environ:
+            return "AZURE_DEVOPS"
+        return "UNKNOWN"
+
+    def _build(self) -> dict[str, Any]:
+        if self._type is None:
+            raise ValueError("event type not set")
+        return {
+            ConnectorTelemetryField.KEY_SOURCE.value: "snowflake.core",
+            TelemetryField.KEY_VERSION.value: VERSION,
+            TelemetryField.KEY_PYTHON_VERSION.value: platform.python_version(),
+            TelemetryField.KEY_OS.value: platform.system(),
+            ConnectorTelemetryField.KEY_TYPE.value: self._type,
+            TelemetryField.KEY_CI_ENVIRONMENT_TYPE.value: self._get_ci_environment_type(),
+            TelemetryField.KEY_DATA.value: {
+                "class_name": self.class_name,
+                TelemetryField.KEY_FUNC_NAME.value: self.func_name,
+                **(self._data if self._data else {}),
+            },
+        }
+
+    def usage_event(self) -> TelemetryEvent:
+        self._type = "python_api"
+        return self._build()
+
+    def exception_event(self, exception: Exception) -> TelemetryEvent:
+        from snowflake.core.exceptions import APIError
+
+        self._type = "python_api_exception"
+        self._data = {
+            "exception_type": type(exception).__name__,
+            "exception_sha256": hashlib.sha256(str(exception).encode()).hexdigest(),
+            "is_python_api_error": isinstance(exception, SnowflakePythonError),
+        }
+        if isinstance(exception, APIError):
+            request_info = exception.get_request_info()
+            self._data["http_code"] = exception.status
+            self._data["request_id"] = request_info["request_id"]
+            self._data["error_code"] = request_info["error_code"]
+        return self._build()
+
 
 class ApiTelemetryClient:
     def __init__(self, conn: SnowflakeConnection) -> None:
         self.telemetry: Optional[TelemetryClient] = None if is_running_inside_stored_procedure() else conn._telemetry
-        self.source: str = "snowflake.core"
-        self.version: str = VERSION
-        self.python_version: str = platform.python_version()
-        self.os: str = platform.system()
         logger.info("telemetry client created for %r, telemetry enabled: %s", conn, bool(self.telemetry))
 
-    def send(self, msg: dict[str, Any], timestamp: Optional[int] = None) -> None:
+    def _send(self, msg: TelemetryEvent, timestamp: Optional[int] = None) -> None:
         if not self.telemetry:
             return
         if not timestamp:
@@ -48,22 +116,14 @@ class ApiTelemetryClient:
         telemetry_data = TelemetryData(message=msg, timestamp=timestamp)
         self.telemetry.try_add_log_to_batch(telemetry_data)
 
-    def send_api_telemetry(self, class_name: str, func_name: str, client_name: Optional[str] = None) -> None:
+    def safe_send(
+        self,
+        data: TelemetryEvent,
+    ) -> None:
         with contextlib.suppress(Exception):
             if not self.telemetry:
                 return
-            data = {"class_name": class_name, TelemetryField.KEY_FUNC_NAME.value: func_name}
-            if client_name is not None:
-                data["client_name"] = client_name
-            message = {
-                ConnectorTelemetryField.KEY_SOURCE.value: self.source,
-                TelemetryField.KEY_VERSION.value: self.version,
-                TelemetryField.KEY_PYTHON_VERSION.value: self.python_version,
-                TelemetryField.KEY_OS.value: self.os,
-                ConnectorTelemetryField.KEY_TYPE.value: "python_api",
-                TelemetryField.KEY_DATA.value: data,
-            }
-            self.send(message)
+            self._send(data)
 
 
 P = ParamSpec("P")
@@ -92,7 +152,7 @@ def api_telemetry(func: Callable[Concatenate[Any, P], R]) -> Callable[Concatenat
         from ..task.dagv1 import DAGOperation
 
         if isinstance(self, (ObjectReferenceMixin, ObjectCollection)):
-            telemetry_client = self.root._telemetry_client  # type: ignore[misc]
+            telemetry_client = self.root._telemetry_client  # type: ignore
         elif isinstance(self, DAGOperation):
             telemetry_client = self.schema.root._telemetry_client
         elif isinstance(self, (CortexChatService, CortexInferenceService, CortexEmbedService, CortexAgentService)):
@@ -114,9 +174,23 @@ def api_telemetry(func: Callable[Concatenate[Any, P], R]) -> Callable[Concatenat
             api.api_client  # noqa: B018
         class_name = self.__class__.__name__
         func_name = func.__name__
-        logger.debug("calling method %s on class %s after submitting telemetry if enabled", func_name, class_name)
-        telemetry_client.send_api_telemetry(class_name=class_name, func_name=func_name)
-        r = func(self, *args, **kwargs)
-        return r
+        logger.debug(
+            "calling method %s on class %s after submitting telemetry if enabled",
+            func_name,
+            class_name,
+        )
+
+        event_builder = _TelemetryEventBuilder(class_name=class_name, func_name=func_name)
+
+        telemetry_client.safe_send(event_builder.usage_event())
+        try:
+            r = func(self, *args, **kwargs)
+            return r
+        except Exception as err:
+            try:
+                telemetry_client.safe_send(event_builder.exception_event(err))
+            except Exception as telemetry_err:
+                logging.debug("Failed to send telemetry: %s", telemetry_err)
+            raise
 
     return wrap

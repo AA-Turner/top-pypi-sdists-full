@@ -1,6 +1,5 @@
-
 """
-Snowflake Schema API
+Snowflake Schema API.
 
 The Snowflake Schema API is a REST API that you can use to access, update, and perform certain actions on a Snowflake schema.  # noqa: E501
 
@@ -48,7 +47,6 @@ class Schema(BaseModel):
     comment : str, optional
         Optional comment in which to store information related to the schema.
     options : str, optional
-
 
     managed_access : bool,  default False
         Whether this schema is a managed access schema that centralizes privilege management with the schema owner.
@@ -190,14 +188,14 @@ class Schema(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Schema:
-        """Create an instance of Schema from a JSON string"""
+        """Create an instance of Schema from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

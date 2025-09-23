@@ -97,6 +97,18 @@ def get_pipeline_metadata(pipeline: PipelineType | None) -> dict[str, str]:
     return {}
 
 
+def set_product_id(product_id: str) -> None:
+    os.environ["PRODUCT_ID"] = product_id
+
+
+def set_commit_sha(commit_sha: str) -> None:
+    os.environ["CI_COMMIT_SHA"] = commit_sha
+
+
+def set_commit_ref_name(commit_ref_name: str) -> None:
+    os.environ["CI_COMMIT_REF_NAME"] = commit_ref_name
+
+
 def set_telemetry_metadata(config: dict[str, Any]) -> None:
     DEFAULT_TELEMETRY_METADATA.update(config)
 

@@ -149,7 +149,14 @@ class DataStore(BaseDataStore):
         driver_class_type: Optional[str] = None,
     ):
         super().__init__(
-            data_store_id, data_store_type, canonical_name, creator, updated, params, role
+            data_store_id=data_store_id,
+            data_store_type=data_store_type,
+            canonical_name=canonical_name,
+            creator=creator,
+            updated=updated,
+            params=params,
+            role=role,
+            driver_class_type=driver_class_type,
         )
 
         if driver_class_type == DATABRICKS_DRIVER_CLASS:

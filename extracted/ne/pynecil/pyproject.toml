@@ -4,7 +4,7 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 
 [tool.ruff.lint]
 extend-select = ["I", "TRY", "UP", "D", "W"]
@@ -26,19 +26,32 @@ commit_extra_args = ["-e"]
 path = "pynecil/__init__.py"
 
 [tool.hatch.envs.default]
-python = "3.12"
+python = "3.13"
 installer = "uv"
 dependencies = [
-    "aiohttp==3.12.13",
-    "bleak==0.22.3",
-    "mypy==1.16.1",
-    "ruff==0.12.1",
+    "aiohttp==3.12.15",
+    "bleak==1.1.0",
+    "bleak-retry-connector==4.3.0",
+    "mypy==1.17.1",
+    "ruff==0.12.9",
     "pytest==8.4.1",
     "pytest-cov==6.2.1",
-    "mkdocs-material==9.6.14",
-    "mkdocstrings[python]==0.29.1",
-    "pytest-asyncio==1.0.0",
+    "mkdocs-material==9.6.17",
+    "mkdocstrings[python]==0.30.0",
+    "pytest-asyncio==1.1.0",
 ]
+
+[tool.hatch.envs.hatch-test]
+parallel = true
+extra-dependencies = [
+  "pytest-asyncio==1.1.0",
+  "pytest-cov==6.2.1",
+]
+extra-args = ["--cov-report=xml", "-vv"]
+type = "virtual"
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.13", "3.12", "3.11", "3.10"]
 
 [tool.hatch.envs.default.scripts]
 test = "pytest"
@@ -76,6 +89,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "bleak>=0.22.0",
+    "bleak-retry-connector>=4.3.0",
     "aiohttp>=3.11.10"
 ]
 

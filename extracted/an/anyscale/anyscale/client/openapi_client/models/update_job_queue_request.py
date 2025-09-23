@@ -34,15 +34,17 @@ class UpdateJobQueueRequest(object):
     """
     openapi_types = {
         'idle_timeout_sec': 'int',
-        'max_concurrency': 'int'
+        'max_concurrency': 'int',
+        'tags': 'dict(str, str)'
     }
 
     attribute_map = {
         'idle_timeout_sec': 'idle_timeout_sec',
-        'max_concurrency': 'max_concurrency'
+        'max_concurrency': 'max_concurrency',
+        'tags': 'tags'
     }
 
-    def __init__(self, idle_timeout_sec=None, max_concurrency=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, idle_timeout_sec=None, max_concurrency=None, tags=None, local_vars_configuration=None):  # noqa: E501
         """UpdateJobQueueRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,12 +52,15 @@ class UpdateJobQueueRequest(object):
 
         self._idle_timeout_sec = None
         self._max_concurrency = None
+        self._tags = None
         self.discriminator = None
 
         if idle_timeout_sec is not None:
             self.idle_timeout_sec = idle_timeout_sec
         if max_concurrency is not None:
             self.max_concurrency = max_concurrency
+        if tags is not None:
+            self.tags = tags
 
     @property
     def idle_timeout_sec(self):
@@ -102,6 +107,29 @@ class UpdateJobQueueRequest(object):
         """
 
         self._max_concurrency = max_concurrency
+
+    @property
+    def tags(self):
+        """Gets the tags of this UpdateJobQueueRequest.  # noqa: E501
+
+        Tags to associate with the job queue  # noqa: E501
+
+        :return: The tags of this UpdateJobQueueRequest.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this UpdateJobQueueRequest.
+
+        Tags to associate with the job queue  # noqa: E501
+
+        :param tags: The tags of this UpdateJobQueueRequest.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._tags = tags
 
     def to_dict(self):
         """Returns the model properties as a dict"""

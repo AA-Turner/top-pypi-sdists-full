@@ -19,6 +19,7 @@ import time
 
 from . import helpers
 from . import display
+from . import flash_file
 from .app_installed import InstalledApp
 from .app_padding import PaddingApp
 from .app_padding import InstalledPaddingApp
@@ -31,6 +32,7 @@ from .tbfh import TBFHeader
 from .tbfh import TBFFooter
 from .jlinkexe import JLinkExe
 from .openocd import OpenOCD, collect_temp_files
+from .probers import ProbeRs
 from .stlink import STLink
 from .flash_file import FlashFile
 from .tickv import TockTicKV
@@ -124,7 +126,9 @@ class TockLoader:
             },
             "nucleof4": {"start_address": 0x08040000},
             "microbit_v2": {"start_address": 0x00040000},
-            "qemu_rv32_virt": {"start_address": 0x80100000},
+            "qemu_rv32_virt": {
+                "start_address": 0x80100000,
+            },
             "stm32f3discovery": {"start_address": 0x08020000},
             "stm32f4discovery": {
                 "start_address": 0x08040000,
@@ -137,6 +141,9 @@ class TockLoader:
                     "number_regions": 3,
                     "start_address": 0,
                 }
+            },
+            "cy8cproto_62_4343_w": {
+                "start_address": 0x10100000,
             },
         },
     }
@@ -192,9 +199,16 @@ class TockLoader:
         elif hasattr(self.args, "stlink") and self.args.stlink:
             # User passed `--stlink`. Force the STLink channel.
             self.channel = STLink(self.args)
+        elif hasattr(self.args, "probers") and self.args.probers:
+            # User passed `--probers`. Force the probe-rs channel.
+            self.channel = ProbeRs(self.args)
         elif hasattr(self.args, "serial") and self.args.serial:
             # User passed `--serial`. Force the serial bootloader channel.
             self.channel = BootloaderSerial(self.args)
+        elif hasattr(self.args, "local_board") and self.args.local_board:
+            # User passed `--local-board` option. Force operation on the
+            # specified file.
+            self.channel = FlashFile(self.args)
         elif hasattr(self.args, "flash_file") and self.args.flash_file is not None:
             # User passed `--flash-file` option with an associated file. Force
             # operation on the specified file.
@@ -242,6 +256,12 @@ class TockLoader:
                 if serial_channel.attached_board_exists():
                     self.channel = serial_channel
                     logging.info("Using serial channel to communicate with the board.")
+                    break
+
+                flash_file_channel = FlashFile(self.args)
+                if flash_file_channel.attached_board_exists():
+                    self.channel = flash_file_channel
+                    logging.info("Using flash-file to communicate with the board.")
                     break
 
                 # If we get here we were unable to connect to a board and a
@@ -1007,7 +1027,7 @@ class TockLoader:
         # Otherwise check for the bootloader flag in the flash.
 
         # Constants for the bootloader flag
-        address = 0x400
+        address = self._convert_offset_to_absolute_flash_address(0x400)
         length = 14
         flag = self.channel.read_range(address, length)
         flag_str = flag.decode("utf-8", "ignore")
@@ -1086,17 +1106,30 @@ class TockLoader:
             self.apps_start_address = cmdline_app_address
             return cmdline_app_address
 
-        # Next we check if the attached board has an attribute that can tell us.
+        # Next we check if the attached board can tell us.
         if self.channel:
-            attributes = self.channel.get_all_attributes()
-            for attribute in attributes:
-                if attribute and attribute["key"] == "appaddr":
-                    self.apps_start_address = int(attribute["value"], 0)
-                    return self.apps_start_address
+            channel_apps_start_address = self.channel.get_apps_start_address()
+            if channel_apps_start_address:
+                self.apps_start_address = channel_apps_start_address
+                return channel_apps_start_address
 
         # Lastly we default to what was configured using the
         # `TOCKLOADER_APP_SETTINGS` variable.
         return self.app_settings["start_address"]
+
+    def _get_flash_start_address(self):
+        """
+        Return the address where flash starts.
+        """
+
+        # Check if the attached board can tell us.
+        if self.channel:
+            channel_flash_address = self.channel.get_flash_address()
+            if channel_flash_address:
+                return channel_flash_address
+
+        # In the default case flash starts at address 0.
+        return 0
 
     def _get_memory_start_address(self):
         """
@@ -1127,6 +1160,12 @@ class TockLoader:
             return self.app_settings["app_ram_address"]
         else:
             return None
+
+    def _convert_offset_to_absolute_flash_address(self, offset):
+        """
+        Compute the absolute flash address for an offset for the attached board.
+        """
+        return self._get_flash_start_address() + offset
 
     ############################################################################
     ## Helper Functions for Shared Code
@@ -1406,6 +1445,9 @@ class TockLoader:
                         )
                         continue
 
+                    logging.debug(
+                        f"Considering App {app.get_name()} (flash:{starting_address:#02x} size:{size:#02x})"
+                    )
                     app_slices.append([starting_address, size, i])
                 slices.append(app_slices)
 
@@ -1858,3 +1900,39 @@ class TockLoader:
         else:
             # In quiet mode just show the names.
             print(" ".join([app.get_name() for app in apps]))
+
+
+def is_known_board(board):
+    return BoardInterface.is_known_board(board)
+
+
+def set_local_board(
+    board,
+    arch=None,
+    app_address=None,
+    flash_address=None,
+    flush_command=None,
+    binary_path=None,
+):
+    flash_file.set_local_board(
+        board, arch, app_address, flash_address, flush_command, binary_path
+    )
+
+
+def unset_local_board():
+    flash_file.unset_local_board()
+
+
+def get_local_board_path():
+    flash_file_channel = FlashFile(None)
+    if flash_file_channel.attached_board_exists():
+        flash_file_channel.open_link_to_board()
+        return flash_file_channel.get_local_board_path()
+    else:
+        return ""
+
+
+def flush_local_board(args):
+    flash_file_channel = FlashFile(args)
+    flash_file_channel.open_link_to_board()
+    flash_file_channel.flush()

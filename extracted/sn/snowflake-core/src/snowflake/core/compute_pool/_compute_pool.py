@@ -1,23 +1,20 @@
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Optional
 
-from pydantic import StrictStr
-
 from snowflake.core import PollingOperation
-from snowflake.core._common import AccountObjectCollectionParent, CreateMode, ObjectReferenceMixin
+from snowflake.core._common import CreateMode
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated
-from snowflake.core._operation import PollingOperations
-from snowflake.core.compute_pool._generated.api import ComputePoolApi
-from snowflake.core.compute_pool._generated.api_client import StoredProcApiClient
 from snowflake.core.compute_pool._generated.models.compute_pool import ComputePoolModel as ComputePool
+
+from ._generated.api.compute_pool_api_base import ComputePoolCollectionBase, ComputePoolResourceBase
 
 
 if TYPE_CHECKING:
     from snowflake.core import Root
 
 
-class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]):
+class ComputePoolCollection(ComputePoolCollectionBase):
     """Represents the collection operations on the Snowflake Compute Pool resource.
 
     With this collection, you can create, iterate through, and search for compute pools that you have access to
@@ -34,13 +31,10 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
     """
 
     def __init__(self, root: "Root") -> None:
-        super().__init__(root, ref_class=ComputePoolResource)
-        self._api = ComputePoolApi(
-            root=root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
-        )
+        super().__init__(root, ComputePoolResource)
 
     @api_telemetry
-    def create(
+    def create(  # type: ignore[override]
         self,
         compute_pool: ComputePool,
         *,
@@ -84,17 +78,15 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
         ... )
         >>> compute_pool_reference = compute_pools.create(compute_pool, initially_suspended=True)
         """
-        real_mode = CreateMode[mode].value
-        self._api.create_compute_pool(
+        super().create(
             compute_pool=compute_pool._to_model(),
-            create_mode=StrictStr(real_mode),
+            mode=mode,
             initially_suspended=initially_suspended,
-            async_req=False,
         )
         return self[compute_pool.name]
 
     @api_telemetry
-    def create_async(
+    def create_async(  # type: ignore[override]
         self,
         compute_pool: ComputePool,
         *,
@@ -106,18 +98,20 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
         """  # noqa: D401
-        real_mode = CreateMode[mode].value
-        future = self._api.create_compute_pool(
+        future = super().create_async(
             compute_pool=compute_pool._to_model(),
-            create_mode=StrictStr(real_mode),
+            mode=mode,
             initially_suspended=initially_suspended,
-            async_req=True,
         )
         return PollingOperation(future, lambda _: self[compute_pool.name])
 
     @api_telemetry
-    def iter(
-        self, *, like: Optional[str] = None, starts_with: Optional[str] = None, limit: Optional[int] = None
+    def iter(  # type: ignore[override]
+        self,
+        *,
+        like: Optional[str] = None,
+        starts_with: Optional[str] = None,
+        limit: Optional[int] = None,
     ) -> Iterator[ComputePool]:
         """Iterate through ``Compute Pool`` objects in Snowflake, filtering on any optional 'like' pattern.
 
@@ -152,50 +146,45 @@ class ComputePoolCollection(AccountObjectCollectionParent["ComputePoolResource"]
         >>> for compute_pool in compute_pools:
         >>>     print(compute_pool.name)
         """
-        compute_pools = self._api.list_compute_pools(
-            StrictStr(like) if like is not None else None,
-            StrictStr(starts_with) if starts_with else None,
-            limit,
-            async_req=False,
+        compute_pools = super().iter(
+            like=like,
+            starts_with=starts_with,
+            limit=limit,
         )
-
         return map(ComputePool._from_model, iter(compute_pools))
 
     @api_telemetry
-    def iter_async(
-        self, *, like: Optional[str] = None, starts_with: Optional[str] = None, limit: Optional[int] = None
+    def iter_async(  # type: ignore[override]
+        self,
+        *,
+        like: Optional[str] = None,
+        starts_with: Optional[str] = None,
+        limit: Optional[int] = None,
     ) -> PollingOperation[Iterator[ComputePool]]:
         """An asynchronous version of :func:`iter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
         """  # noqa: D401
-        future = self._api.list_compute_pools(
-            StrictStr(like) if like is not None else None,
-            StrictStr(starts_with) if starts_with else None,
-            limit,
-            async_req=True,
+        future = super().iter_async(
+            like=like,
+            starts_with=starts_with,
+            limit=limit,
         )
         return PollingOperation(future, lambda rest_models: map(ComputePool._from_model, iter(rest_models)))
 
 
-class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
+class ComputePoolResource(ComputePoolResourceBase):
     """Represents a reference to a Snowflake compute pool.
 
     With this compute pool reference, you can create and fetch information about compute pools, as well as
     perform certain actions on them.
     """
 
-    def __init__(self, name: str, collection: ComputePoolCollection) -> None:
-        self.name = name
-        self.collection = collection
-
-    @property
-    def _api(self) -> ComputePoolApi:
-        return self.collection._api
+    _plural_name = "compute_pools"
 
     @api_telemetry
-    def create_or_alter(self, compute_pool: ComputePool) -> None:
+    def create_or_alter(self, compute_pool: ComputePool) -> None:  # type: ignore[override]
         """Create a compute pool in Snowflake or alter one if it already exists.
 
         Parameters
@@ -217,146 +206,45 @@ class ComputePoolResource(ObjectReferenceMixin[ComputePoolCollection]):
         # Using a ``ComputePoolCollection`` to create or update a compute pool in Snowflake:
         >>> root.compute_pools["your-cp-name"].create_or_alter(cp_parameters)
         """
-        self.collection._api.create_or_alter_compute_pool(compute_pool.name, compute_pool._to_model(), async_req=False)
+        super().create_or_alter(compute_pool._to_model())
 
     @api_telemetry
-    def create_or_alter_async(self, compute_pool: ComputePool) -> PollingOperation[None]:
+    def create_or_alter_async(self, compute_pool: ComputePool) -> PollingOperation[None]:  # type: ignore[override]
         """An asynchronous version of :func:`create_or_alter`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
         """  # noqa: D401
-        future = self.collection._api.create_or_alter_compute_pool(
-            compute_pool.name, compute_pool._to_model(), async_req=True
-        )
-        return PollingOperations.empty(future)
+        return super().create_or_alter_async(compute_pool._to_model())
 
     @api_telemetry
-    def fetch(self) -> ComputePool:
-        """Fetch the details of a compute pool.
+    @deprecated("drop")
+    def delete(self) -> None:
+        self.drop()
 
-        Examples
-        ________
-        Fetching a reference to a compute pool to print its name:
+    @api_telemetry
+    def fetch(  # type: ignore[override]
+        self,
+    ) -> ComputePool:
+        """Fetch a compute pool.
 
-        >>> my_compute_pool = compute_pool_reference.fetch()
-        >>> print(my_compute_pool.name)
+        Parameters
+        __________
         """
-        return ComputePool._from_model(self.collection._api.fetch_compute_pool(self.name, async_req=False))
+        return ComputePool(**super().fetch().to_dict())
 
     @api_telemetry
-    def fetch_async(self) -> PollingOperation[ComputePool]:
+    def fetch_async(  # type: ignore[override]
+        self,
+    ) -> PollingOperation[ComputePool]:
         """An asynchronous version of :func:`fetch`.
 
         Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
         the return type.
         """  # noqa: D401
-        future = self.collection._api.fetch_compute_pool(self.name, async_req=True)
-        return PollingOperation(future, lambda rest_model: ComputePool._from_model(rest_model))
+        future = self.collection._api.fetch_compute_pool(
+            self.name,
+            async_req=True,
+        )
 
-    @api_telemetry
-    def suspend(self) -> None:
-        """Suspend this compute pool.
-
-        Examples
-        ________
-        Suspending a compute pool using its reference:
-
-        >>> compute_pool_reference.suspend()
-        """
-        self.collection._api.suspend_compute_pool(self.name, async_req=False)
-
-    @api_telemetry
-    def suspend_async(self) -> PollingOperation[None]:
-        """An asynchronous version of :func:`suspend`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self.collection._api.suspend_compute_pool(self.name, async_req=True)
-        return PollingOperations.empty(future)
-
-    @api_telemetry
-    def resume(self) -> None:
-        """Resume this compute pool.
-
-        Examples
-        ________
-        Resuming a compute pool using its reference:
-
-        >>> compute_pool_reference.resume()
-        """
-        self.collection._api.resume_compute_pool(self.name, async_req=False)
-
-    @api_telemetry
-    def resume_async(self) -> PollingOperation[None]:
-        """An asynchronous version of :func:`resume`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self.collection._api.resume_compute_pool(self.name, async_req=True)
-        return PollingOperations.empty(future)
-
-    @api_telemetry
-    def stop_all_services(self) -> None:
-        """Stop all services that run on this compute pool.
-
-        Examples
-        ________
-        Stopping all services that run on this compute pool using its reference:
-
-        >>> compute_pool_reference.stop_all_services()
-        """
-        self.collection._api.stop_all_services_in_compute_pool(self.name, async_req=False)
-
-    @api_telemetry
-    def stop_all_services_async(self) -> PollingOperation[None]:
-        """An asynchronous version of :func:`stop_all_services`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self.collection._api.stop_all_services_in_compute_pool(self.name, async_req=True)
-        return PollingOperations.empty(future)
-
-    @api_telemetry
-    @deprecated("drop")
-    def delete(self) -> None:
-        """Delete this compute pool.
-
-        Examples
-        ________
-        Deleting a compute pool using its reference:
-
-        >>> compute_pool_reference.delete()
-        """
-        self.drop()
-
-    @api_telemetry
-    def drop(self, if_exists: Optional[bool] = None) -> None:
-        """Drop this compute pool.
-
-        Parameters
-        __________
-        if_exists: bool, optional
-            Check the existence of this compute pool before dropping it.
-            Default is ``None``, which is equivalent to ``False``.
-
-        Examples
-        ________
-        Dropping a compute pool using its reference:
-
-        >>> compute_pool_reference.drop()
-        """
-        self.collection._api.delete_compute_pool(self.name, if_exists, async_req=False)
-
-    @api_telemetry
-    def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
-        """An asynchronous version of :func:`drop`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self.collection._api.delete_compute_pool(self.name, if_exists, async_req=True)
-        return PollingOperations.empty(future)
+        return PollingOperation(future, lambda rest_model: ComputePool(**rest_model.to_dict()))

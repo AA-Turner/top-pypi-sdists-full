@@ -14,7 +14,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 setup(
     name="matrice",
 
-    version = "1.0.99534",
+    version = "1.0.99542",
     
     description="SDK for connecting to matrice.ai services",
     long_description=long_description,
@@ -41,6 +41,16 @@ setup(
     package_dir={'': 'src'},  # Tells setuptools to look for packages in the 'src' directory
     python_requires=">=3.7, <4",
     include_package_data=True,
+    package_data={
+        # Include tokenizer/config assets in the wheel for the color usecase
+        "matrice.deploy.utils.post_processing.usecases.color": [
+            "clip_processor/*",
+        ],
+        # Ensure inclusion even if clip_processor is treated as a package
+        "matrice.deploy.utils.post_processing.usecases.color.clip_processor": [
+            "*",
+        ],
+    },
     project_urls={
         "Bug Reports": "https://github.com/matrice-ai/python-sdk/issues",
         "Source": "https://github.com/matrice-ai/python-sdk/",

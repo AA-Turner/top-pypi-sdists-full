@@ -5,7 +5,7 @@ requires = [ "setuptools>=78.1" ]
 
 [project]
 name = "html-to-markdown"
-version = "1.13.0"
+version = "1.14.0"
 description = "A modern, type-safe Python library for converting HTML to Markdown with comprehensive tag support and customizable options"
 readme = "README.md"
 keywords = [
@@ -46,8 +46,9 @@ dependencies = [
   "beautifulsoup4>=4.13.5",
   "nh3>=0.3",
 ]
-optional-dependencies.lxml = [ "beautifulsoup4[lxml]>=4.13.5" ]
+optional-dependencies.html5lib = [ "beautifulsoup4[html5lib]>=4.13.5" ]
 
+optional-dependencies.lxml = [ "beautifulsoup4[lxml]>=4.13.5" ]
 urls.Changelog = "https://github.com/Goldziher/html-to-markdown/releases"
 urls.Homepage = "https://github.com/Goldziher/html-to-markdown"
 urls.Issues = "https://github.com/Goldziher/html-to-markdown/issues"
@@ -57,14 +58,16 @@ scripts.html_to_markdown = "html_to_markdown.__main__:cli"
 
 [dependency-groups]
 dev = [
+  "beautifulsoup4[html5lib]>=4.13.5",
+  "beautifulsoup4[lxml]>=4.13.5",
   "covdefaults>=2.3",
-  "mypy>=1.18.1",
+  "mypy>=1.18.2",
   "pre-commit>=4.3",
   "pytest>=8.4.2",
   "pytest-benchmark>=5.1",
   "pytest-cov>=7",
-  "pytest-mock>=3.15",
-  "ruff>=0.13",
+  "pytest-mock>=3.15.1",
+  "ruff>=0.13.1",
   "types-beautifulsoup4>=4.12.0.20250516",
   "types-psutil>=7.0.0.20250822",
   "uv-bump",

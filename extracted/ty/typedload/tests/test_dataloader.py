@@ -1,5 +1,5 @@
 # typedload
-# Copyright (C) 2018-2024 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2018-2025 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -243,7 +243,7 @@ class TestFastIterableLoad(unittest.TestCase):
 class TestTupleLoad(unittest.TestCase):
 
     def test_ellipsis(self):
-        loader = dataloader.Loader()
+        loader = dataloader.Loader(iterstr=True)
 
         l = list(range(33))
         t = tuple(l)
@@ -580,3 +580,14 @@ class TestNewType(unittest.TestCase):
         bar = loader.load("bar", Foo)
         assert bar == "bar"
         assert type(bar) is str
+
+class TestStringNotIterable(unittest.TestCase):
+
+    def test_notiterable(self):
+        loader = dataloader.Loader()
+        with self.assertRaises(TypeError):
+            loader.load("abc", list[str])
+
+    def test_iterable(self):
+        loader = dataloader.Loader(iterstr=True)
+        assert loader.load("abc", list[str]) == ["a", "b", "c"]

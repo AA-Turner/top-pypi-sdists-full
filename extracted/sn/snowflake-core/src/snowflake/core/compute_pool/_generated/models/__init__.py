@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Compute Pools API
+Snowflake Compute Pools API.
 
 The Snowflake Compute Pools API is a REST API that you can use to access, update, and perform common actions on Compute Pool resources.  # noqa: E501
 
@@ -17,12 +17,14 @@ from __future__ import absolute_import
 
 # import models into model package
 from snowflake.core.compute_pool._generated.models.compute_pool import ComputePool
+from snowflake.core.compute_pool._generated.models.compute_pool_instance_family import ComputePoolInstanceFamily
 from snowflake.core.compute_pool._generated.models.error_response import ErrorResponse
 from snowflake.core.compute_pool._generated.models.success_accepted_response import SuccessAcceptedResponse
 from snowflake.core.compute_pool._generated.models.success_response import SuccessResponse
 
 __all__ = [
     "ComputePool",
+    "ComputePoolInstanceFamily",
     "ErrorResponse",
     "SuccessAcceptedResponse",
     "SuccessResponse",

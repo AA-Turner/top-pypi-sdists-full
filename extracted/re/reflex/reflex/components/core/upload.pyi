@@ -108,6 +108,7 @@ class GhostUpload(Fragment):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
+        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -127,6 +128,7 @@ class GhostUpload(Fragment):
         Args:
             *children: The children of the component.
             on_drop: Fired when files are dropped.
+            on_drop_rejected: Fired when dropped files do not meet the specified criteria.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -171,6 +173,7 @@ class Upload(MemoizationLeaf):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
+        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -199,6 +202,7 @@ class Upload(MemoizationLeaf):
             no_drag: Whether to disable drag and drop.
             no_keyboard: Whether to disable using the space/enter keys to upload.
             on_drop: Fired when files are dropped.
+            on_drop_rejected: Fired when dropped files do not meet the specified criteria.
             drag_active_style: Style rules to apply when actively dragging.
             style: The style of the component.
             key: A unique key for the component.
@@ -242,6 +246,7 @@ class StyledUpload(Upload):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
+        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -270,6 +275,7 @@ class StyledUpload(Upload):
             no_drag: Whether to disable drag and drop.
             no_keyboard: Whether to disable using the space/enter keys to upload.
             on_drop: Fired when files are dropped.
+            on_drop_rejected: Fired when dropped files do not meet the specified criteria.
             drag_active_style: Style rules to apply when actively dragging.
             style: The style of the component.
             key: A unique key for the component.
@@ -314,6 +320,7 @@ class UploadNamespace(ComponentNamespace):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_drop: EventType[()] | EventType[Any] | None = None,
+        on_drop_rejected: EventType[()] | EventType[Any] | None = None,
         on_focus: EventType[()] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
@@ -342,6 +349,7 @@ class UploadNamespace(ComponentNamespace):
             no_drag: Whether to disable drag and drop.
             no_keyboard: Whether to disable using the space/enter keys to upload.
             on_drop: Fired when files are dropped.
+            on_drop_rejected: Fired when dropped files do not meet the specified criteria.
             drag_active_style: Style rules to apply when actively dragging.
             style: The style of the component.
             key: A unique key for the component.

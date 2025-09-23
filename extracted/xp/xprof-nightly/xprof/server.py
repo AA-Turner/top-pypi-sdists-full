@@ -50,7 +50,6 @@ class ServerConfig:
   port: int
   grpc_port: int
   worker_service_address: str
-  use_distributed_processing: bool
   hide_capture_profile_button: bool
 
 
@@ -142,9 +141,8 @@ def _launch_server(
   Args:
     config: The ServerConfig object containing all server settings.
   """
-  if config.use_distributed_processing:
-    _pywrap_profiler_plugin.initialize_stubs(config.worker_service_address)
-    _pywrap_profiler_plugin.start_grpc_server(config.grpc_port)
+  _pywrap_profiler_plugin.initialize_stubs(config.worker_service_address)
+  _pywrap_profiler_plugin.start_grpc_server(config.grpc_port)
 
   context = TBContext(
       config.logdir, DataProvider(config.logdir), TBContext.Flags(False)
@@ -226,21 +224,11 @@ def _create_argument_parser() -> argparse.ArgumentParser:
   )
 
   parser.add_argument(
+      "-hcpb",
       "--hide_capture_profile_button",
       action="store_true",
       default=False,
       help="Hides the 'Capture Profile' button in the UI.",
-  )
-
-  parser.add_argument(
-      "-udp",
-      "--use_distributed_processing",
-      action="store_true",
-      help=(
-          "Enable distributed processing for cloud-based profiling. This flag"
-          " must be set to start the gRPC server and connect to worker"
-          " services."
-      ),
   )
 
   parser.add_argument(
@@ -252,7 +240,6 @@ def _create_argument_parser() -> argparse.ArgumentParser:
           "A comma-separated list of worker service addresses (IPs or FQDNs)"
           " with their gRPC ports, used in distributed profiling. Example:"
           " 'worker-a.project.internal:50051,worker-b.project.internal:50051'."
-          " Requires --use_distributed_processing."
       ),
   )
 
@@ -264,7 +251,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
       help=(
           "The port for the gRPC server, which runs alongside the main HTTP"
           " server for distributed profiling. This must be different from the"
-          " main server port (--port). Requires --use_distributed_processing."
+          " main server port (--port)."
       ),
   )
   return parser
@@ -296,16 +283,13 @@ def main() -> int:
       port=args.port,
       grpc_port=args.grpc_port,
       worker_service_address=args.worker_service_address,
-      use_distributed_processing=args.use_distributed_processing,
       hide_capture_profile_button=args.hide_capture_profile_button,
   )
 
   print("Attempting to start XProf server:")
   print(f"  Log Directory: {logdir}")
   print(f"  Port: {config.port}")
-  if config.use_distributed_processing:
-    print("  Distributed Processing: enabled")
-    print(f"  Worker Service Address: {config.worker_service_address}")
+  print(f"  Worker Service Address: {config.worker_service_address}")
   print(f"  Hide Capture Button: {config.hide_capture_profile_button}")
 
   if logdir and not epath.Path(logdir).exists():

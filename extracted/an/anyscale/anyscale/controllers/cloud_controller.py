@@ -1728,12 +1728,16 @@ class CloudController(BaseController):
 
     def create_cloud_resource(
         self,
-        cloud_name: str,
+        cloud: Optional[str],
+        cloud_id: Optional[str],
         spec_file: str,
         skip_verification: bool = False,
         yes: bool = False,
     ):
-        cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
+        cloud_id, _ = get_cloud_id_and_name(
+            self.api_client, cloud_id=cloud_id, cloud_name=cloud
+        )
+        assert cloud_id
 
         # Read the spec file.
         path = pathlib.Path(spec_file)
@@ -1787,7 +1791,7 @@ class CloudController(BaseController):
             raise ClickException(f"Failed to add cloud resource: {e}")
 
         self.log.info(
-            f"Successfully created cloud resource{' ' + new_deployment.name if new_deployment.name else ''} in cloud {cloud_name}!"
+            f"Successfully created cloud resource{' ' + (new_deployment.name or '')} in cloud {cloud or cloud_id}!"
         )
 
     def update_cloud_resources(  # noqa: PLR0912, C901

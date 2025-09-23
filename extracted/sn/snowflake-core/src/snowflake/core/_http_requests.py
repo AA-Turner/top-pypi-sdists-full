@@ -3,6 +3,7 @@
 import datetime
 import json
 import logging
+import os
 import ssl
 import typing
 
@@ -21,6 +22,8 @@ from ._constants import SESSION_TOKEN_EXPIRED_ERROR_CODE
 
 if typing.TYPE_CHECKING:
     import snowflake.core
+
+    from ._generated import Configuration
 
 logger = logging.getLogger(__name__)
 
@@ -170,10 +173,17 @@ def parameters_to_tuples(
     return new_params
 
 
-class SFPoolManager(urllib3.PoolManager):
+class SFPoolManager:
+    def __init__(  # type: ignore[no-untyped-def]
+        self,
+        manager_class: typing.Union[type[urllib3.ProxyManager], type[urllib3.PoolManager]],
+        **cp_kwargs,
+    ):
+        self._manager = manager_class(**cp_kwargs)
+
     # Having this typed is non-trivial across multiple
     #  urllib3 major versions
-    def request(  # type: ignore[no-untyped-def,override]
+    def request(  # type: ignore[no-untyped-def]
         self,
         root: "snowflake.core.Root",
         method: str,
@@ -192,7 +202,7 @@ class SFPoolManager(urllib3.PoolManager):
             headers.update(get_session_headers(root.token_type, root._session_token, root.external_session_id))
         logger.debug("making an http %s call to '%s'", method.upper(), url)
         try:
-            r = super().request(method=method, url=url, fields=fields, headers=headers, **urlopen_kw)
+            r = self._manager.request(method=method, url=url, fields=fields, headers=headers, **urlopen_kw)
         except urllib3.exceptions.MaxRetryError as e:
             if (
                 isinstance(e.reason, urllib3.exceptions.SSLError)
@@ -230,7 +240,7 @@ class SFPoolManager(urllib3.PoolManager):
                     raise Exception("session token is missing right after renewal")
                 headers.update(get_session_headers(root.token_type, root._session_token, root.external_session_id))
             logger.debug("repeating an http with new session token %s call to '%s'", method.upper(), url)
-            r = super().request(method=method, url=url, fields=fields, headers=headers, **urlopen_kw)
+            r = self._manager.request(method=method, url=url, fields=fields, headers=headers, **urlopen_kw)
         return r
 
 
@@ -257,6 +267,15 @@ def url_needs_auth(url: str) -> bool:
     session related actions.
     """
     return True
+
+
+def _proxy_setup(configuration: "Configuration") -> Optional[dict[str, typing.Any]]:
+    if configuration.proxy:
+        return {"proxy_url": configuration.proxy, "proxy_headers": configuration.proxy_headers}
+    # To keep compatibility with driver behavior
+    if http_url := os.getenv("HTTPS_PROXY"):
+        return {"proxy_url": http_url, "proxy_headers": {}}
+    return None
 
 
 # TODO: We could create the single connection pool at import time
@@ -306,8 +325,11 @@ def create_connection_pool(  # type: ignore[no-untyped-def]
             "key_file": configuration.key_file,
             **addition_pool_args,
         }
-        if configuration.proxy:
-            cp_kwargs.update({"proxy_url": configuration.proxy, "proxy_headers": configuration.proxy_headers})
+        if proxy_kw := _proxy_setup(configuration):
+            manager_class = urllib3.ProxyManager
+            cp_kwargs.update(proxy_kw)
+        else:
+            manager_class = urllib3.PoolManager  # type: ignore[assignment]
         logger.debug("created a new SFPoolManager")
-        CONNECTION_POOL = SFPoolManager(**cp_kwargs)
+        CONNECTION_POOL = SFPoolManager(manager_class=manager_class, **cp_kwargs)
     return CONNECTION_POOL

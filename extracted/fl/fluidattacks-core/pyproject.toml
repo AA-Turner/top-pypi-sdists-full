@@ -1,6 +1,6 @@
 [project]
 name = "fluidattacks-core"
-version = "2.14.0"
+version = "2.14.2"
 description = "Fluid Attacks Core Library"
 authors = [{ name = "Development", email = "development@fluidattacks.com" }]
 license = { text = "MPL-2.0" }
@@ -50,7 +50,7 @@ serializers = [
   "tree-sitter-html>=0.23.2",
   "tree-sitter-xml>=0.7.0",
 ]
-cpg = ["aioboto3>=15.1.0", "platformdirs>=4.3.8"]
+cpg = ["aioboto3>=13.3.0", "platformdirs>=4.3.8"]
 filesystem = []
 all = [
   "fluidattacks-core[aio]",
@@ -70,8 +70,9 @@ dev = [
   "import-linter==2.3",
   "mypy==1.17.1",
   "ruff==0.12.9",
-  "types-aiofiles==24.1.0.20240626",
   "pytest==8.4.1",
+  "types-aiofiles==24.1.0.20240626",
+  "types-simplejson>=3.20.0.20250822",
   "types-aioboto3[s3]>=15.1.0",
   "pytest-asyncio>=1.1.0",
 ]

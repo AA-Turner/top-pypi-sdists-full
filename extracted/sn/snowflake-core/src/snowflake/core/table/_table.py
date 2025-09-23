@@ -14,13 +14,13 @@ from snowflake.core._common import (
     SchemaObjectCollectionParent,
     SchemaObjectReferenceMixin,
 )
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._operation import PollingOperations
 
 from .._internal.telemetry import api_telemetry
 from .._internal.utils import deprecated
 from ._generated import SuccessResponse
 from ._generated.api import TableApi
-from ._generated.api_client import StoredProcApiClient
 from ._generated.models.point_of_time import PointOfTime as TablePointOfTime
 from ._generated.models.table import Table
 from ._generated.models.table_as_select import TableAsSelect

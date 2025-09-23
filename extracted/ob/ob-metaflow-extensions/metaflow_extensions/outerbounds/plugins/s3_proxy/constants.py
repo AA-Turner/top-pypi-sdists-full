@@ -5,4 +5,7 @@ S3_PROXY_BINARY_URLS = {
 
 DEFAULT_PROXY_PORT = 8081
 DEFAULT_PROXY_HOST = "localhost"
-S3_PROXY_WRITE_MODES = ["origin-and-cache", "origin", "cache"]
+S3_PROXY_WRITE_MODES = [
+    "origin-and-cache",
+    "origin",
+]

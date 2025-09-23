@@ -1,6 +1,5 @@
-
 """
-Snowflake API Integration API
+Snowflake API Integration API.
 
 The Snowflake API Integration API is a REST API that you can use to access, update, and perform certain actions on API Integration resource in a Snowflake database.  # noqa: E501
 
@@ -36,7 +35,6 @@ class ApiIntegration(BaseModel):
     name : str
         Name of the API integration.
     api_hook : ApiHook
-
 
     api_allowed_prefixes : list[str]
         A comma-separated list of endpoints and resources that Snowflake can access.
@@ -94,14 +92,14 @@ class ApiIntegration(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> ApiIntegration:
-        """Create an instance of ApiIntegration from a JSON string"""
+        """Create an instance of ApiIntegration from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

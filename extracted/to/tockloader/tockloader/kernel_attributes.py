@@ -8,6 +8,7 @@ import struct
 class KATLV:
     TYPE_APP_MEMORY = 0x0101
     TYPE_KERNEL_BINARY = 0x0102
+    TYPE_KERNEL_VERSION = 0x0103
 
     def get_tlvid(self):
         return self.TLVID
@@ -98,13 +99,69 @@ class KATLVKernelBinary(KATLV):
         }
 
 
+class KATLVKernelVersion(KATLV):
+    TLVID = KATLV.TYPE_KERNEL_VERSION
+    SIZE = 8
+
+    def __init__(self, buffer):
+        self.valid = False
+
+        if len(buffer) == 8:
+            base = struct.unpack("<HHHH", buffer)
+            self.kernel_version_major = base[0]
+            self.kernel_version_minor = base[1]
+            self.kernel_version_patch = base[2]
+            self.kernel_version_prerelease = base[3]
+            self.valid = True
+
+    def pack(self):
+        return struct.pack(
+            "<HHHHHH",
+            self.kernel_version_major,
+            self.kernel_version_minor,
+            self.kernel_version_patch,
+            self.kernel_version_prerelease,
+            self.TLVID,
+            8,
+        )
+
+    def __str__(self):
+        out = "KATLV: Kernel Version ({:#x})\n".format(self.TLVID)
+
+        labels = ["", "-dev", "-alpha", "-beta"]
+        if self.kernel_version_prerelease > 3:
+            end = f"-pre-release{self.kernel_version_prerelease}"
+        else:
+            end = labels[self.kernel_version_prerelease]
+
+        out += "  {:<20}: {}.{}.{}{}".format(
+            "kernel_version",
+            self.kernel_version_major,
+            self.kernel_version_minor,
+            self.kernel_version_patch,
+            end,
+        )
+
+        return out
+
+    def object(self):
+        return {
+            "type": "kernel_version",
+            "id": self.TLVID,
+            "kernel_version_major": self.kernel_version_major,
+            "kernel_version_minor": self.kernel_version_minor,
+            "kernel_version_patch": self.kernel_version_patch,
+            "kernel_version_prerelease": self.kernel_version_prerelease,
+        }
+
+
 class KernelAttributes:
     """
     Represent attributes stored at the end of the kernel image that contain metadata
     about the installed kernel.
     """
 
-    KATLV_TYPES = [KATLVAppMemory, KATLVKernelBinary]
+    KATLV_TYPES = [KATLVAppMemory, KATLVKernelBinary, KATLVKernelVersion]
 
     def __init__(self, buffer, address):
         self.tlvs = []
@@ -207,4 +264,10 @@ class KernelAttributes:
             # Recreate string.
             out += "\n".join(lines)
 
+        return out
+
+    def object(self):
+        out = {"version": self.version, "attributes": []}
+        for tlv in self.tlvs:
+            out["attributes"].append(tlv.object())
         return out

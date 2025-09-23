@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Role API
+Snowflake Role API.
 
 The Snowflake Role API is a REST API that you can use to access, update, and perform certain actions on Role resource in a Snowflake database.  # noqa: E501
 

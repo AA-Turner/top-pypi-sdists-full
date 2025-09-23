@@ -23,12 +23,13 @@ Refer to :class:`snowflake.core.Root` to create the ``root``.
 
 from ..external_volume._generated.models import (
     Encryption,
+    ExternalVolume,
     StorageLocationAzure,
     StorageLocationGcs,
     StorageLocationS3,
     StorageLocationS3Gov,
 )
-from ._external_volume import ExternalVolume, ExternalVolumeCollection, ExternalVolumeResource
+from ._external_volume import ExternalVolumeCollection, ExternalVolumeResource
 
 
 __all__ = [

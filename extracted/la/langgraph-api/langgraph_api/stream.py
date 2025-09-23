@@ -317,9 +317,11 @@ async def astream_state(
                                     else "messages/complete"
                                 ),
                                 [
-                                    message_chunk_to_message(messages[msg.id])
-                                    if not is_chunk
-                                    else messages[msg.id]
+                                    (
+                                        message_chunk_to_message(messages[msg.id])
+                                        if not is_chunk
+                                        else messages[msg.id]
+                                    )
                                 ],
                             )
                     elif mode in stream_mode:
@@ -417,9 +419,11 @@ async def astream_state(
                                 else "messages/complete"
                             ),
                             [
-                                message_chunk_to_message(messages[msg.id])
-                                if not is_chunk
-                                else messages[msg.id]
+                                (
+                                    message_chunk_to_message(messages[msg.id])
+                                    if not is_chunk
+                                    else messages[msg.id]
+                                )
                             ],
                         )
                 elif mode in stream_mode:

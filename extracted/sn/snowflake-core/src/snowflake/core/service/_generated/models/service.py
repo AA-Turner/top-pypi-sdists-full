@@ -1,6 +1,5 @@
-
 """
-Snowflake Services API
+Snowflake Services API.
 
 The Snowflake Services API is a REST API that you can use to access, update, and perform certain actions on Services resource in a Snowflake database.  # noqa: E501
 
@@ -38,7 +37,6 @@ class Service(BaseModel):
     compute_pool : str
         Specifies the name of the compute pool in your account on which to run the service.
     spec : ServiceSpec
-
 
     status : str, optional
         The current status of the service.
@@ -228,14 +226,14 @@ class Service(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Service:
-        """Create an instance of Service from a JSON string"""
+        """Create an instance of Service from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

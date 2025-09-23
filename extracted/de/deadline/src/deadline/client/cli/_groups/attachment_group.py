@@ -16,15 +16,19 @@ from typing import Optional
 from .click_logger import ClickLogger
 from .._common import _apply_cli_options_to_config, _handle_error
 from ...config import config_file
+from .._main import main
 
 from deadline.client import api
-from deadline.job_attachments import api as attachment_api
+from deadline.job_attachments.api.attachment import (
+    _attachment_download,
+    _attachment_upload,
+)
 from deadline.job_attachments._aws.deadline import get_queue
 from deadline.job_attachments.exceptions import MissingJobAttachmentSettingsError
 from deadline.job_attachments.models import FileConflictResolution, JobAttachmentS3Settings
 
 
-@click.group(name="attachment")
+@main.group(name="attachment")
 @_handle_error
 def cli_attachment():
     """
@@ -120,7 +124,7 @@ def attachment_download(
     ):
         conflict_resolution = FileConflictResolution[conflict_resolution_setting]
 
-    attachment_api.attachment_download(
+    _attachment_download(
         manifests=manifests,
         s3_root_uri=s3_root_uri,
         boto3_session=boto3_session,
@@ -203,7 +207,7 @@ def attachment_upload(
     if not s3_root_uri:
         raise MissingJobAttachmentSettingsError("No valid s3 root path available")
 
-    attachment_api.attachment_upload(
+    _attachment_upload(
         root_dirs=root_dirs,
         manifests=manifests,
         s3_root_uri=s3_root_uri,

@@ -11,7 +11,7 @@ from reflex.components.core.breakpoints import Breakpoints
 from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
-LUCIDE_LIBRARY = "lucide-react@0.543.0"
+LUCIDE_LIBRARY = "lucide-react@0.544.0"
 
 class LucideIconComponent(Component):
     @classmethod
@@ -739,6 +739,7 @@ LUCIDE_ICON_LIST = [
     "eraser",
     "ethernet_port",
     "euro",
+    "ev_charger",
     "expand",
     "external_link",
     "eye_closed",

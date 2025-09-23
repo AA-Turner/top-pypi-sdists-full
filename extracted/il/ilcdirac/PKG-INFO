@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iLCDirac
-Version: 35.0.7
+Version: 35.0.8
 Summary: iLCDirac is the iLC/CLIC/FCC extension of DIRAC
 Home-page: https://gitlab.cern.ch/clicdp/ilcdirac/ilcdirac.git
 Maintainer: Andre Sailer
@@ -17,7 +17,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: System :: Distributed Computing
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Requires-Dist: DIRAC>=8.0.73
+Requires-Dist: DIRAC<9.0,>=8.0.73
 Requires-Dist: requests
 Requires-Dist: six
 Provides-Extra: server

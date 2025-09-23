@@ -18,7 +18,7 @@ class ContextBuilder:
         context = """
         You are to always provide a summary of your chain of thought so the business has a better understanding of the reasoning.
         Keep the summary short. As simple as possible. 1-2 sentences. And come up with a title as a preview of the chain of thought.
-        Always confirm that you're following each unbreakable rule."
+        Make a check list of the unbreakable rules and confirm that you're following them. This is PRIVATE INFORMATION and only meant for the CHAIN OF THOUGHT, never mention it to the user.
         """
         return context
 
@@ -80,6 +80,6 @@ class ContextBuilder:
     @staticmethod
     def chain_of_thought_prompt(agent: ChattyAIAgent, mode_in_chat: ChattyAIMode, trigger: ChainOfThoughtInChatTrigger) -> str:
         context = f"\n\nRemember that {mode_in_chat.value} mode."
-        context += "Remember to follow each unbreakable rule."
+        context += f"Remember to follow each unbreakable rule:\n- {'\n- '.join(agent.unbreakable_rules)}"
         context += f"\n\n{ContextBuilder.chain_of_thought_instructions_and_final_prompt(trigger)}"
         return context

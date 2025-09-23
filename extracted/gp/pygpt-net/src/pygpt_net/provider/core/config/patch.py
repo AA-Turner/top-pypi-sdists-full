@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.17 05:00:00                  #
+# Updated Date: 2025.09.22 19:00:00                  #
 # ================================================== #
 
 import copy
@@ -31,6 +31,7 @@ class Patch:
         """
         data = self.window.core.config.all()
         cfg_get_base = self.window.core.config.get_base
+        remove_plugin_config = self.window.core.config.remove_plugin_config
         patch_css = self.window.core.updater.patch_css
         current = "0.0.0"
         updated = False
@@ -109,6 +110,45 @@ class Patch:
                 print("Migrating config from < 2.6.53...")
                 if "remote_tools.global.web_search" not in data:
                     data["remote_tools.global.web_search"] = True
+                updated = True
+
+            # < 2.6.56
+            if old < parse_version("2.6.56"):
+                print("Migrating config from < 2.6.56...")
+                # copy btn header
+                patch_css('web-chatgpt.css', True)
+                patch_css('web-chatgpt_wide.css', True)
+                patch_css('web-blocks.css', True)
+                patch_css('web-blocks.light.css', True)
+                patch_css('web-chatgpt.light.css', True)
+                patch_css('web-chatgpt_wide.light.css', True)
+                patch_css('web-blocks.dark.css', True)
+                patch_css('web-chatgpt.dark.css', True)
+                patch_css('web-chatgpt_wide.dark.css', True)
+                patch_css('web-blocks.darkest.css', True)
+                patch_css('web-chatgpt.darkest.css', True)
+                patch_css('web-chatgpt_wide.darkest.css', True)
+                updated = True
+
+            # < 2.6.57
+            if old < parse_version("2.6.57"):
+                print("Migrating config from < 2.6.57...")
+                remove_plugin_config("cmd_web", "max_open_urls")
+                remove_plugin_config("cmd_web", "cmd.web_url_open")
+                remove_plugin_config("cmd_web", "cmd.web_url_raw")
+                remove_plugin_config("cmd_web", "cmd.web_extract_links")
+                remove_plugin_config("cmd_web", "cmd.web_extract_images")
+                if "api_proxy.enabled" not in data:
+                    data["api_proxy.enabled"] = False
+                if "api_proxy" in data and data["api_proxy"]:
+                    data["api_proxy.enabled"] = True
+                updated = True
+
+            # < 2.6.58
+            if old < parse_version("2.6.58"):
+                print("Migrating config from < 2.6.58...")
+                if "ctx.urls.internal" not in data:
+                    data["ctx.urls.internal"] = False
                 updated = True
 
         # update file

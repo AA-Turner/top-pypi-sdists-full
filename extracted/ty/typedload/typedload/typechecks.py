@@ -72,14 +72,7 @@ __all__ = [
 
 from typing import ForwardRef, Literal
 from typing import _TypedDictMeta  # type: ignore
-
-UnionType = None  # type: Any
-try:
-    # Since 3.10
-    from types import UnionType  # type: ignore
-except ImportError:
-    pass
-
+from types import UnionType
 
 try:
     # Since 3.11
@@ -107,26 +100,15 @@ def is_tuple(type_: Any) -> bool:
     '''
     return _generic_type_check(type_, tuple, Tuple)
 
-if UnionType:
-    # Uniontype is 3.10 defined on 3.10 and None otherwise
-    def is_union(type_: Any) -> bool:
-        '''
-        Union[A, B]
-        Union
-        Optional[A]
-        A | B
-        '''
-        return getattr(type_, '__origin__', None) == Union or getattr(type_, '__class__', None) == UnionType
-else:
-    def is_union(type_: Any) -> bool:
-        '''
-        Union[A, B]
-        Union
-        Optional[A]
-        '''
 
-        # Uniontype is 3.10 defined on 3.10 and None otherwise
-        return getattr(type_, '__origin__', None) == Union
+def is_union(type_: Any) -> bool:
+    '''
+    Union[A, B]
+    Union
+    Optional[A]
+    A | B
+    '''
+    return getattr(type_, '__origin__', None) == Union or getattr(type_, '__class__', None) == UnionType
 
 
 def is_optional(type_: Any) -> bool:

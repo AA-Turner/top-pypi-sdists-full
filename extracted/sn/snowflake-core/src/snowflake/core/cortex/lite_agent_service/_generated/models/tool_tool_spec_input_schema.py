@@ -1,6 +1,5 @@
-
 """
-Cortex Agent API
+Cortex Agent API.
 
 OpenAPI 3.0 specification for the Cortex Agent API  # noqa: E501
 
@@ -61,14 +60,14 @@ class ToolToolSpecInputSchema(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> ToolToolSpecInputSchema:
-        """Create an instance of ToolToolSpecInputSchema from a JSON string"""
+        """Create an instance of ToolToolSpecInputSchema from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = {"additional_properties"}
 
         if hide_readonly_properties:

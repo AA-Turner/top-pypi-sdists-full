@@ -2,6 +2,7 @@ from chalk._gen.chalk.aggregate.v1 import timeseries_pb2 as _timeseries_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -13,6 +14,28 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class AggregateBackfillStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    AGGREGATE_BACKFILL_STATUS_UNSPECIFIED: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_INITIALIZING: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_INIT_FAILED: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_SKIPPED: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_QUEUED: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_WORKING: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_COMPLETED: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_FAILED: _ClassVar[AggregateBackfillStatus]
+    AGGREGATE_BACKFILL_STATUS_CANCELED: _ClassVar[AggregateBackfillStatus]
+
+AGGREGATE_BACKFILL_STATUS_UNSPECIFIED: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_INITIALIZING: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_INIT_FAILED: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_SKIPPED: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_QUEUED: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_WORKING: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_COMPLETED: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_FAILED: AggregateBackfillStatus
+AGGREGATE_BACKFILL_STATUS_CANCELED: AggregateBackfillStatus
 
 class AggregateBackfillCostEstimate(_message.Message):
     __slots__ = ("max_buckets", "expected_buckets", "expected_bytes", "expected_storage_cost", "expected_runtime")
@@ -127,6 +150,7 @@ class AggregateBackfillJob(_message.Message):
         "resolvers",
         "cron_aggregate_backfill_id",
         "plan_hash",
+        "status",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -139,6 +163,7 @@ class AggregateBackfillJob(_message.Message):
     RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     CRON_AGGREGATE_BACKFILL_ID_FIELD_NUMBER: _ClassVar[int]
     PLAN_HASH_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     resolver: str
@@ -150,6 +175,7 @@ class AggregateBackfillJob(_message.Message):
     resolvers: _containers.RepeatedScalarFieldContainer[str]
     cron_aggregate_backfill_id: str
     plan_hash: str
+    status: AggregateBackfillStatus
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -163,6 +189,7 @@ class AggregateBackfillJob(_message.Message):
         resolvers: _Optional[_Iterable[str]] = ...,
         cron_aggregate_backfill_id: _Optional[str] = ...,
         plan_hash: _Optional[str] = ...,
+        status: _Optional[_Union[AggregateBackfillStatus, str]] = ...,
     ) -> None: ...
 
 class CronAggregateBackfill(_message.Message):

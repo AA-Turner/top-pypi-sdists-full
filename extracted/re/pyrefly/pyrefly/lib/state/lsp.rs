@@ -1009,6 +1009,7 @@ impl<'a> Transaction<'a> {
                         symbol_kind: Some(SymbolKind::Module),
                         docstring_range,
                         is_deprecated: false,
+                        special_export: None,
                     },
                 ))
             }
@@ -2009,7 +2010,6 @@ impl<'a> Transaction<'a> {
                 identifier,
                 context: IdentifierContext::ImportedName { module_name, .. },
             }) => {
-                // TODO: Handle relative import (via ModuleName::new_maybe_relative)
                 if let Ok(handle) = self.import_handle(handle, module_name, None) {
                     // Because of parser error recovery, `from x impo...` looks like `from x import impo...`
                     // If the user might be typing the `import` keyword, add that as an autocomplete option.
@@ -2040,6 +2040,7 @@ impl<'a> Transaction<'a> {
                     }
                 }
             }
+            // TODO: Handle relative import (via ModuleName::new_maybe_relative)
             Some(IdentifierWithContext {
                 identifier,
                 context: IdentifierContext::ImportedModule { .. },
@@ -2321,7 +2322,7 @@ impl<'a> Transaction<'a> {
             match bindings.idx_to_key(idx) {
                 // Return Annotation
                 key @ Key::ReturnType(id) if return_types => {
-                    match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
+                    match bindings.get(bindings.key_to_idx(&Key::Definition(*id))) {
                         Binding::Function(x, _pred, _class_meta) => {
                             if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
                                 && let Some(ty) = self.get_type(handle, key)
@@ -2408,7 +2409,7 @@ impl<'a> Transaction<'a> {
             match bindings.idx_to_key(idx) {
                 key @ Key::ReturnType(id) => {
                     if inlay_hint_config.function_return_types {
-                        match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
+                        match bindings.get(bindings.key_to_idx(&Key::Definition(*id))) {
                             Binding::Function(x, _pred, _class_meta) => {
                                 if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
                                     && let Some(mut ty) = self.get_type(handle, key)

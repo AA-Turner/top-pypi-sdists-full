@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._operation import PollingOperations
 
 from .._internal.telemetry import api_telemetry
 from ._generated.api import EventTableApi
-from ._generated.api_client import StoredProcApiClient
 from ._generated.models.event_table import EventTable
 
 

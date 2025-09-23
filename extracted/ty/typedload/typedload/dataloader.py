@@ -3,7 +3,7 @@ typedload
 Module to load data into typed data structures
 """
 
-# Copyright (C) 2018-2024 Salvo "LtWorf" Tomaselli
+# Copyright (C) 2018-2025 Salvo "LtWorf" Tomaselli
 #
 # typedload is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ import ipaddress
 from itertools import compress, count, repeat
 from pathlib import Path
 import re
-from typing import *
+from typing import Any, Callable, Type, TypeVar, get_type_hints
 import uuid
 
 from .exceptions import *
@@ -42,7 +42,7 @@ try:
     # older python versions, so we only import it
     # from 3.12 onwards (which is also where it can be used)
     from typing import TypeAliasType  # type: ignore
-    from .alias import unalias  # type: ignore
+    from .alias import unalias
 except ImportError:
     unalias = None  # type: ignore
 
@@ -108,14 +108,14 @@ class Loader:
     handlers: This is the list that the loader uses to
         perform its task.
         The type is:
-        List[
-            Tuple[
+        list[
+            tuple[
                 Callable[[Type[T]], bool],
                 Callable[['Loader', Any, Type[T]], T]
             ]
         ]
 
-        The elements are: Tuple[Condition,Loader]
+        The elements are: tuple[Condition, Loader]
         Condition(type) -> Bool
         Loader(loader, value, type) -> type
 
@@ -127,10 +127,18 @@ class Loader:
 
     strconstructed: Set of types to construct from a string.
 
+    iterstr: Defaults to False
+        If set, str objects are considered iterable and can be used to
+        be loaded into list[str] or similar.
+        This was the default behaviour previously.
+        From 2.38 loading a string into list[str] will fail.
+        You can restore the previous unintended behaviour by setting this to
+        True.
+
     frefs: Dictionary to resolve ForwardRef.
         Something like
         class Node(NamedTuple):
-            next: Optional['Node']
+            next: 'Node' | None
 
         requires a ForwardRef (also in python3.7), which means that the type
         is stored as string and must be resolved at runtime.
@@ -190,7 +198,7 @@ class Loader:
         self.raiseconditionerrors = True
 
         # Forward refs dictionary
-        self.frefs = {}  # type: Optional[Dict[str, Type]]
+        self.frefs = {}  # type: dict[str, Type] | None
 
         # Enable conversion of dict-like things to dicts, before loading
         self.dictequivalence = True
@@ -200,6 +208,9 @@ class Loader:
 
         # Fail if multiple types work within the union
         self.uniondebugconflict = False
+
+        # str objects can't be loaded as list[str] or similar
+        self.iterstr = False
 
         # Objects loaded from a string
         self.strconstructed = {
@@ -241,18 +252,18 @@ class Loader:
             (is_attrs, _attrload),
             (is_any, _anyload),
             (is_newtype, _newtypeload),
-        ]  # type: List[Tuple[Callable[[Any], bool], Callable[[Loader, Any, Any], Any]]]
+        ]  # type: list[tuple[Callable[[Any], bool], Callable[[Loader, Any, Any], Any]]]
 
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-        self._indexcache = {}  # type: Dict[Any, Callable[[Loader, Any, Any], Any]]
+        self._indexcache = {}  # type: dict[Any, Callable[[Loader, Any, Any], Any]]
 
-        self._objfieldscache = {}  # type: Dict[Type, Any]
+        self._objfieldscache = {}  # type: dict[Type, Any]
 
-        self._unionload_discriminatorcache = {}  # type: Dict[int, Tuple[Optional[str], Optional[Dict[Any, Type]]]]
+        self._unionload_discriminatorcache = {}  # type: dict[int, tuple[str | None, None | dict[Any, Type]]]
 
-        self._union_sorted_args_cache = {}  # type: Dict[int, List[Type]]
+        self._union_sorted_args_cache = {}  # type: dict[int, list[Type]]
 
     def index(self, type_: Type[T]) -> int:
         """
@@ -281,7 +292,7 @@ class Loader:
         return r
 
 
-    def load(self, value: Any, type_: Type[T], *, annotation: Optional[Annotation] = None) -> T:
+    def load(self, value: Any, type_: Type[T], *, annotation: Annotation | None = None) -> T:
         """
         Loads value into the typed data structure.
 
@@ -336,7 +347,7 @@ def _forwardrefload(l: Loader, value: Any, type_) -> Any:
     """
     if l.frefs is None:
         raise TypedloadException('ForwardRef resolving is disabled for the loader', value=value, type_=type_)
-    tname = type_.__forward_arg__  # type: ignore
+    tname = type_.__forward_arg__
     t = l.frefs.get(tname)
     if t is None:
         raise TypedloadValueError(
@@ -386,9 +397,9 @@ def _basicload(l: Loader, value: Any, type_) -> Any:
     return value
 
 
-def _dictload(l: Loader, value: Any, type_) -> Dict:
+def _dictload(l: Loader, value: Any, type_) -> dict:
     """
-    This loads into something like Dict[str,str]
+    This loads into something like dict[str, str]
 
     Recursively loads both keys and values.
     """
@@ -444,18 +455,18 @@ def _dictload(l: Loader, value: Any, type_) -> Dict:
         raise TypedloadAttributeError(str(e), type_=type_, value=value)
 
 
-def _tupleload(l: Loader, value: Any, type_) -> Tuple:
+def _tupleload(l: Loader, value: Any, type_) -> tuple:
     """
-    This loads into something like Tuple[int,str]
+    This loads into something like tuple[int,str]
     """
     args = type_.__args__
 
     len_args = len(args)
 
-    if len_args == 2 and args[1] == ...: # Tuple[something, ...]
+    if len_args == 2 and args[1] == ...: # tuple[something, ...]
         return _iterload(l, value, type_, tuple)
 
-    # Tuple[something, something, somethingelse]
+    # tuple[something, something, somethingelse]
     if isinstance(value, dict):
         raise TypedloadTypeError('Unable to load dictionary as a tuple', value=value, type_=type_)
 
@@ -485,7 +496,7 @@ def _tupleload(l: Loader, value: Any, type_) -> Tuple:
         raise TypedloadTypeError('Exception is not a subclass of TypedloadException. Make sure all handlers only raise TypedloadException')
 
 
-def _mangle_names(namesmap: Dict[str, str], value: Dict[str, Any], failonextra: bool) -> Dict[str, Any]:
+def _mangle_names(namesmap: dict[str, str], value: dict[str, Any], failonextra: bool) -> dict[str, Any]:
     """
     Mangling names of a dictionary.
 
@@ -512,9 +523,9 @@ def _mangle_names(namesmap: Dict[str, str], value: Dict[str, Any], failonextra: 
     return r
 
 
-def _dataclassload(l: Loader, value: Dict[str, Any], type_) -> Any:
+def _dataclassload(l: Loader, value: dict[str, Any], type_) -> Any:
     """
-    This loads a Dict[str, Any] into a NamedTuple.
+    This loads a dict[str, Any] into a NamedTuple.
     """
     try:
         fields, necessary_fields, type_hints, transforms = l._objfieldscache[type_]
@@ -570,7 +581,7 @@ def _dictequivalence(l: Loader, value: Any) -> Any:
     return value
 
 
-def _objloader(l: Loader, fields: Set[str], necessary_fields: Set[str], type_hints, value: Any, type_, early_needed_fields_check: bool) -> Any:
+def _objloader(l: Loader, fields: set[str], necessary_fields: set[str], type_hints, value: Any, type_, early_needed_fields_check: bool) -> Any:
     '''
     Helper function to load dict-like data into an object.
     '''
@@ -651,7 +662,7 @@ def _objloader(l: Loader, fields: Set[str], necessary_fields: Set[str], type_hin
 
 def _namedtupleload(l: Loader, value: Any, type_) -> Any:
     """
-    This loads a Dict[str, Any] into a NamedTuple.
+    This loads a dict[str, Any] into a NamedTuple.
     """
 
     try:
@@ -675,7 +686,7 @@ def _namedtupleload(l: Loader, value: Any, type_) -> Any:
 
 def _typeddictload(l: Loader, value: Any, type_) -> Any:
     """
-    This loads a Dict[str, Any] into a NamedTuple.
+    This loads a dict[str, Any] into a NamedTuple.
     """
     try:
         fields, necessary_fields, type_hints = l._objfieldscache[type_]
@@ -687,7 +698,6 @@ def _typeddictload(l: Loader, value: Any, type_) -> Any:
         fields = set(type_hints.keys())
 
         if hasattr(type_, '__required_keys__') and hasattr(type_, '__optional_keys__'):
-            # TypedDict, since 3.9
             necessary_fields = set(type_.__required_keys__)
         elif not type_.__total__:
             necessary_fields = set()
@@ -737,7 +747,7 @@ def _unionload(l: Loader, value: Any, type_) -> Any:
 
     # Give a score to the types
     try:
-        sorted_args = l._union_sorted_args_cache[type_id]  # type: List[Type]
+        sorted_args = l._union_sorted_args_cache[type_id]  # type: list[Type]
     except KeyError:
         sorted_args = list(args)
         sorted_args.sort(key=lambda i: i in l.basictypes)
@@ -749,7 +759,7 @@ def _unionload(l: Loader, value: Any, type_) -> Any:
         # Bump up if the Literal field matches
 
         try:
-            discriminatorscache = l._unionload_discriminatorcache[type_id]  # type: Tuple[Optional[str], Optional[Dict[Any, Type]]]
+            discriminatorscache = l._unionload_discriminatorcache[type_id]  # type: tuple[str | None, None | dict[Any, Type]]
 
         # First time generate the deep inspection for literal
         except KeyError:
@@ -875,7 +885,7 @@ def _noneload(l: Loader, value: Any, type_) -> None:
     raise TypedloadValueError('Not None', value=value, type_=type_)
 
 
-def _datetimeload(l: Loader, value: Any, type_) -> Union[datetime.date, datetime.time, datetime.datetime]:
+def _datetimeload(l: Loader, value: Any, type_) -> datetime.date | datetime.time | datetime.datetime:
     try:
         if isinstance(value, str):
             return type_.fromisoformat(value)
@@ -985,6 +995,8 @@ def _iterload(l: Loader, value: Any, type_, function) -> Any:
     """
     if isinstance(value, dict):
         raise TypedloadTypeError('Unable to load dictionary as an iterable', value=value, type_=type_)
+    elif not l.iterstr and isinstance(value, str):
+        raise TypedloadTypeError('str object is not loadable as an iterable', value=value, type_=type_)
     t = type_.__args__[0]
 
     # Get function pointer for the handler

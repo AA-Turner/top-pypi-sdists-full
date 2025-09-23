@@ -11,12 +11,10 @@ use std::collections::HashSet;
 use dashmap::DashMap;
 use pyrefly_types::class::Class;
 use ruff_python_ast::name::Name;
-use starlark_map::Hashed;
 
 use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::Binding;
 use crate::binding::binding::ClassFieldDefinition;
-use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyDecoratedFunction;
 use crate::graph::index::Idx;
 use crate::report::pysa::ClassRef;
@@ -24,6 +22,7 @@ use crate::report::pysa::DefinitionRef;
 use crate::report::pysa::FunctionId;
 use crate::report::pysa::ModuleContext;
 use crate::report::pysa::get_all_functions;
+use crate::report::pysa::get_class_field_declaration;
 use crate::report::pysa::should_export_function;
 
 /// A map from a (base) method to methods that directly override it
@@ -71,8 +70,8 @@ fn get_last_definition(
     }
     DecoratedFunction::from_bindings_answers(
         last_decorated_function,
-        context.bindings,
-        context.answers,
+        &context.bindings,
+        &context.answers,
     )
 }
 
@@ -87,12 +86,8 @@ fn get_super_class_member(
             solver.get_super_class_member(class, None, field)
         })
         .flatten()?;
-    let key_class_field = KeyClassField(super_class_member.defining_class.index(), field.clone());
-    context
-        .bindings
-        .key_to_idx_hashed_opt(Hashed::new(&key_class_field)) // Creating a KeyClassField out of thin air, which might not be a valid key
-        .and_then(|index| {
-            let binding_class_field = context.bindings.get(index);
+    get_class_field_declaration(&super_class_member.defining_class, field, context)
+        .and_then(|binding_class_field| {
             if let ClassFieldDefinition::MethodLike { definition, .. } =
                 binding_class_field.definition
             {
@@ -125,7 +120,7 @@ pub fn create_reversed_override_graph_for_module(
     context: &ModuleContext,
 ) -> HashMap<DefinitionRef, DefinitionRef> {
     let mut graph = HashMap::new();
-    for function in get_all_functions(context.bindings, context.answers) {
+    for function in get_all_functions(&context.bindings, &context.answers) {
         if !should_export_function(&function, context) {
             continue;
         }

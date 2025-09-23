@@ -8,13 +8,13 @@
 # Created By  : Marcin Szczygliński                  #
 # Updated Date: 2025.09.16 02:00:00                  #
 # ================================================== #
-
+from PySide6 import QtCore
 from PySide6.QtCore import Qt, QObject, Signal, Slot, QEvent, QUrl, QCoreApplication, QEventLoop
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage, QWebEngineProfile
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QMenu
+from PySide6.QtWidgets import QMenu, QDialog, QVBoxLayout
 
 from pygpt_net.core.events import RenderEvent
 from pygpt_net.item.ctx import CtxMeta
@@ -44,6 +44,7 @@ class ChatWebOutput(QWebEngineView):
         self.meta = None
         self.tab = None
         self.setProperty('class', 'layout-output-web')
+        self.setMouseTracking(True)
 
         # OpenGL widgets
         self._glwidget = None
@@ -86,6 +87,33 @@ class ChatWebOutput(QWebEngineView):
         """
         pass
         # self.window.core.debug.log(e)
+
+    def show_devtools(self, modal: bool = False, title: str = "DevTools"):
+        """Show DevTools window"""
+        if getattr(self, "_devtools_dlg", None) is None:
+            dlg = QDialog(self.window)
+            dlg.setWindowTitle(title)
+            dlg.setModal(modal)
+            dlg.setAttribute(Qt.WA_DeleteOnClose, True)
+            dlg.resize(1100, 750)
+
+            layout = QVBoxLayout(dlg)
+            view = QWebEngineView(dlg)
+            layout.addWidget(view)
+
+            profile = self.page().profile()
+            view.setPage(QWebEnginePage(profile, view))
+
+            self.page().setDevToolsPage(view.page())
+
+            dlg.destroyed.connect(lambda: setattr(self, "_devtools_dlg", None))
+
+            self._devtools_dlg = dlg
+            self._devtools_view = view
+
+        self._devtools_dlg.show()
+        self._devtools_dlg.raise_()
+        self._devtools_dlg.activateWindow()
 
     def unload(self):
         """Unload the current page and free resources"""
@@ -503,7 +531,7 @@ class CustomWebEnginePage(QWebEnginePage):
         return super().acceptNavigationRequest(url, _type, isMainFrame)
 
     def javaScriptConsoleMessage(self, level, message, line_number, source_id):
-        # print("[JS CONSOLE] Line", line_number, ":", message)
+        print("[JS CONSOLE] Line", line_number, ":", message)
         self.signals.js_message.emit(line_number, message, source_id)  # handled in debug controller
 
     def cleanup(self):

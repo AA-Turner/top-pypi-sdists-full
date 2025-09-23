@@ -84,12 +84,17 @@ class _ExcelSheet:
     def visible(self) -> SheetVisible:
         """The visibility of the sheet"""
     def to_arrow(self) -> "pa.RecordBatch":
-        """Converts the sheet to a pyarrow `RecordBatch`"""
+        """Converts the sheet to a pyarrow `RecordBatch`
+
+        Requires the `pyarrow` extra to be installed.
+        """
     def to_arrow_with_errors(self) -> "tuple[pa.RecordBatch, CellErrors]":
         """Converts the sheet to a pyarrow `RecordBatch` with error information.
 
         Stores the positions of any values that cannot be parsed as the specified type and were
         therefore converted to None.
+
+        Requires the `pyarrow` extra to be installed.
         """
     def __arrow_c_schema__(self) -> object:
         """Export the schema as an `ArrowSchema` `PyCapsule`.
@@ -138,7 +143,10 @@ class _ExcelTable:
     def specified_dtypes(self) -> DTypeMap | None:
         """The dtypes specified for the table"""
     def to_arrow(self) -> "pa.RecordBatch":
-        """Converts the table to a pyarrow `RecordBatch`"""
+        """Converts the table to a pyarrow `RecordBatch`
+
+        Requires the `pyarrow` extra to be installed.
+        """
     def __arrow_c_schema__(self) -> object:
         """Export the schema as an `ArrowSchema` `PyCapsule`.
 
@@ -199,6 +207,25 @@ class _ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: Literal[True] = ...,
+    ) -> pa.RecordBatch: ...
+    @typing.overload
+    def load_sheet(
+        self,
+        idx_or_name: str | int,
+        *,
+        header_row: int | None = 0,
+        column_names: list[str] | None = None,
+        skip_rows: int | list[int] | Callable[[int], bool] | None = None,
+        n_rows: int | None = None,
+        schema_sample_rows: int | None = 1_000,
+        dtype_coercion: Literal["coerce", "strict"] = "coerce",
+        use_columns: list[str]
+        | list[int]
+        | str
+        | Callable[[ColumnInfoNoDtype], bool]
+        | None = None,
+        dtypes: DType | DTypeMap | None = None,
+        eager: bool = False,
     ) -> pa.RecordBatch: ...
     @typing.overload
     def load_table(

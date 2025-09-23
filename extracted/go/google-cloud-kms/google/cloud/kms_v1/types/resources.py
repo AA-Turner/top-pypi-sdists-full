@@ -103,25 +103,23 @@ class AccessReason(proto.Enum):
             own data which their IAM policy authorizes, and one of the
             following is true:
 
-            -  A Google administrator has reset the root-access account
-               associated with the user's organization within the past 7
-               days.
-            -  A Google-initiated emergency access operation has
-               interacted with a resource in the same project or folder
-               as the currently accessed resource within the past 7
-               days.
+            - A Google administrator has reset the root-access account
+              associated with the user's organization within the past 7
+              days.
+            - A Google-initiated emergency access operation has
+              interacted with a resource in the same project or folder
+              as the currently accessed resource within the past 7 days.
         MODIFIED_GOOGLE_INITIATED_SYSTEM_OPERATION (9):
             Google systems access customer data to help optimize the
             structure of the data or quality for future uses by the
             customer, and one of the following is true:
 
-            -  A Google administrator has reset the root-access account
-               associated with the user's organization within the past 7
-               days.
-            -  A Google-initiated emergency access operation has
-               interacted with a resource in the same project or folder
-               as the currently accessed resource within the past 7
-               days.
+            - A Google administrator has reset the root-access account
+              associated with the user's organization within the past 7
+              days.
+            - A Google-initiated emergency access operation has
+              interacted with a resource in the same project or folder
+              as the currently accessed resource within the past 7 days.
         GOOGLE_RESPONSE_TO_PRODUCTION_ALERT (10):
             Google-initiated access to maintain system
             reliability.
@@ -131,13 +129,13 @@ class AccessReason(proto.Enum):
             which prevented a more precise justification code from being
             generated:
 
-            -  Your account has been used to perform any access to your
-               own data which your IAM policy authorizes.
-            -  An automated Google system operates on encrypted customer
-               data which your IAM policy authorizes.
-            -  Customer-initiated Google support access.
-            -  Google-initiated support access to protect system
-               reliability.
+            - Your account has been used to perform any access to your
+              own data which your IAM policy authorizes.
+            - An automated Google system operates on encrypted customer
+              data which your IAM policy authorizes.
+            - Customer-initiated Google support access.
+            - Google-initiated support access to protect system
+              reliability.
     """
     REASON_UNSPECIFIED = 0
     CUSTOMER_INITIATED_SUPPORT = 1
@@ -352,6 +350,12 @@ class CryptoKey(proto.Message):
                 [CryptoKeys][google.cloud.kms.v1.CryptoKey] with this
                 purpose may be used with
                 [MacSign][google.cloud.kms.v1.KeyManagementService.MacSign].
+            KEY_ENCAPSULATION (10):
+                [CryptoKeys][google.cloud.kms.v1.CryptoKey] with this
+                purpose may be used with
+                [GetPublicKey][google.cloud.kms.v1.KeyManagementService.GetPublicKey]
+                and
+                [Decapsulate][google.cloud.kms.v1.KeyManagementService.Decapsulate].
         """
         CRYPTO_KEY_PURPOSE_UNSPECIFIED = 0
         ENCRYPT_DECRYPT = 1
@@ -359,6 +363,7 @@ class CryptoKey(proto.Message):
         ASYMMETRIC_DECRYPT = 6
         RAW_ENCRYPT_DECRYPT = 7
         MAC = 9
+        KEY_ENCAPSULATION = 10
 
     name: str = proto.Field(
         proto.STRING,
@@ -788,6 +793,14 @@ class CryptoKeyVersion(proto.Message):
             EXTERNAL_SYMMETRIC_ENCRYPTION (18):
                 Algorithm representing symmetric encryption
                 by an external key manager.
+            ML_KEM_768 (47):
+                ML-KEM-768 (FIPS 203)
+            ML_KEM_1024 (48):
+                ML-KEM-1024 (FIPS 203)
+            KEM_XWING (63):
+                X-Wing hybrid KEM combining ML-KEM-768 with
+                X25519 following
+                datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/.
             PQ_SIGN_ML_DSA_65 (56):
                 The post-quantum Module-Lattice-Based Digital
                 Signature Algorithm, at security level 3.
@@ -833,6 +846,9 @@ class CryptoKeyVersion(proto.Message):
         HMAC_SHA512 = 35
         HMAC_SHA224 = 36
         EXTERNAL_SYMMETRIC_ENCRYPTION = 18
+        ML_KEM_768 = 47
+        ML_KEM_1024 = 48
+        KEM_XWING = 63
         PQ_SIGN_ML_DSA_65 = 56
         PQ_SIGN_SLH_DSA_SHA2_128S = 57
 
@@ -1119,10 +1135,10 @@ class PublicKey(proto.Message):
                 [public_key_format][google.cloud.kms.v1.GetPublicKeyRequest.public_key_format]
                 field is not specified:
 
-                -  For PQC algorithms, an error will be returned.
-                -  For non-PQC algorithms, the default format is PEM, and
-                   the field [pem][google.cloud.kms.v1.PublicKey.pem] will
-                   be populated.
+                - For PQC algorithms, an error will be returned.
+                - For non-PQC algorithms, the default format is PEM, and the
+                  field [pem][google.cloud.kms.v1.PublicKey.pem] will be
+                  populated.
 
                 Otherwise, the public key will be exported through the
                 [public_key][google.cloud.kms.v1.PublicKey.public_key] field
@@ -1135,15 +1151,25 @@ class PublicKey(proto.Message):
                 and [Textual Encoding of Subject Public Key Info]
                 (https://tools.ietf.org/html/rfc7468#section-13) for more
                 information.
+            DER (2):
+                The returned public key will be encoded in
+                DER format (the PrivateKeyInfo structure from
+                RFC 5208).
             NIST_PQC (3):
                 This is supported only for PQC algorithms.
                 The key material is returned in the format
                 defined by NIST PQC standards (FIPS 203, FIPS
                 204, and FIPS 205).
+            XWING_RAW_BYTES (4):
+                The returned public key is in raw bytes
+                format defined in its standard
+                https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem.
         """
         PUBLIC_KEY_FORMAT_UNSPECIFIED = 0
         PEM = 1
+        DER = 2
         NIST_PQC = 3
+        XWING_RAW_BYTES = 4
 
     pem: str = proto.Field(
         proto.STRING,

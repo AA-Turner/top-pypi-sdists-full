@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Iceberg Table API
+Snowflake Iceberg Table API.
 
 The Snowflake Iceberg Table API is a REST API that you can use to access, update, and perform certain actions on Iceberg Table resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.iceberg_table._generated.api.iceberg_table_api import IcebergTableApi
-
-# import ApiClient
-from snowflake.core.iceberg_table._generated.api_client import ApiClient
-from snowflake.core.iceberg_table._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.iceberg_table._generated.models.constraint import Constraint

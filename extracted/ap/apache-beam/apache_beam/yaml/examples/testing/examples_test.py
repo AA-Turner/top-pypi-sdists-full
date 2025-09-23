@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import random
+import re
 import sys
 import unittest
 from typing import Any
@@ -33,6 +34,9 @@ from unittest import mock
 
 import pytest
 import yaml
+from jinja2 import DictLoader
+from jinja2 import Environment
+from jinja2 import StrictUndefined
 
 import apache_beam as beam
 from apache_beam import PCollection
@@ -117,31 +121,39 @@ def test_enrichment(
 @beam.ptransform.ptransform_fn
 def test_kafka_read(
     pcoll,
-    format,
-    topic,
-    bootstrap_servers,
-    auto_offset_reset_config,
-    consumer_config):
+    topic: Optional[str] = None,
+    format: Optional[str] = None,
+    schema: Optional[Any] = None,
+    bootstrap_servers: Optional[str] = None,
+    auto_offset_reset_config: Optional[str] = None,
+    consumer_config: Optional[Any] = None):
   """
-  This PTransform simulates the behavior of the ReadFromKafka transform
-  with the RAW format by simply using some fixed sample text data and
-  encode it to raw bytes.
+  Mocks the ReadFromKafka transform for testing purposes.
+
+  This PTransform simulates the behavior of the ReadFromKafka transform by
+  reading from predefined in-memory data based on the Kafka topic argument.
 
   Args:
     pcoll: The input PCollection.
-    format: The format of the Kafka messages (e.g., 'RAW').
     topic: The name of Kafka topic to read from.
+    format: The format of the Kafka messages (e.g., 'RAW').
+    schema: The schema of the Kafka messages.
     bootstrap_servers: A list of Kafka bootstrap servers to connect to.
-    auto_offset_reset_config: A configuration for the auto offset reset
-    consumer_config: A dictionary containing additional consumer configurations
+    auto_offset_reset_config: A configuration for the auto offset reset.
+    consumer_config: A map for additional consumer configuration parameters.
 
   Returns:
-    A PCollection containing the sample text data in bytes.
+    A PCollection containing the sample data.
   """
 
-  return (
-      pcoll | beam.Create(input_data.text_data().split('\n'))
-      | beam.Map(lambda element: beam.Row(payload=element.encode('utf-8'))))
+  if topic == 'test-topic':
+    kafka_byte_messages = KAFKA_TOPICS['test-topic']
+    return (
+        pcoll
+        | beam.Create([msg.decode('utf-8') for msg in kafka_byte_messages])
+        | beam.Map(lambda element: beam.Row(payload=element.encode('utf-8'))))
+
+  return None
 
 
 @beam.ptransform.ptransform_fn
@@ -155,17 +167,70 @@ def test_pubsub_read(
     attributes_map: Optional[str] = None,
     id_attribute: Optional[str] = None,
     timestamp_attribute: Optional[str] = None):
+  """
+  Mocks the ReadFromPubSub transform for testing purposes.
 
-  pubsub_messages = input_data.pubsub_messages_data()
+  This PTransform simulates the behavior of the ReadFromPubSub transform by
+  reading from predefined in-memory data based on the Pub/Sub topic argument.
+  Args:
+    pcoll: The input PCollection.
+    topic: The name of Pub/Sub topic to read from.
+    subscription: The name of Pub/Sub subscription to read from.
+    format: The format of the Pub/Sub messages (e.g., 'JSON').
+    schema: The schema of the Pub/Sub messages.
+    attributes: A list of attributes to include in the output.
+    attributes_map: A string representing a mapping of attributes.
+    id_attribute: The attribute to use as the ID for the message.
+    timestamp_attribute: The attribute to use as the timestamp for the message.
 
-  return (
-      pcoll
-      | beam.Create([json.loads(msg.data) for msg in pubsub_messages])
-      | beam.Map(lambda element: beam.Row(**element)))
+  Returns:
+    A PCollection containing the sample data.
+  """
+
+  if topic == 'test-topic':
+    pubsub_messages = PUBSUB_TOPICS['test-topic']
+    return (
+        pcoll
+        | beam.Create([json.loads(msg.data) for msg in pubsub_messages])
+        | beam.Map(lambda element: beam.Row(**element)))
+  elif topic == 'taxi-ride-topic':
+    pubsub_messages = PUBSUB_TOPICS['taxi-ride-topic']
+    schema = input_data.TaxiRideEventSchema
+    return (
+        pcoll
+        | beam.Create([json.loads(msg.data) for msg in pubsub_messages])
+        |
+        beam.Map(lambda element: beam.Row(**element)).with_output_types(schema))
+
+  return None
 
 
 @beam.ptransform.ptransform_fn
-def test_run_inference(pcoll, inference_tag, model_handler):
+def test_run_inference_taxi_fare(pcoll, inference_tag, model_handler):
+  """
+  This PTransform simulates the behavior of the RunInference transform.
+
+  Args:
+    pcoll: The input PCollection.
+    inference_tag: The tag to use for the returned inference.
+    model_handler: A configuration for the respective ML model handler
+
+  Returns:
+    A PCollection containing the enriched data.
+  """
+  def _fn(row):
+    input = row._asdict()
+
+    row = {inference_tag: PredictionResult(input, 10.0), **input}
+
+    return beam.Row(**row)
+
+  schema = _format_predicition_result_ouput(pcoll, inference_tag)
+  return pcoll | beam.Map(_fn).with_output_types(schema)
+
+
+@beam.ptransform.ptransform_fn
+def test_run_inference_youtube_comments(pcoll, inference_tag, model_handler):
   """
   This PTransform simulates the behavior of the RunInference transform.
 
@@ -193,6 +258,11 @@ def test_run_inference(pcoll, inference_tag, model_handler):
 
     return beam.Row(**row)
 
+  schema = _format_predicition_result_ouput(pcoll, inference_tag)
+  return pcoll | beam.Map(_fn).with_output_types(schema)
+
+
+def _format_predicition_result_ouput(pcoll, inference_tag):
   user_type = RowTypeConstraint.from_user_type(pcoll.element_type.user_type)
   user_schema_fields = [(name, type(typ) if not isinstance(typ, type) else typ)
                         for (name,
@@ -200,17 +270,16 @@ def test_run_inference(pcoll, inference_tag, model_handler):
   inference_output_type = RowTypeConstraint.from_fields([
       ('example', Any), ('inference', Any), ('model_id', Optional[str])
   ])
-  schema = RowTypeConstraint.from_fields(
+  return RowTypeConstraint.from_fields(
       user_schema_fields + [(str(inference_tag), inference_output_type)])
-
-  return pcoll | beam.Map(_fn).with_output_types(schema)
 
 
 TEST_PROVIDERS = {
     'TestEnrichment': test_enrichment,
     'TestReadFromKafka': test_kafka_read,
     'TestReadFromPubSub': test_pubsub_read,
-    'TestRunInference': test_run_inference
+    'TestRunInferenceYouTubeComments': test_run_inference_youtube_comments,
+    'TestRunInferenceTaxiFare': test_run_inference_taxi_fare,
 }
 """
 Transforms not requiring inputs.
@@ -274,8 +343,22 @@ def create_test_method(
     for i, line in enumerate(expected):
       expected[i] = line.replace('#  ', '').replace('\n', '')
     expected = [line for line in expected if line]
+
+    raw_spec_string = ''.join(lines)
+    # Filter for any jinja preprocessor - this has to be done before other
+    # preprocessors.
+    jinja_preprocessor = [
+        preprocessor for preprocessor in custom_preprocessors
+        if 'jinja_preprocessor' in preprocessor.__name__
+    ]
+    if jinja_preprocessor:
+      jinja_preprocessor = jinja_preprocessor[0]
+      raw_spec_string = jinja_preprocessor(
+          raw_spec_string, self._testMethodName)
+      custom_preprocessors.remove(jinja_preprocessor)
+
     pipeline_spec = yaml.load(
-        ''.join(lines), Loader=yaml_transform.SafeLineLoader)
+        raw_spec_string, Loader=yaml_transform.SafeLineLoader)
 
     with TestEnvironment() as env:
       for fn in custom_preprocessors:
@@ -302,8 +385,13 @@ def create_test_method(
 
   def _python_deps_involved(spec_filename):
     return any(
+        substr in spec_filename for substr in
+        ['deps', 'streaming_sentiment_analysis', 'ml_preprocessing'])
+
+  def _java_deps_involved(spec_filename):
+    return any(
         substr in spec_filename
-        for substr in ['deps', 'streaming_sentiment_analysis'])
+        for substr in ['java_deps', 'streaming_taxifare_prediction'])
 
   if _python_deps_involved(pipeline_spec_file):
     test_yaml_example = pytest.mark.no_xdist(test_yaml_example)
@@ -319,7 +407,7 @@ def create_test_method(
         'Github actions environment issue.')(
             test_yaml_example)
 
-  if 'java_deps' in pipeline_spec_file:
+  if _java_deps_involved(pipeline_spec_file):
     test_yaml_example = pytest.mark.xlang_sql_expansion_service(
         test_yaml_example)
     test_yaml_example = unittest.skipIf(
@@ -443,8 +531,9 @@ class YamlExamplesTestSuite:
     return apply
 
 
-@YamlExamplesTestSuite.register_test_preprocessor('test_wordcount_minimal_yaml')
-def _wordcount_test_preprocessor(
+@YamlExamplesTestSuite.register_test_preprocessor(
+    ['test_wordcount_minimal_yaml'])
+def _wordcount_minimal_test_preprocessor(
     test_spec: dict, expected: List[str], env: TestEnvironment):
   """
   Preprocessor for the wordcount_minimal.yaml test.
@@ -452,6 +541,8 @@ def _wordcount_test_preprocessor(
   This preprocessor generates a random input file based on the expected output
   of the wordcount example. This allows the test to verify the pipeline's
   correctness without relying on a fixed input file.
+
+  Based on this expected output: #  Row(word='king', count=311)
 
   Args:
     test_spec: The dictionary representation of the YAML pipeline specification.
@@ -468,8 +559,64 @@ def _wordcount_test_preprocessor(
     word = element.split('=')[1].split(',')[0].replace("'", '')
     count = int(element.split('=')[2].replace(')', ''))
     all_words += [word] * count
-  random.shuffle(all_words)
 
+  return _wordcount_random_shuffler(test_spec, all_words, env)
+
+
+@YamlExamplesTestSuite.register_test_preprocessor(
+    ['test_wordCountInclude_yaml', 'test_wordCountImport_yaml'])
+def _wordcount_jinja_test_preprocessor(
+    test_spec: dict, expected: List[str], env: TestEnvironment):
+  """
+  Preprocessor for the wordcount Jinja tests.
+
+  This preprocessor generates a random input file based on the expected output
+  of the wordcount example. This allows the test to verify the pipeline's
+  correctness without relying on a fixed input file.
+
+  Based on this expected output: #  Row(output='king - 311')
+
+  Args:
+    test_spec: The dictionary representation of the YAML pipeline specification.
+    expected: A list of strings representing the expected output of the
+      pipeline.
+    env: The TestEnvironment object providing utilities for creating temporary
+      files.
+
+  Returns:
+    The modified test_spec dictionary with the input file path replaced.
+  """
+  all_words = []
+  for element in expected:
+    match = re.search(r"output='(.*) - (\d+)'", element)
+    if match:
+      word, count_str = match.groups()
+      all_words += [word] * int(count_str)
+  return _wordcount_random_shuffler(test_spec, all_words, env)
+
+
+def _wordcount_random_shuffler(
+    test_spec: dict, all_words: List[str], env: TestEnvironment):
+  """
+  Helper function to create a randomized input file for wordcount-style tests.
+
+  This function takes a list of words, shuffles them, and arranges them into
+  randomly sized lines. It then creates a temporary input file with this
+  content and updates the provided test specification to use this file as
+  the input for a 'ReadFromText' transform.
+
+  Args:
+    test_spec: The dictionary representation of the YAML pipeline specification.
+    all_words: A list of strings, where each string is a word to be included
+      in the generated input file.
+    env: The TestEnvironment object providing utilities for creating temporary
+      files.
+
+  Returns:
+    The modified test_spec dictionary with the input file path for
+    'ReadFromText' replaced with the path to the newly generated file.
+  """
+  random.shuffle(all_words)
   lines = []
   while all_words:
     line_length = random.randint(1, min(10, len(all_words)))
@@ -500,6 +647,7 @@ def _kafka_test_preprocessor(
     for transform in pipeline.get('transforms', []):
       if transform.get('type', '') == 'ReadFromKafka':
         transform['type'] = 'TestReadFromKafka'
+        transform['config']['topic'] = 'test-topic'
 
   return test_spec
 
@@ -526,7 +674,11 @@ def _kafka_test_preprocessor(
     'test_mysql_to_bigquery_yaml',
     'test_spanner_to_bigquery_yaml',
     'test_streaming_sentiment_analysis_yaml',
-    'test_enrich_spanner_with_bigquery_yaml'
+    'test_iceberg_migration_yaml',
+    'test_ml_preprocessing_yaml',
+    'test_anomaly_scoring_yaml',
+    'test_wordCountInclude_yaml',
+    'test_wordCountImport_yaml'
 ])
 def _io_write_test_preprocessor(
     test_spec: dict, expected: List[str], env: TestEnvironment):
@@ -740,6 +892,7 @@ def _pubsub_io_read_test_preprocessor(
     for transform in pipeline.get('transforms', []):
       if transform.get('type', '') == 'ReadFromPubSub':
         transform['type'] = 'TestReadFromPubSub'
+        transform['config']['topic'] = 'test-topic'
 
   return test_spec
 
@@ -904,15 +1057,258 @@ def _streaming_sentiment_analysis_test_preprocessor(
   if pipeline := test_spec.get('pipeline', None):
     for transform in pipeline.get('transforms', []):
       if transform.get('type', '') == 'RunInference':
-        transform['type'] = 'TestRunInference'
+        transform['type'] = 'TestRunInferenceYouTubeComments'
 
   return test_spec
+
+
+@YamlExamplesTestSuite.register_test_preprocessor(
+    'test_streaming_taxifare_prediction_yaml')
+def _streaming_taxifare_prediction_test_preprocessor(
+    test_spec: dict, expected: List[str], env: TestEnvironment):
+  """
+  Preprocessor for tests that involve the streaming taxi fare prediction
+  example.
+
+  This preprocessor replaces several IO transforms and the RunInference
+  transform. This allows the test to verify the pipeline's correctness
+  without relying on external data sources and the model hosted on VertexAI.
+  It also turns this non-linear pipeline into a linear pipeline by replacing
+  the ReadFromKafka and WriteToKafka transforms with MapToFields and linking
+  the two disconnected pipeline components together. The pipeline logic,
+  however, remains the same and is still being tested accordingly.
+
+  Args:
+    test_spec: The dictionary representation of the YAML pipeline specification.
+    expected: A list of strings representing the expected output of the
+      pipeline.
+    env: The TestEnvironment object providing utilities for creating temporary
+      files.
+
+  Returns:
+    The modified test_spec dictionary with several involved IO transforms and
+    the RunInference transform replaced.
+  """
+
+  if pipeline := test_spec.get('pipeline', None):
+    for transform in pipeline.get('transforms', []):
+      if transform.get('type', '') == 'ReadFromPubSub':
+        transform['type'] = 'TestReadFromPubSub'
+        transform['config']['topic'] = 'taxi-ride-topic'
+
+      elif transform.get('type', '') == 'WriteToKafka':
+        transform['type'] = 'MapToFields'
+        transform['config'] = {
+            k: v
+            for (k, v) in transform.get('config', {}).items()
+            if k.startswith('__')
+        }
+        transform['config']['fields'] = {
+            'ride_id': 'ride_id',
+            'pickup_longitude': 'pickup_longitude',
+            'pickup_latitude': 'pickup_latitude',
+            'pickup_datetime': 'pickup_datetime',
+            'dropoff_longitude': 'dropoff_longitude',
+            'dropoff_latitude': 'dropoff_latitude',
+            'passenger_count': 'passenger_count',
+        }
+
+      elif transform.get('type', '') == 'ReadFromKafka':
+        transform['type'] = 'MapToFields'
+        transform['config'] = {
+            k: v
+            for (k, v) in transform.get('config', {}).items()
+            if k.startswith('__')
+        }
+        transform['input'] = 'WriteKafka'
+        transform['config']['fields'] = {
+            'ride_id': 'ride_id',
+            'pickup_longitude': 'pickup_longitude',
+            'pickup_latitude': 'pickup_latitude',
+            'pickup_datetime': 'pickup_datetime',
+            'dropoff_longitude': 'dropoff_longitude',
+            'dropoff_latitude': 'dropoff_latitude',
+            'passenger_count': 'passenger_count',
+        }
+
+      elif transform.get('type', '') == 'WriteToBigQuery':
+        transform['type'] = 'LogForTesting'
+        transform['config'] = {
+            k: v
+            for (k, v) in transform.get('config', {}).items()
+            if (k.startswith('__') or k == 'error_handling')
+        }
+
+      elif transform.get('type', '') == 'RunInference':
+        transform['type'] = 'TestRunInferenceTaxiFare'
+
+  return test_spec
+
+
+@YamlExamplesTestSuite.register_test_preprocessor([
+    'test_iceberg_migration_yaml',
+    'test_ml_preprocessing_yaml',
+    'test_anomaly_scoring_yaml'
+])
+def _batch_log_analysis_test_preprocessor(
+    test_spec: dict, expected: List[str], env: TestEnvironment):
+  """
+  Preprocessor for tests that involve the batch log analysis example.
+
+  This preprocessor replaces several IO transforms and the MLTransform.
+  This allows the test to verify the pipeline's correctness
+  without relying on external data sources or MLTransform's many dependencies.
+
+  Args:
+    test_spec: The dictionary representation of the YAML pipeline specification.
+    expected: A list of strings representing the expected output of the
+      pipeline.
+    env: The TestEnvironment object providing utilities for creating temporary
+      files.
+
+  Returns:
+    The modified test_spec dictionary with ReadFromText transforms replaced.
+  """
+
+  if pipeline := test_spec.get('pipeline', None):
+    for transform in pipeline.get('transforms', []):
+      # Mock ReadFromCsv in iceberg_migration.yaml pipeline
+      if transform.get('type', '') == 'ReadFromCsv':
+        file_name = 'system-logs.csv'
+        local_path = env.input_file(file_name, INPUT_FILES[file_name])
+        transform['config']['path'] = local_path
+
+      # Mock ReadFromIceberg in ml_preprocessing.yaml pipeline
+      elif transform.get('type', '') == 'ReadFromIceberg':
+        transform['type'] = 'Create'
+        transform['config'] = {
+            k: v
+            for (k, v) in transform.get('config', {}).items()
+            if (k.startswith('__'))
+        }
+
+        transform['config']['elements'] = input_data.system_logs_data()
+
+      # Mock MLTransform in ml_preprocessing.yaml pipeline
+      elif transform.get('type', '') == 'MLTransform':
+        transform['type'] = 'MapToFields'
+        transform['config'] = {
+            k: v
+            for (k, v) in transform.get('config', {}).items()
+            if k.startswith('__')
+        }
+
+        transform['config']['language'] = 'python'
+        transform['config']['fields'] = {
+            'LineId': 'LineId',
+            'Date': 'Date',
+            'Time': 'Time',
+            'Level': 'Level',
+            'Process': 'Process',
+            'Component': 'Component',
+            'Content': 'Content',
+            'embedding': {
+                'callable': f"lambda row: {input_data.embedding_data()}",
+            }
+        }
+
+      # Mock MapToFields in ml_preprocessing.yaml pipeline
+      elif transform.get('type', '') == 'MapToFields' and \
+          transform.get('name', '') == 'Normalize':
+        transform['config']['dependencies'] = ['numpy']
+
+      # Mock ReadFromBigQuery in anomaly_scoring.yaml pipeline
+      elif transform.get('type', '') == 'ReadFromBigQuery':
+        transform['type'] = 'Create'
+        transform['config'] = {
+            k: v
+            for (k, v) in transform.get('config', {}).items()
+            if (k.startswith('__'))
+        }
+
+        transform['config']['elements'] = (
+            input_data.system_logs_embedding_data())
+
+      # Mock PyTransform in anomaly_scoring.yaml pipeline
+      elif transform.get('type', '') == 'PyTransform' and \
+          transform.get('name', '') == 'AnomalyScoring':
+        transform['type'] = 'MapToFields'
+        transform['config'] = {
+            k: v
+            for (k, v) in transform.get('config', {}).items()
+            if k.startswith('__')
+        }
+
+        transform['config']['language'] = 'python'
+        transform['config']['fields'] = {
+            'example': 'embedding',
+            'predictions': {
+                'callable': """lambda row: [{
+                  'score': 0.65,
+                  'label': 0,
+                  'threshold': 0.8
+              }]""",
+            }
+        }
+
+  return test_spec
+
+
+@YamlExamplesTestSuite.register_test_preprocessor(
+    ['test_wordCountInclude_yaml', 'test_wordCountImport_yaml'])
+def _jinja_preprocessor(raw_spec_string: str, test_name: str):
+  """
+  Preprocessor for Jinja-based YAML tests.
+
+  This function takes a raw YAML string, which is treated as a Jinja2
+  template, and renders it to produce the final pipeline specification.
+  It specifically handles templates that use the `{% include ... %}`
+  directive by manually loading the content of the included files from the
+  filesystem.
+
+  The Jinja variables required for rendering are loaded from a predefined
+  data source.
+
+  Args:
+    raw_spec_string: A string containing the raw YAML content, which is a
+      Jinja2 template.
+
+  Returns:
+    A string containing the fully rendered YAML pipeline specification.
+  """
+  jinja_variables = json.loads(input_data.word_count_jinja_parameter_data())
+  test_file_dir = os.path.dirname(__file__)
+  sdk_root = os.path.abspath(os.path.join(test_file_dir, '../../../..'))
+
+  include_files = input_data.word_count_jinja_template_data(test_name)
+  mock_templates = {'main_template': raw_spec_string}
+  for file_path in include_files:
+    full_path = os.path.join(sdk_root, file_path)
+    with open(full_path, 'r', encoding='utf-8') as f:
+      mock_templates[file_path] = f.read()
+
+  # Can't use the standard expand_jinja method due to it not supporting
+  # `% include` jinja templization.
+  # TODO(#35936): Maybe update expand_jinja to handle this case.
+  jinja_env = Environment(
+      loader=DictLoader(mock_templates), undefined=StrictUndefined)
+  template = jinja_env.get_template('main_template')
+  rendered_yaml_string = template.render(jinja_variables)
+  return rendered_yaml_string
 
 
 INPUT_FILES = {
     'products.csv': input_data.products_csv(),
     'kinglear.txt': input_data.text_data(),
-    'youtube-comments.csv': input_data.youtube_comments_csv()
+    'youtube-comments.csv': input_data.youtube_comments_csv(),
+    'system-logs.csv': input_data.system_logs_csv()
+}
+
+KAFKA_TOPICS = {'test-topic': input_data.kafka_messages_data()}
+
+PUBSUB_TOPICS = {
+    'test-topic': input_data.pubsub_messages_data(),
+    'taxi-ride-topic': input_data.pubsub_taxi_ride_events_data()
 }
 
 INPUT_TABLES = {
@@ -942,6 +1338,9 @@ ElementWiseTest = YamlExamplesTestSuite(
     os.path.join(YAML_DOCS_DIR, '../transforms/elementwise/*.yaml')).run()
 ExamplesTest = YamlExamplesTestSuite(
     'ExamplesTest', os.path.join(YAML_DOCS_DIR, '../*.yaml')).run()
+JinjaTest = YamlExamplesTestSuite(
+    'JinjaExamplesTest',
+    os.path.join(YAML_DOCS_DIR, '../transforms/jinja/**/*.yaml')).run()
 IOTest = YamlExamplesTestSuite(
     'IOExamplesTest', os.path.join(YAML_DOCS_DIR,
                                    '../transforms/io/*.yaml')).run()

@@ -38,7 +38,8 @@ class CreateInternalProductionJob(object):
         'project_id': 'str',
         'config': 'CreateProductionJobConfig',
         'job_queue_config': 'CreateJobQueueConfig',
-        'workspace_id': 'str'
+        'workspace_id': 'str',
+        'tags': 'dict(str, str)'
     }
 
     attribute_map = {
@@ -47,10 +48,11 @@ class CreateInternalProductionJob(object):
         'project_id': 'project_id',
         'config': 'config',
         'job_queue_config': 'job_queue_config',
-        'workspace_id': 'workspace_id'
+        'workspace_id': 'workspace_id',
+        'tags': 'tags'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, workspace_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, workspace_id=None, tags=None, local_vars_configuration=None):  # noqa: E501
         """CreateInternalProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class CreateInternalProductionJob(object):
         self._config = None
         self._job_queue_config = None
         self._workspace_id = None
+        self._tags = None
         self.discriminator = None
 
         self.name = name
@@ -74,6 +77,8 @@ class CreateInternalProductionJob(object):
             self.job_queue_config = job_queue_config
         if workspace_id is not None:
             self.workspace_id = workspace_id
+        if tags is not None:
+            self.tags = tags
 
     @property
     def name(self):
@@ -214,6 +219,29 @@ class CreateInternalProductionJob(object):
         """
 
         self._workspace_id = workspace_id
+
+    @property
+    def tags(self):
+        """Gets the tags of this CreateInternalProductionJob.  # noqa: E501
+
+        Tags to associate with the job  # noqa: E501
+
+        :return: The tags of this CreateInternalProductionJob.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this CreateInternalProductionJob.
+
+        Tags to associate with the job  # noqa: E501
+
+        :param tags: The tags of this CreateInternalProductionJob.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._tags = tags
 
     def to_dict(self):
         """Returns the model properties as a dict"""

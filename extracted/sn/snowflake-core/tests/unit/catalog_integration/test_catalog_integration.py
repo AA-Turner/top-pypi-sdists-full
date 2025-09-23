@@ -13,7 +13,7 @@ from snowflake.core.catalog_integration import (
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.catalog_integration._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 CATALOG_INTEGRATION = CatalogIntegration(
     name="my_catalog_integration", catalog=ObjectStore(), table_format="", enabled=False
 )
@@ -30,9 +30,9 @@ def catalog_integration(catalog_integrations):
 
 
 def test_create_async(fake_root, catalog_integrations):
-    args = (fake_root, "POST", BASE_URL + "/catalog-integrations?createMode=errorIfExists")
+    args = (fake_root, "POST", BASE_URL + "/catalog-integrations")
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
+        query_params=[],
         body={
             "name": "my_catalog_integration",
             "catalog": {"catalog_source": "OBJECT_STORE"},

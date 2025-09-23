@@ -8,7 +8,7 @@ from snowflake.core.alert import Alert, AlertResource, MinutesSchedule
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.alert._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 ALERT = Alert(name="my_alert", schedule=MinutesSchedule(minutes=60), condition="", action="select 1")
 
 

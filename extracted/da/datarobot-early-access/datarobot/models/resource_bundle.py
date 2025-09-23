@@ -35,13 +35,13 @@ class ResourceBundle(APIObject):
          A short name for the bundle.
     description: Optional[str]
         A short description of CPU, Memory and other resources.
-    cpu_count: int
+    cpu_count: float
         Maximum number of CPUs available.
     memory_bytes: int
         Maximum amount of memory available.
     gpu_maker: Optional[str]
         The manufacturer of the GPU (e.g. nvidia, amd, intel)
-    gpu_count: Optional[int]
+    gpu_count: Optional[float]
         Maximum number of GPUs available.
     gpu_memory_bytes: int
         Maximum amount of GPU memory available.
@@ -61,10 +61,10 @@ class ResourceBundle(APIObject):
             t.Key("id"): t.String(),
             t.Key("name"): t.String(),
             t.Key("description"): t.Or(t.String(), t.Null()),
-            t.Key("cpu_count"): t.Int(),
+            t.Key("cpu_count"): t.Float(),
             t.Key("memory_bytes"): t.Int(),
             t.Key("gpu_maker", optional=True): t.Or(t.String(), t.Null()),
-            t.Key("gpu_count", optional=True): t.Or(t.Int(), t.Null()),
+            t.Key("gpu_count", optional=True): t.Or(t.Float(), t.Null()),
             t.Key("gpu_memory_bytes"): t.Int(),
             t.Key("use_cases"): t.List(t.String()),
             t.Key("is_default", optional=True): t.Bool(),
@@ -77,14 +77,14 @@ class ResourceBundle(APIObject):
         self,
         id: str,
         name: str,
-        cpu_count: int,
+        cpu_count: float,
         memory_bytes: int,
         gpu_memory_bytes: int,
         use_cases: List[str],
         has_gpu: bool,
         description: Optional[str] = None,
         gpu_maker: Optional[int] = None,
-        gpu_count: Optional[int] = None,
+        gpu_count: Optional[float] = None,
         is_default: Optional[bool] = None,
         is_deleted: Optional[bool] = None,
     ):

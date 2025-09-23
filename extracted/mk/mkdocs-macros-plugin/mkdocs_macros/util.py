@@ -11,6 +11,7 @@ from typing import Literal
 from packaging.version import Version
 import json
 import inspect
+import requests
 from datetime import datetime
 from typing import Any
 
@@ -116,32 +117,7 @@ def format_chatter(*args, prefix:str, color:str=TRACE_COLOR):
 
 
 
-from collections import UserDict
 
-class CustomEncoder(json.JSONEncoder):
-    """
-    Custom encoder for JSON serialization.
-    Used for debugging purposes.
-    """
-    def default(self, obj: Any) -> Any:
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        if isinstance(obj, UserDict):
-            # for objects used by MkDocs (config, plugin, etc.s)
-            return dict(obj)
-
-        elif inspect.isfunction(obj):
-            return f"Function: %s %s" % (inspect.signature(obj),
-                                        obj.__doc__)
-        try:
-            return super().default(obj)
-        except TypeError:
-            debug(f"json: cannot encode {obj.__class__}")
-            try:
-                return str(obj)
-            except Exception:
-                # in case something happens along the line
-                return f"!Non printable object: {obj.__class__}"
 
 
 
@@ -155,8 +131,9 @@ def parse_package(package:str):
     """
     Parse a package name
 
-    if it is in the forme 'foo:bar' then 'foo' is the source, 
-    and 'bar' is the (import) package name
+    if it is in the forme 'foo:bar' then it is a pluglet: 
+    - 'foo' is the source, 
+    - 'bar' is the (import) package name.
 
     Returns the source name (for pip install) and the package name (for import)
     """
@@ -167,14 +144,30 @@ def parse_package(package:str):
         source_name, package_name = l[:2]
     return source_name, package_name
 
-def install_package(package:str):
+
+
+def is_on_pypi(source_name: str, fail_silently: bool = False) -> bool:
     """
-    Install a package from pip
+    Check if a package is available on PyPI.
+
+    Parameters:
+    - source_name: the name of the package to check
+    - fail_silently: if True, return False on network error; if False, raise the error
+
+    Returns:
+    - True if the package exists on PyPI
+    - False if not found.
+      (will raise a RunTime error on network error, 
+      unless fail_silently=True: will report False)
     """
+    url = f"https://pypi.org/pypi/{source_name}/json"
     try:
-        subprocess.check_call(["pip3", "install", package])
-    except subprocess.CalledProcessError:
-        raise NameError("Could not install package '%s'" % package)
+        response = requests.get(url, timeout=3)
+        return response.status_code == 200
+    except requests.exceptions.RequestException as e:
+        if fail_silently:
+            return False
+        raise RuntimeError(f"Unable to reach PyPI to check for '{source_name}': {e}")
 
 
 def import_local_module(project_dir, module_name):

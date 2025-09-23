@@ -1,6 +1,5 @@
-
 """
-Snowflake Stage API
+Snowflake Stage API.
 
 The Snowflake Stage API is a REST API that you can use to access, update, and perform certain actions on stage resources in a Snowflake database.  # noqa: E501
 
@@ -49,12 +48,9 @@ class Stage(BaseModel):
         Specifies a comment for the stage.
     credentials : Credentials, optional
 
-
     encryption : StageEncryption, optional
 
-
     directory_table : StageDirectoryTable, optional
-
 
     created_on : datetime, optional
         Date and time when the stage was created.
@@ -159,14 +155,14 @@ class Stage(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Stage:
-        """Create an instance of Stage from a JSON string"""
+        """Create an instance of Stage from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

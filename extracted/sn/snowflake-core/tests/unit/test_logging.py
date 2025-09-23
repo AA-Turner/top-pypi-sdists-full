@@ -48,7 +48,7 @@ def test_simple_file_logging():
 def test_secret_logging(caplog, stages):
     """This test makes sure that secret tokens are not logged."""
     with caplog.at_level(logging.DEBUG, "snowflake.core"):
-        with mock.patch("snowflake.core.stage._generated.api_client.ApiClient.request"):
+        with mock.patch("snowflake.core._generated.api_client.ApiClient.request"):
             stages.create(
                 Stage(
                     name="test_stage",

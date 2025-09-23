@@ -5,8 +5,15 @@ from letschatty.models.utils.definitions import Area
 from letschatty.models.chat.quality_scoring import QualityScore
 from datetime import datetime, timedelta
 import logging
+from enum import StrEnum
 from typing import Optional
 logger = logging.getLogger("FilterParameters")
+
+class ChattyAiAgentStatusFilterParam(StrEnum):
+    ASSIGNED = "assigned"
+    NOT_SET = "not_set"
+    ESCALATED = "escalated"
+    ALL = "all"
 
 class FilterParameters(BaseModel):
     area_status: list[Area] = Field(default=[])
@@ -35,6 +42,7 @@ class FilterParameters(BaseModel):
     sources_date_range: Optional[tuple[datetime, datetime]] = Field(default=None)
     sent_templates : list[str] = Field(default=[])
     executor_user_id: StrObjectId
+    chatty_ai_agent_status : ChattyAiAgentStatusFilterParam = Field(default=ChattyAiAgentStatusFilterParam.ALL)
 
     @property
     def is_my_chats(self) -> bool:

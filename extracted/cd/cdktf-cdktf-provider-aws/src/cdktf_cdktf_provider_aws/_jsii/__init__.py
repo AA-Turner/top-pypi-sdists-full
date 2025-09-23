@@ -32,7 +32,7 @@ import cdktf._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "@cdktf/provider-aws", "21.11.0", __name__[0:-6], "provider-aws@21.11.0.jsii.tgz"
+    "@cdktf/provider-aws", "21.11.1", __name__[0:-6], "provider-aws@21.11.1.jsii.tgz"
 )
 
 __all__ = [

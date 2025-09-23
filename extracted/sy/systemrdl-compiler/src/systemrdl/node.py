@@ -13,18 +13,16 @@ from .core import rdlformatcode, helpers
 
 if TYPE_CHECKING:
     from .compiler import RDLEnvironment
+    from .source_ref import SourceRefBase
+    from .core.parameter import Parameter
+    from collections import OrderedDict
     from markdown import Markdown
 
 T = TypeVar("T")
 
 class Node:
     """
-    The Node object is a higher-level overlay that provides a more user-friendly
-    interface to query the compiled RDL object model.
-
-    .. inheritance-diagram:: systemrdl.node
-        :top-classes: ~Node
-
+    The Node class is the base for all Node overlay classes.
     """
 
     def __init__(self, inst: comp.Component, env: 'RDLEnvironment', parent: Optional['Node']) -> None:
@@ -50,7 +48,7 @@ class Node:
 
         .. versionadded:: 1.8
         """
-        copy_by_ref = ["inst", "env"]
+        copy_by_ref = {"inst", "env"}
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
@@ -455,18 +453,19 @@ class Node:
         # Property WAS indeed assigned by the user
         prop_value = self.inst.properties[prop_name]
 
+        if isinstance(prop_value, (rdltypes.BuiltinEnum, str, int)):
+            # Optimization: Exit early to skip comparisons for popular simple return types
+            return prop_value
         if isinstance(prop_value, rdltypes.ComponentRef):
             # If this is a hierarchical component reference, convert it to a Node reference
-            prop_value = prop_value.build_node_ref(self)
-        elif isinstance(prop_value, rdltypes.PropertyReference):
-            prop_value = prop_value.get_resolved_ref(self)
-        elif isinstance(prop_value, list):
+            return prop_value.build_node_ref(self)
+        if isinstance(prop_value, rdltypes.PropertyReference):
+            return prop_value.get_resolved_ref(self)
+        if isinstance(prop_value, list):
             # Inspect array and resolve any references
-            prop_value = rdltypes.references.resolve_node_refs_in_array(self, prop_value)
-        elif rdltypes.is_user_struct(type(prop_value)):
-            prop_value = rdltypes.references.resolve_node_refs_in_struct(self, prop_value)
-        elif (prop_name == "desc") and self.env.dedent_desc:
-            prop_value = helpers.dedent_text(prop_value)
+            return rdltypes.references.resolve_node_refs_in_array(self, prop_value)
+        if rdltypes.is_user_struct(type(prop_value)):
+            return rdltypes.references.resolve_node_refs_in_struct(self, prop_value)
 
         return prop_value
 
@@ -587,6 +586,51 @@ class Node:
         """
         segs = self.get_path_segments(array_suffix, empty_array_suffix)
         return hier_separator.join(segs)
+
+    def get_scope_path(self, scope_separator: str="::") -> Optional[str]:
+        """
+        Generate a string that represents this component's declaration namespace
+        scope.
+
+        Returns ``None`` if scope is not known or not applicable.
+
+        For example, the following SystemRDL snippet:
+
+        .. code-block:: systemrdl
+
+            reg my_reg_t {
+                field {} x;
+            };
+
+            addrmap top {
+                my_reg_t foo;
+                reg my_other_reg_t {
+                    field {} y;
+                } bar;
+                reg {
+                    field {} z;
+                } baz, xyz;
+            };
+
+        ... results in:
+
+        * Field ``x`` of hierarchical path ``top.foo.x`` was declared in the
+          lexical scope ``my_reg_t``
+        * Field ``y`` of hierarchical path ``top.bar.y`` was declared in the
+          lexical scope ``top::my_other_reg_t``
+        * Both fields ``z`` of hierarchical paths ``top.baz.z`` and ``top.xyz.z``
+          were declared in the same lexical scope ``top::baz``
+        * Register ``foo`` was declared in the root scope which is represented
+          by an empty string.
+
+        Parameters
+        ----------
+        scope_separator: str
+            Override the separator between namespace scopes
+
+        .. versionadded:: 1.30
+        """
+        return self.inst.get_scope_path(scope_separator)
 
 
     def get_rel_path(self, ref: 'Node', uplevel: str="^", hier_separator: str=".", array_suffix: str="[{index:d}]", empty_array_suffix: str="[]") -> str:
@@ -779,6 +823,43 @@ class Node:
         return None
 
     @property
+    def inst_src_ref(self) -> Optional['SourceRefBase']:
+        """
+        :ref:`api_src_ref` for the component instantiation.
+
+        .. versionadded:: 1.30
+        """
+        return self.inst.inst_src_ref
+
+    @property
+    def def_src_ref(self) -> Optional['SourceRefBase']:
+        """
+        :ref:`api_src_ref` for the component definition.
+
+        .. versionadded:: 1.30
+        """
+        return self.inst.def_src_ref
+
+    @property
+    def property_src_ref(self) -> Dict[str, 'SourceRefBase']:
+        """
+        :ref:`api_src_ref` for each explicit property assignment (if available)
+
+        .. versionadded:: 1.30
+        """
+        return self.inst.property_src_ref
+
+    @property
+    def parameters(self) -> 'OrderedDict[str, Parameter]':
+        """
+        Parameters of this component
+        These are stored in the order that they were defined
+
+        .. versionadded:: 1.30
+        """
+        return self.inst.parameters_dict
+
+    @property
     def external(self) -> bool:
         """
         True if instance type is external. False if internal.
@@ -822,6 +903,8 @@ class Node:
 #===============================================================================
 class AddressableNode(Node):
     """
+    Inherits: :class:`Node`
+
     Base-class for any kind of node that can have an address
     """
     parent: Union['AddressableNode', 'RootNode']
@@ -1025,7 +1108,7 @@ class AddressableNode(Node):
             # should include any additional trailing padding implied by the stride.
             # This makes it consistent with IP-XACT.
             # See discussion here: https://forums.accellera.org/topic/7529-interpretation-of-total-array-size-implicit-address-allocation/
-            return self.array_stride * self.inst.n_elements
+            return self.array_stride * self.n_elements
 
         else:
             return self.size
@@ -1051,6 +1134,18 @@ class AddressableNode(Node):
 
 
     @property
+    def n_elements(self) -> int:
+        """
+        Total number of array elements.
+        If array is multidimensional, array is flattened.
+        Returns 1 if not an array.
+
+        .. versionadded:: 1.30
+        """
+        return self.inst.n_elements
+
+
+    @property
     def array_stride(self) -> Optional[int]:
         """
         Address offset between array elements.
@@ -1062,6 +1157,8 @@ class AddressableNode(Node):
 #===============================================================================
 class VectorNode(Node):
     """
+    Inherits: :class:`Node`
+
     Base-class for any kind of node that is vector-like.
     """
     parent: Node
@@ -1132,7 +1229,22 @@ class VectorNode(Node):
 
 #===============================================================================
 class RootNode(Node):
+    """
+    Inherits: :class:`Node`
+
+    Pseudo-node that represents the root namespace of a compiled design.
+
+    This is does not represent any actual design hierarchy. It is merely a
+    convenient container for the following children:
+
+    * Zero or more :class:`SignalNode` that are instantiated in the root namespace
+    * Exactly one top-level :class:`AddrmapNode`.
+
+    """
+
+    #: RootNode never has a parent, so this attribute is always None
     parent: None
+
     inst: comp.Root
 
     @property
@@ -1148,6 +1260,11 @@ class RootNode(Node):
 
 #===============================================================================
 class SignalNode(VectorNode):
+    """
+    Inherits: :class:`VectorNode`
+
+    Represents an RDL ``signal``.
+    """
     parent: Node
     inst: comp.Signal
 
@@ -1222,6 +1339,11 @@ class SignalNode(VectorNode):
 
 #===============================================================================
 class FieldNode(VectorNode):
+    """
+    Inherits: :class:`VectorNode`
+
+    Represents an RDL ``field``
+    """
     parent: 'RegNode'
     inst: comp.Field
 
@@ -1238,16 +1360,16 @@ class FieldNode(VectorNode):
     def get_property(self, prop_name: Literal["donttest"], **kwargs: Any)-> Union[int, bool]: ...
 
     @overload
-    def get_property(self, prop_name: Literal["hdl_path_slice"], *, default: T)-> Union[Optional[str], T]: ...
+    def get_property(self, prop_name: Literal["hdl_path_slice"], *, default: T)-> Union[Optional[List[str]], T]: ...
 
     @overload
-    def get_property(self, prop_name: Literal["hdl_path_slice"], **kwargs: Any)-> Optional[str]: ...
+    def get_property(self, prop_name: Literal["hdl_path_slice"], **kwargs: Any)-> Optional[List[str]]: ...
 
     @overload
-    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], *, default: T)-> Union[Optional[str], T]: ...
+    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], *, default: T)-> Union[Optional[List[str]], T]: ...
 
     @overload
-    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], **kwargs: Any)-> Optional[str]: ...
+    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], **kwargs: Any)-> Optional[List[str]]: ...
 
     @overload
     def get_property(self, prop_name: Literal["hw"], *, default: T)-> Union['rdltypes.AccessType', T]: ...
@@ -1691,6 +1813,11 @@ class FieldNode(VectorNode):
             Alias fields never implement storage.
             A primary field may inherit a storage element depending on the access
             modes of aliases that augment access to it.
+
+        .. versionchanged:: 1.30
+            All variants of software-writable access now imply a storage element.
+
+            All hardware-writable fields that are qualified by ``we`` or ``wel`` imply storage.
         """
         if self.is_alias:
             # A field that is an alias never implements storage.
@@ -1709,14 +1836,12 @@ class FieldNode(VectorNode):
             onread = onread or alias_field.get_property('onread')
 
         # 9.4.1, Table 12
-        if sw in (rdltypes.AccessType.rw, rdltypes.AccessType.rw1):
-            # Software can read and write, implying a storage element
+        if self.is_sw_writable:
+            # Software can write, implying a storage element
+            # Intentionally including sw=w;hw=na case as this is useful for internal references.
             return True
         if hw == rdltypes.AccessType.rw:
             # Hardware can read and write, implying a storage element
-            return True
-        if (sw in (rdltypes.AccessType.w, rdltypes.AccessType.w1)) and (hw == rdltypes.AccessType.r):
-            # Write-only register visible to hardware is stored
             return True
 
 
@@ -1725,6 +1850,10 @@ class FieldNode(VectorNode):
             # or not the field is writable by sw
             return True
 
+
+        if self.is_hw_writable and (self.get_property('we') or self.get_property('wel')):
+            # Any write-enable implies a storage element
+            return True
 
         if self.get_property('hwset') or self.get_property('hwclr'):
             # Not in spec, but these imply that a storage element exists
@@ -1869,6 +1998,11 @@ class FieldNode(VectorNode):
 
 #===============================================================================
 class RegNode(AddressableNode):
+    """
+    Inherits: :class:`AddressableNode`
+
+    Represents an RDL ``reg``
+    """
     parent: Union['AddrmapNode', 'RegNode', 'MemNode']
     inst: comp.Reg
 
@@ -2010,6 +2144,15 @@ class RegNode(AddressableNode):
     @property
     def size(self) -> int:
         return self.get_property('regwidth') // 8
+
+    @property
+    def is_msb0_order(self) -> bool:
+        """
+        If true, fields are arranged in msb0 order.
+
+        .. versionadded:: 1.30
+        """
+        return self.inst.is_msb0_order
 
     @property
     def is_virtual(self) -> bool:
@@ -2181,6 +2324,11 @@ class RegNode(AddressableNode):
 
 #===============================================================================
 class RegfileNode(AddressableNode):
+    """
+    Inherits: :class:`AddressableNode`
+
+    Represents an RDL ``regfile``
+    """
     parent: Union['AddrmapNode', 'RegfileNode']
     inst: comp.Regfile
 
@@ -2259,6 +2407,11 @@ class RegfileNode(AddressableNode):
 
 #===============================================================================
 class AddrmapNode(AddressableNode):
+    """
+    Inherits: :class:`AddressableNode`
+
+    Represents an RDL ``addrmap``
+    """
     parent: Union['AddrmapNode', RootNode]
     inst: comp.Addrmap
 
@@ -2385,20 +2538,25 @@ class AddrmapNode(AddressableNode):
 
 #===============================================================================
 class MemNode(AddressableNode):
+    """
+    Inherits: :class:`AddressableNode`
+
+    Represents an RDL ``mem``
+    """
     parent: AddrmapNode
     inst: comp.Mem
 
     @overload # type: ignore[override]
-    def get_property(self, prop_name: Literal["hdl_path_slice"], *, default: T)-> Union[Optional[str], T]: ...
+    def get_property(self, prop_name: Literal["hdl_path_slice"], *, default: T)-> Union[Optional[List[str]], T]: ...
 
     @overload
-    def get_property(self, prop_name: Literal["hdl_path_slice"], **kwargs: Any)-> Optional[str]: ...
+    def get_property(self, prop_name: Literal["hdl_path_slice"], **kwargs: Any)-> Optional[List[str]]: ...
 
     @overload
-    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], *, default: T)-> Union[Optional[str], T]: ...
+    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], *, default: T)-> Union[Optional[List[str]], T]: ...
 
     @overload
-    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], **kwargs: Any)-> Optional[str]: ...
+    def get_property(self, prop_name: Literal["hdl_path_gate_slice"], **kwargs: Any)-> Optional[List[str]]: ...
 
     @overload
     def get_property(self, prop_name: Literal["sw"], *, default: T)-> Union[rdltypes.AccessType, T]: ...

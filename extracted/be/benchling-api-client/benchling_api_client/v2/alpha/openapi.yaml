@@ -2573,6 +2573,40 @@ paths:
       summary: Unarchive Studies
       tags:
       - Studies
+  /token:
+    post:
+      description: Generate a token
+      operationId: generateToken
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenCreate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+          description: Generated token
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthBadRequestError'
+          description: Bad Request
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthUnauthorizedError'
+          description: Unauthorized
+      security:
+      - oAuth: []
+      summary: Generate a token for usage with authenticating via OAuth2 in subsequent
+        API calls.
+      tags:
+      - Authentication
   /unit-types:
     get:
       description: 'List all unit types in the tenant Unit Dictionary, including their
@@ -5770,6 +5804,31 @@ components:
                 - invalid_request_error
                 type: string
       type: object
+    OAuthBadRequestError:
+      properties:
+        error:
+          allOf:
+          - $ref: '#/components/schemas/BaseError'
+          - properties:
+              type:
+                enum:
+                - invalid_request
+                - invalid_grant
+                - unauthorized_client
+                - unsupported_grant_type
+                type: string
+      type: object
+    OAuthUnauthorizedError:
+      properties:
+        error:
+          allOf:
+          - $ref: '#/components/schemas/BaseError'
+          - properties:
+              type:
+                enum:
+                - invalid_client
+                type: string
+      type: object
     Oligo:
       discriminator:
         mapping:
@@ -6807,6 +6866,68 @@ components:
             - text_box
             type: string
         type: object
+    TokenCreate:
+      properties:
+        client_id:
+          description: 'ID of client to request token for. Leave off if client ID
+            and secret are being supplied through Authorization header.
+
+            '
+          type: string
+        client_secret:
+          description: 'Leave off if client ID and secret are being supplied through
+            Authorization header.
+
+            '
+          type: string
+        code:
+          description: 'Authorization code to request token for. Required if grant_type
+            is authorization_code.
+
+            '
+          type: string
+        code_verifier:
+          description: 'Code verifier to request token for. Only required if code_verifier
+            is provided in the authorization code request.
+
+            '
+          type: string
+        grant_type:
+          enum:
+          - client_credentials
+          - authorization_code
+          example: client_credentials
+          type: string
+        redirect_uri:
+          description: 'Redirect URI to request token for. Required if grant_type
+            is authorization_code.
+
+            '
+          type: string
+        state:
+          description: 'State to request token for. Only required if state is provided
+            in the authorization code request.
+
+            '
+          type: string
+      required:
+      - grant_type
+      type: object
+    TokenResponse:
+      properties:
+        access_token:
+          example: eyJ...
+          type: string
+        expires_in:
+          description: Number of seconds that token is valid for
+          example: 900
+          type: integer
+        token_type:
+          enum:
+          - Bearer
+          example: Bearer
+          type: string
+      type: object
     Unit:
       properties:
         aliases:
@@ -6950,7 +7071,7 @@ components:
       scheme: basic
       type: http
     oAuth:
-      description: OAuth2 Client Credentials flow intended for service access
+      description: OAuth2 Authorization flows intended for service access
       flows:
         clientCredentials:
           scopes: {}
@@ -6988,6 +7109,8 @@ tags:
 
     '
   name: Assemblies
+- description: Endpoints to help authenticate with the rest of the API resources.
+  name: Authentication
 - description: Collaborations represent which user or group has which access policies
     assigned to access an item.
   name: Collaborations

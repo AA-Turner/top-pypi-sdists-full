@@ -780,7 +780,7 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 class ListComponentBuildVersionsRequestTypeDef(TypedDict):
-    componentVersionArn: str
+    componentVersionArn: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -817,7 +817,7 @@ class WorkflowStepExecutionTypeDef(TypedDict):
     startTime: NotRequired[str]
 
 class ListWorkflowBuildVersionsRequestTypeDef(TypedDict):
-    workflowVersionArn: str
+    workflowVersionArn: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -1397,7 +1397,7 @@ class ListDistributionConfigurationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListImageBuildVersionsRequestTypeDef(TypedDict):
-    imageVersionArn: str
+    imageVersionArn: NotRequired[str]
     filters: NotRequired[Sequence[FilterTypeDef]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -1527,7 +1527,7 @@ class ListLifecyclePoliciesResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListComponentBuildVersionsRequestPaginateTypeDef(TypedDict):
-    componentVersionArn: str
+    componentVersionArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListComponentsRequestPaginateTypeDef(TypedDict):
@@ -1546,7 +1546,7 @@ class ListDistributionConfigurationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListImageBuildVersionsRequestPaginateTypeDef(TypedDict):
-    imageVersionArn: str
+    imageVersionArn: NotRequired[str]
     filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1608,7 +1608,7 @@ class ListWaitingWorkflowStepsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListWorkflowBuildVersionsRequestPaginateTypeDef(TypedDict):
-    workflowVersionArn: str
+    workflowVersionArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListWorkflowExecutionsRequestPaginateTypeDef(TypedDict):

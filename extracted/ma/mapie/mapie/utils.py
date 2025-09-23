@@ -617,15 +617,6 @@ def _check_alpha_and_n_samples(
         If the number of samples of the score is too low,
         1/alpha (or 1/(1 - alpha)) must be lower than the number of samples.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from mapie.utils import _check_alpha_and_n_samples
-    >>> try:
-    ...     _check_alpha_and_n_samples(np.array([1,2,3]), 0.5)
-    ... except Exception as exception:
-    ...     print(exception)
-    ...
     Number of samples of the score is too low,
     1/confidence_level and 1/(1 - confidence_level) must be
     lower than the number of samples.
@@ -1031,6 +1022,38 @@ def _check_estimator_classification(
                 "'classes_' attribute."
             )
     return estimator
+
+
+def check_proba_normalized(
+    y_pred_proba: NDArray,
+    axis: int = -1
+) -> NDArray:
+    """
+    Check if for all the samples the sum of the probabilities is equal to one.
+
+    Parameters
+    ----------
+    y_pred_proba: NDArray of shape (n_samples, n_classes) or
+    (n_samples, n_train_samples, n_classes)
+        Softmax output of a model.
+
+    Returns
+    -------
+    ArrayLike of shape (n_samples, n_classes)
+        Softmax output of a model if the scores all sum to one.
+
+    Raises
+    ------
+    ValueError
+        If the sum of the scores is not equal to one.
+    """
+    np.testing.assert_allclose(
+        np.sum(y_pred_proba, axis=axis),
+        1,
+        err_msg="The sum of the scores is not equal to one.",
+        rtol=1e-5
+    )
+    return y_pred_proba.astype(np.float64)
 
 
 def _get_binning_groups(

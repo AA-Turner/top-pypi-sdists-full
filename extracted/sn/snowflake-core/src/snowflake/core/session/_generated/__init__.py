@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Session API
+Snowflake Session API.
 
 The Snowflake Session API is a REST API that you can use to query your current session properties.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.session._generated.api.session_api import SessionApi
-
-# import ApiClient
-from snowflake.core.session._generated.api_client import ApiClient
-from snowflake.core.session._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.session._generated.models.current_secondary_roles import CurrentSecondaryRoles

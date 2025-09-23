@@ -8,7 +8,7 @@ from snowflake.core.user import Securable, User, UserCollection, UserResource
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.user._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 @pytest.fixture

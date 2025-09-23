@@ -6,7 +6,7 @@ from snowflake.core.schema import Schema, SchemaResource
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.schema._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 def test_create_schema(fake_root, schemas):

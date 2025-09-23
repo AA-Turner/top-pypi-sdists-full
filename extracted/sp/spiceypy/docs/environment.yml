@@ -1,0 +1,21 @@
+name: SPICEYPY_DOCS
+
+channels:
+  - conda-forge
+  - nodefaults
+
+dependencies:
+  - python=3.13
+  - numpy>=2.0,<3
+  - cython>=3.0.12
+  - myst-parser==2.0.0
+  - docutils
+  - graphviz
+  - sphinx<=7.0.0
+  - sphinx-copybutton
+  - sphinx-autodoc-typehints
+  - sphinx_rtd_theme
+  - recommonmark
+  - pip
+variables:
+  CONDA_APPEND_CORE_REQUIREMENTS: False

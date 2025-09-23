@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake API Integration API
+Snowflake API Integration API.
 
 The Snowflake API Integration API is a REST API that you can use to access, update, and perform certain actions on API Integration resource in a Snowflake database.  # noqa: E501
 

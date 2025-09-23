@@ -13,7 +13,7 @@ from snowflake.core.notification_integration import (
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.notification_integration._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 NOTIFICATION_INTEGRATION = NotificationIntegration(name="my_int", notification_hook=NotificationEmail())
 
 
@@ -28,10 +28,8 @@ def notification_integration(notification_integrations):
 
 
 def test_create_notification_integration(fake_root, notification_integrations):
-    args = (fake_root, "POST", BASE_URL + "/notification-integrations?createMode=errorIfExists")
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")], body={"name": "my_int", "notification_hook": {"type": "EMAIL"}}
-    )
+    args = (fake_root, "POST", BASE_URL + "/notification-integrations")
+    kwargs = extra_params(query_params=[], body={"name": "my_int", "notification_hook": {"type": "EMAIL"}})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         ni_res = notification_integrations.create(NOTIFICATION_INTEGRATION)

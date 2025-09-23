@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Event Table API
+Snowflake Event Table API.
 
 The Snowflake Event Table API is a REST API that you can use to access, update, and perform certain actions on Event Table resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.event_table._generated.api.event_table_api import EventTableApi
-
-# import ApiClient
-from snowflake.core.event_table._generated.api_client import ApiClient
-from snowflake.core.event_table._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.event_table._generated.models.error_response import ErrorResponse

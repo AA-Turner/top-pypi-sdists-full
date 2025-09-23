@@ -212,10 +212,12 @@ class UploadSourceResponse(_message.Message):
     def __init__(self, status: _Optional[str] = ..., progress_url: _Optional[str] = ...) -> None: ...
 
 class LintSourceRequest(_message.Message):
-    __slots__ = ("archive",)
+    __slots__ = ("archive", "use_branch_server")
     ARCHIVE_FIELD_NUMBER: _ClassVar[int]
+    USE_BRANCH_SERVER_FIELD_NUMBER: _ClassVar[int]
     archive: bytes
-    def __init__(self, archive: _Optional[bytes] = ...) -> None: ...
+    use_branch_server: bool
+    def __init__(self, archive: _Optional[bytes] = ..., use_branch_server: bool = ...) -> None: ...
 
 class LintSourceResponse(_message.Message):
     __slots__ = ("graph", "lsp")
@@ -351,23 +353,27 @@ class GetClusterTimescaleDBResponse(_message.Message):
     ) -> None: ...
 
 class GetClusterGatewayRequest(_message.Message):
-    __slots__ = ("environment_id",)
+    __slots__ = ("environment_id", "id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
-    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+    id: str
+    def __init__(self, environment_id: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
 
 class GetClusterGatewayResponse(_message.Message):
-    __slots__ = ("id", "specs_string", "created_at", "updated_at", "specs")
+    __slots__ = ("id", "specs_string", "created_at", "updated_at", "specs", "kube_cluster_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     SPECS_STRING_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     SPECS_FIELD_NUMBER: _ClassVar[int]
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     specs_string: str
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
     specs: EnvoyGatewaySpecs
+    kube_cluster_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -375,6 +381,7 @@ class GetClusterGatewayResponse(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         specs: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...,
+        kube_cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetClusterGatewayDefaultRequest(_message.Message):
@@ -388,19 +395,21 @@ class GetClusterGatewayDefaultResponse(_message.Message):
     def __init__(self, specs: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...) -> None: ...
 
 class BackgroundPersistence(_message.Message):
-    __slots__ = ("id", "kind", "specs_string", "created_at", "updated_at", "specs")
+    __slots__ = ("id", "kind", "specs_string", "created_at", "updated_at", "specs", "kube_cluster_id")
     ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     SPECS_STRING_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     SPECS_FIELD_NUMBER: _ClassVar[int]
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     kind: str
     specs_string: str
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
     specs: BackgroundPersistenceDeploymentSpecs
+    kube_cluster_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -409,13 +418,16 @@ class BackgroundPersistence(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         specs: _Optional[_Union[BackgroundPersistenceDeploymentSpecs, _Mapping]] = ...,
+        kube_cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetClusterBackgroundPersistenceRequest(_message.Message):
-    __slots__ = ("environment_id",)
+    __slots__ = ("environment_id", "id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     environment_id: str
-    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+    id: str
+    def __init__(self, environment_id: _Optional[str] = ..., id: _Optional[str] = ...) -> None: ...
 
 class GetClusterBackgroundPersistenceResponse(_message.Message):
     __slots__ = ("background_persistence",)
@@ -642,21 +654,27 @@ class MigrateClusterTimescaleDBResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class CreateClusterGatewayRequest(_message.Message):
-    __slots__ = ("environment_id", "environment_ids", "specs_string", "specs")
+    __slots__ = ("environment_id", "environment_ids", "specs_string", "specs", "kube_cluster_id", "id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     SPECS_STRING_FIELD_NUMBER: _ClassVar[int]
     SPECS_FIELD_NUMBER: _ClassVar[int]
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     environment_id: _containers.RepeatedScalarFieldContainer[str]
     environment_ids: _containers.RepeatedScalarFieldContainer[str]
     specs_string: str
     specs: EnvoyGatewaySpecs
+    kube_cluster_id: str
+    id: str
     def __init__(
         self,
         environment_id: _Optional[_Iterable[str]] = ...,
         environment_ids: _Optional[_Iterable[str]] = ...,
         specs_string: _Optional[str] = ...,
         specs: _Optional[_Union[EnvoyGatewaySpecs, _Mapping]] = ...,
+        kube_cluster_id: _Optional[str] = ...,
+        id: _Optional[str] = ...,
     ) -> None: ...
 
 class EnvoyGatewaySpecs(_message.Message):
@@ -835,22 +853,30 @@ class TLSManualCertificateRef(_message.Message):
     def __init__(self, secret_name: _Optional[str] = ..., secret_namespace: _Optional[str] = ...) -> None: ...
 
 class CreateClusterGatewayResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class CreateClusterBackgroundPersistenceRequest(_message.Message):
-    __slots__ = ("environment_ids", "specs_string", "specs")
+    __slots__ = ("environment_ids", "specs_string", "specs", "kube_cluster_id", "id")
     ENVIRONMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     SPECS_STRING_FIELD_NUMBER: _ClassVar[int]
     SPECS_FIELD_NUMBER: _ClassVar[int]
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     environment_ids: _containers.RepeatedScalarFieldContainer[str]
     specs_string: str
     specs: BackgroundPersistenceDeploymentSpecs
+    kube_cluster_id: str
+    id: str
     def __init__(
         self,
         environment_ids: _Optional[_Iterable[str]] = ...,
         specs_string: _Optional[str] = ...,
         specs: _Optional[_Union[BackgroundPersistenceDeploymentSpecs, _Mapping]] = ...,
+        kube_cluster_id: _Optional[str] = ...,
+        id: _Optional[str] = ...,
     ) -> None: ...
 
 class BackgroundPersistenceCommonSpecs(_message.Message):
@@ -1181,8 +1207,10 @@ class BackgroundPersistenceDeploymentSpecs(_message.Message):
     ) -> None: ...
 
 class CreateClusterBackgroundPersistenceResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class KubeNodeSelector(_message.Message):
     __slots__ = ("key", "value")

@@ -551,7 +551,7 @@ collaborators:
 
 
 CLOUD_RESOURCE_CREATE_EXAMPLE = """\
-$ anyscale cloud resource create --cloud my-cloud --file new-cloud-resource.yaml
+$ anyscale cloud resource create --cloud my-cloud -f new-cloud-resource.yaml
 Successfully created cloud resource my-new-resource in cloud my-cloud.
 
 $ cat new-cloud-resource.yaml

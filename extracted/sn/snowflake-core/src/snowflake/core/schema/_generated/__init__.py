@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Schema API
+Snowflake Schema API.
 
 The Snowflake Schema API is a REST API that you can use to access, update, and perform certain actions on a Snowflake schema.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.schema._generated.api.schema_api import SchemaApi
-
-# import ApiClient
-from snowflake.core.schema._generated.api_client import ApiClient
-from snowflake.core.schema._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.schema._generated.models.error_response import ErrorResponse

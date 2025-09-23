@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Cortex Search REST API
+Cortex Search REST API.
 
 OpenAPI 3.0 specification for the Cortex Search REST API  # noqa: E501
 
@@ -28,7 +28,9 @@ from snowflake.core.cortex.search_service._generated.models.numeric_boost import
 from snowflake.core.cortex.search_service._generated.models.query_request import QueryRequest
 from snowflake.core.cortex.search_service._generated.models.query_response import QueryResponse
 from snowflake.core.cortex.search_service._generated.models.query_similarity_boost import QuerySimilarityBoost
+from snowflake.core.cortex.search_service._generated.models.ranking_weights import RankingWeights
 from snowflake.core.cortex.search_service._generated.models.result_row import ResultRow
+from snowflake.core.cortex.search_service._generated.models.retrieval_weights import RetrievalWeights
 from snowflake.core.cortex.search_service._generated.models.scheduling_state import SchedulingState
 from snowflake.core.cortex.search_service._generated.models.scoring_config import ScoringConfig
 from snowflake.core.cortex.search_service._generated.models.send_feedback_request import SendFeedbackRequest
@@ -55,7 +57,9 @@ __all__ = [
     "QueryRequest",
     "QueryResponse",
     "QuerySimilarityBoost",
+    "RankingWeights",
     "ResultRow",
+    "RetrievalWeights",
     "SchedulingState",
     "ScoringConfig",
     "SendFeedbackRequest",

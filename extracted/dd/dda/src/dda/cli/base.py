@@ -140,8 +140,11 @@ class DynamicContext(click.RichContext):
             metadata = {
                 "cli.command": join_command_args(sys.argv[1:]),
                 "cli.exit_code": str(exit_code),
-                "git.author.name": app.config.git.user.name,
-                "git.author.email": app.config.git.user.email,
+                "author.name": app.telemetry.user_name,
+                "author.email": app.telemetry.user_email,
+                # TODO: Remove this once the new keys are fully rolled out
+                "git.author.name": app.telemetry.user_name,
+                "git.author.email": app.telemetry.user_email,
             }
             if os.environ.get("PRE_COMMIT") == "1":
                 metadata["exec.source"] = "pre-commit"
@@ -497,6 +500,16 @@ def ensure_features_installed(
         env_vars.pop("VIRTUAL_ENV", None)
 
         app.tools.uv.wait(command, message="Synchronizing dependencies", cwd=str(temp_dir), env=env_vars)
+
+
+def get_raw_args(ctx: click.Context) -> list[str]:
+    level = len(ctx.command_path.split())
+    return _get_argv()[level:]
+
+
+def _get_argv() -> list[str]:
+    # This is used for test assertions only
+    return sys.argv
 
 
 def _get_root_ctx(ctx: click.Context) -> DynamicContext:

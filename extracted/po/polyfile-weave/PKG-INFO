@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polyfile-weave
-Version: 0.5.6
+Version: 0.5.7
 Summary: A utility to recursively map the structure of a file.
 Home-page: https://github.com/zbirenbaum/polyfile-weave
 Author: Trail of Bits
@@ -24,7 +24,7 @@ Requires-Dist: intervaltree>=2.4.0
 Requires-Dist: jinja2>=2.1.0
 Requires-Dist: kaitaistruct~=0.10
 Requires-Dist: networkx>=2.6.3
-Requires-Dist: pdfminer.six<=20240706,>=20220524
+Requires-Dist: pdfminer.six<=20250506,>=20220524
 Requires-Dist: Pillow>=5.0.0
 Requires-Dist: pyreadline3; platform_system == "Windows"
 Requires-Dist: pyyaml>=3.13

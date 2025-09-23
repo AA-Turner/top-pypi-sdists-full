@@ -26,7 +26,6 @@ use crate::binding::binding::KeyExpect;
 use crate::binding::binding::SizeExpectation;
 use crate::binding::binding::UnpackedPosition;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::LookupKind;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
 use crate::binding::scope::FlowStyle;
@@ -128,10 +127,10 @@ impl<'a> BindingsBuilder<'a> {
     /// as defined downstream.
     fn narrow_if_name_is_defined(&mut self, identifier: Identifier, narrowed_idx: Idx<Key>) {
         let name = Hashed::new(&identifier.id);
-        let name_is_defined = match self.scopes.look_up_name_for_read(name, LookupKind::Regular) {
-            NameReadInfo::Flow(..) | NameReadInfo::Anywhere(..) => true,
-            NameReadInfo::Error(..) => false,
-        };
+        let name_is_defined = !matches!(
+            self.scopes.look_up_name_for_read(name),
+            NameReadInfo::NotFound,
+        );
         if name_is_defined {
             self.scopes.upsert_flow_info(name, narrowed_idx, None);
         }
@@ -434,8 +433,8 @@ impl<'a> BindingsBuilder<'a> {
         direct_ann: Option<(&Expr, Idx<KeyAnnotation>)>,
     ) -> Option<Idx<KeyAnnotation>> {
         let identifier = ShortIdentifier::new(name);
-        let mut user = self.declare_current_idx(Key::Definition(identifier.clone()));
-        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier.clone()));
+        let mut user = self.declare_current_idx(Key::Definition(identifier));
+        let pinned_idx = self.idx_for_promise(Key::PinnedDefinition(identifier));
         let is_definitely_type_alias = if let Some((e, _)) = direct_ann
             && self.as_special_export(e) == Some(SpecialExport::TypeAlias)
         {

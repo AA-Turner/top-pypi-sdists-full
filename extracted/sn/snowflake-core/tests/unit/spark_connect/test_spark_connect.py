@@ -13,7 +13,7 @@ from ...utils import extra_params
 
 
 BASE_URL = "http://localhost.me:80/api/v2"
-API_CLIENT_REQUEST = "snowflake.core.spark_connect._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 @pytest.fixture

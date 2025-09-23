@@ -1,6 +1,5 @@
-
 """
-Snowflake Function API
+Snowflake Function API.
 
 The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
 
@@ -40,7 +39,6 @@ class ServiceFunction(Function):
 
     arguments : list[FunctionArgument]
 
-
     service : str
         A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     endpoint : str
@@ -51,22 +49,17 @@ class ServiceFunction(Function):
     returns : str,  default 'TEXT'
         Specifies the type for the function return value.
 
-
     max_batch_rows : int, optional
         Specifies the max rows for batch operation.
-
 
     created_on : datetime, optional
         Date and time when the function was created.
 
-
     signature : str, optional
         Function's arguments.
 
-
     language : str, optional
         Function's language.
-
 
     body : str, optional
         Function's body.
@@ -135,14 +128,14 @@ class ServiceFunction(Function):
 
     @classmethod
     def from_json(cls, json_str: str) -> ServiceFunction:
-        """Create an instance of ServiceFunction from a JSON string"""
+        """Create an instance of ServiceFunction from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -230,22 +223,17 @@ class ServiceFunctionModel(Function):
         returns : str,  default 'TEXT'
             Specifies the type for the function return value.
 
-
         max_batch_rows : int, optional
             Specifies the max rows for batch operation.
-
 
         created_on : datetime, optional
             Date and time when the function was created.
 
-
         signature : str, optional
             Function's arguments.
 
-
         language : str, optional
             Function's language.
-
 
         body : str, optional
             Function's body.

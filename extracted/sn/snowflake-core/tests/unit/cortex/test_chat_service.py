@@ -8,7 +8,7 @@ from snowflake.core.cortex.chat_service import ChatRequest, CortexChatService
 from ...utils import BASE_URL, extra_params
 
 
-API_CLIENT_REQUEST = "snowflake.core.cortex.chat_service._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 @pytest.fixture

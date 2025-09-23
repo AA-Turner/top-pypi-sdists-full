@@ -1,6 +1,5 @@
-
 """
-Snowflake User API
+Snowflake User API.
 
 The Snowflake User API is a REST API that you can use to access, update, and perform certain action on Users in a Snowflake database.  # noqa: E501
 
@@ -78,21 +77,15 @@ class User(BaseModel):
         Specifies an existing network policy is active for the user. Otherwise, use account default.
     created_on : datetime, optional
 
-
     last_successful_login : datetime, optional
-
 
     expires_at : datetime, optional
 
-
     locked_until : datetime, optional
-
 
     has_password : bool, optional
 
-
     has_rsa_public_key : bool, optional
-
 
     rsa_public_key_fp : str, optional
         Fingerprint of the user's RSA public key
@@ -100,12 +93,9 @@ class User(BaseModel):
         Fingerprint of the user's second RSA public key
     ext_authn_duo : bool, optional
 
-
     ext_authn_uid : str, optional
 
-
     owner : str, optional
-
 
     snowflake_lock : bool,  default False
         Whether the user, account, or organization is locked by Snowflake.
@@ -115,9 +105,7 @@ class User(BaseModel):
         Temporary bypass network policy on the user for a specified number of minutes
     password_last_set : datetime, optional
 
-
     custom_landing_page_url : str, optional
-
 
     custom_landing_page_url_flush_next_ui_load : bool,  default False
         Whether or not to flush the custom landing page of the user on next UI load
@@ -268,14 +256,14 @@ class User(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> User:
-        """Create an instance of User from a JSON string"""
+        """Create an instance of User from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

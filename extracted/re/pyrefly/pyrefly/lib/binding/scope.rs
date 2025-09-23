@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
 
@@ -51,11 +52,11 @@ use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::MethodThatSetsAttr;
 use crate::binding::bindings::BindingTable;
 use crate::binding::bindings::CurrentIdx;
-use crate::binding::bindings::LookupError;
-use crate::binding::bindings::LookupKind;
+use crate::binding::bindings::IsInitialized;
 use crate::binding::function::SelfAssignments;
 use crate::export::definitions::DefinitionStyle;
 use crate::export::definitions::Definitions;
+use crate::export::exports::ExportLocation;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialExport;
 use crate::graph::index::Idx;
@@ -67,15 +68,23 @@ use crate::types::class::ClassDefIndex;
 #[derive(Debug)]
 pub enum NameReadInfo {
     /// A normal key bound in the current flow. The key is always already in the bindings table.
-    Flow(Idx<Key>),
-    /// A lookup that fell back to an anywhere-style forward-ref lookup using
-    /// only static scope information (note that this isn't always a
-    /// `Key::Anywhere` - when the definition count is one it will use the
-    /// definition directly). This key may or may not already be in the bindings
-    /// table, callers must handle that possibility.
-    Anywhere(Key),
-    /// The lookup failed for some reason.
-    Error(LookupError),
+    ///
+    /// I may be "possibly uninitialized", meaning there is some upstream branching control
+    /// flow such that I am not defined in at least one branch.
+    Flow {
+        idx: Idx<Key>,
+        is_initialized: IsInitialized,
+    },
+    /// The name is an anywhere-style lookup. If it came from a non-barrier scope
+    /// relative to the current one, this means it is uninitialized; otherwise we
+    /// assume delayed evaluation (e.g. inside a function you may call functions defined
+    /// below it) and treat the read as initialized.
+    Anywhere {
+        key: Key,
+        is_initialized: IsInitialized,
+    },
+    /// No such name is defined in the current scope stack.
+    NotFound,
 }
 
 /// The result of a successful lookup of a name for a write operation.
@@ -116,11 +125,11 @@ pub struct Static(pub SmallMap<Name, StaticInfo>);
 
 #[derive(Clone, Debug)]
 pub struct StaticInfo {
-    pub range: TextRange,
+    range: TextRange,
     /// The location of the first annotated name for this binding, if any.
     pub annot: Option<Idx<KeyAnnotation>>,
     /// How many times this will be redefined
-    pub count: usize,
+    count: usize,
     /// How was this defined? Needed to determine the key for forward lookups.
     style: DefinitionStyle,
 }
@@ -132,7 +141,7 @@ impl StaticInfo {
         } else if self.count == 1 {
             match self.style {
                 DefinitionStyle::ImportModule(_) => Key::Import(name.clone(), self.range),
-                DefinitionStyle::Global => Key::Global(name.clone()),
+                DefinitionStyle::ImplicitGlobal => Key::ImplicitGlobal(name.clone()),
                 _ => {
                     // We are constructing an identifier, but it must have been one that we saw earlier
                     assert_ne!(self.range, TextRange::default());
@@ -209,7 +218,7 @@ impl Static {
             if module_info.name() != ModuleName::builtins() {
                 d.inject_builtins();
             }
-            d.inject_globals();
+            d.inject_implicit_globals();
         }
 
         let mut wildcards = Vec::with_capacity(d.import_all.len());
@@ -319,7 +328,7 @@ impl FlowStyle {
 #[derive(Debug, Clone)]
 pub struct FlowInfo {
     /// The key to use if you need the value of this name.
-    pub key: Idx<Key>,
+    pub idx: Idx<Key>,
     /// The default value - used to create Default bindings inside loops.
     /// - Always set to `key` when a flow is first created.
     /// - Set to `key` whenever a flow is updated outside of loops, but not inside.
@@ -337,20 +346,20 @@ pub enum ClassFieldInBody {
 }
 
 impl FlowInfo {
-    fn new(key: Idx<Key>, style: Option<FlowStyle>) -> Self {
+    fn new(idx: Idx<Key>, style: Option<FlowStyle>) -> Self {
         Self {
-            key,
-            default: key,
+            idx,
+            default: idx,
             style: style.unwrap_or(FlowStyle::Other),
         }
     }
 
     /// Create a new FlowInfo after an update.
-    fn updated(&self, key: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
+    fn updated(&self, idx: Idx<Key>, style: Option<FlowStyle>, in_loop: bool) -> Self {
         let default = if in_loop { Some(self.default) } else { None };
         Self {
-            key,
-            default: default.unwrap_or(key),
+            idx,
+            default: default.unwrap_or(idx),
             style: style.unwrap_or_else(|| self.style.clone()),
         }
     }
@@ -658,7 +667,7 @@ impl ScopeTreeNode {
         }
         if !barrier {
             for info in self.scope.flow.info.values() {
-                visitor(info.key);
+                visitor(info.idx);
             }
         }
         for (name, info) in &self.scope.stat.0 {
@@ -767,7 +776,7 @@ impl Scopes {
         if let Some(flow) = self.current().flow.info.get(name)
             && let FlowStyle::FunctionDef(fidx, _) = flow.style
         {
-            return Some((flow.key, fidx));
+            return Some((flow.idx, fidx));
         }
         None
     }
@@ -889,16 +898,16 @@ impl Scopes {
     pub fn upsert_flow_info(
         &mut self,
         name: Hashed<&Name>,
-        key: Idx<Key>,
+        idx: Idx<Key>,
         style: Option<FlowStyle>,
     ) {
         let in_loop = self.loop_depth() != 0;
         match self.current_mut().flow.info.entry_hashed(name.cloned()) {
             Entry::Vacant(e) => {
-                e.insert(FlowInfo::new(key, style));
+                e.insert(FlowInfo::new(idx, style));
             }
             Entry::Occupied(mut e) => {
-                *e.get_mut() = e.get().updated(key, style, in_loop);
+                *e.get_mut() = e.get().updated(idx, style, in_loop);
             }
         }
     }
@@ -956,14 +965,38 @@ impl Scopes {
         }
     }
 
-    /// If we can tell a variable might not be initialized in the current flow,
-    /// return an error message. Otherwise, return None.
-    pub fn uninitialized_error_message(&self, name: &Name) -> Option<String> {
-        match self.get_flow_style(name) {
-            FlowStyle::Uninitialized => Some(format!("`{name}` is uninitialized")),
-            FlowStyle::PossiblyUninitialized => Some(format!("`{name}` may be uninitialized")),
-            _ => None,
+    // This helper handles re-exported symbols during special export lookups
+    fn lookup_special_export(
+        &self,
+        mut name: Name,
+        mut module: ModuleName,
+        lookup: &dyn LookupExport,
+    ) -> Option<SpecialExport> {
+        let mut seen = HashSet::new();
+        let mut exports = lookup.get(module).ok()?.exports(lookup);
+        loop {
+            if let Some(special) = SpecialExport::new(&name)
+                && special.defined_in(module)
+            {
+                return Some(special);
+            }
+            if !seen.insert(module) {
+                break;
+            }
+            match exports.as_ref().get(&name)? {
+                ExportLocation::ThisModule(export) => {
+                    return export.special_export;
+                }
+                ExportLocation::OtherModule(other_module, original_name) => {
+                    if let Some(original_name) = original_name {
+                        name = original_name.clone();
+                    }
+                    module = *other_module;
+                    exports = lookup.get(module).ok()?.exports(lookup);
+                }
+            }
         }
+        None
     }
 
     /// Look up either `name` or `base_name.name` in the current scope, assuming we are
@@ -973,19 +1006,18 @@ impl Scopes {
         name: &Name,
         base_name: Option<&Name>,
         current_module: ModuleName,
+        lookup: &dyn LookupExport,
     ) -> Option<SpecialExport> {
         if let Some(base_name) = base_name {
             // Check to see whether there's an imported module `base_name` such that `base_name.name`
             // is a special export.
-            let special = SpecialExport::new(name)?;
             let flow = self.get_flow_info(base_name)?;
             match &flow.style {
                 FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m) => {
-                    if special.defined_in(*m) {
-                        Some(special)
-                    } else {
-                        None
-                    }
+                    self.lookup_special_export(name.clone(), *m, lookup)
+                }
+                FlowStyle::Import(m, upstream_name) => {
+                    self.lookup_special_export(upstream_name.clone(), *m, lookup)
                 }
                 _ => None,
             }
@@ -994,13 +1026,11 @@ impl Scopes {
             // defined in the current module, or be an imported name from some other module.
             let flow = self.get_flow_info(name)?;
             match &flow.style {
+                FlowStyle::MergeableImport(m) | FlowStyle::ImportAs(m) => {
+                    self.lookup_special_export(name.clone(), *m, lookup)
+                }
                 FlowStyle::Import(m, upstream_name) => {
-                    let special = SpecialExport::new(upstream_name)?;
-                    if special.defined_in(*m) {
-                        Some(special)
-                    } else {
-                        None
-                    }
+                    self.lookup_special_export(upstream_name.clone(), *m, lookup)
                 }
                 _ => {
                     let special = SpecialExport::new(name)?;
@@ -1193,7 +1223,7 @@ impl Scopes {
             if let Some(static_info) = class_body.stat.0.get_hashed(name) {
                 let definition = if let FlowStyle::FunctionDef(_, has_return_annotation) = flow_info.style {
                     ClassFieldDefinition::MethodLike {
-                        definition: flow_info.key,
+                        definition: flow_info.idx,
                         has_return_annotation,
                     }
                 } else {
@@ -1205,13 +1235,13 @@ impl Scopes {
                             },
                         ClassFieldInBody::InitializedWithoutAssign =>
                             ClassFieldDefinition::DefinedWithoutAssign {
-                                definition: flow_info.key,
+                                definition: flow_info.idx,
                             },
                         ClassFieldInBody::Uninitialized => {
                             let annotation = static_info.annot.unwrap_or_else(
                                 || panic!("A class field known in the body but uninitialized always has an annotation.")
                             );
-                                ClassFieldDefinition::DeclaredByAnnotation { annotation }
+                            ClassFieldDefinition::DeclaredByAnnotation { annotation }
                         }
                     }
                 };
@@ -1246,7 +1276,7 @@ impl Scopes {
     pub fn existing_module_import_at(&self, module_name: &Name) -> Option<Idx<Key>> {
         match self.current().flow.info.get(module_name) {
             Some(flow_info) if matches!(flow_info.style, FlowStyle::MergeableImport(..)) => {
-                Some(flow_info.key)
+                Some(flow_info.idx)
             }
             _ => None,
         }
@@ -1254,7 +1284,7 @@ impl Scopes {
 
     /// Look up the information needed to create a `Usage` binding for a read of a name
     /// in the current scope stack.
-    pub fn look_up_name_for_read(&self, name: Hashed<&Name>, kind: LookupKind) -> NameReadInfo {
+    pub fn look_up_name_for_read(&self, name: Hashed<&Name>) -> NameReadInfo {
         let mut barrier = false;
         let is_current_scope_annotation = matches!(self.current().kind, ScopeKind::Annotation);
         for (lookup_depth, scope) in self.iter_rev().enumerate() {
@@ -1275,27 +1305,33 @@ impl Scopes {
             if let Some(flow_info) = scope.flow.info.get_hashed(name)
                 && !barrier
             {
-                return NameReadInfo::Flow(flow_info.key);
+                return NameReadInfo::Flow {
+                    idx: flow_info.idx,
+                    is_initialized: match flow_info.style {
+                        FlowStyle::Uninitialized => IsInitialized::No,
+                        FlowStyle::PossiblyUninitialized => IsInitialized::Maybe,
+                        _ => IsInitialized::Yes,
+                    },
+                };
             }
             // Class body scopes are dynamic, not static, so if we don't find a name in the
             // current flow we keep looking. In every other kind of scope, anything the Python
             // compiler has identified as local shadows enclosing scopes, so we should prefer
             // inner static lookups to outer flow lookups.
             if !is_class && let Some(static_info) = scope.stat.0.get_hashed(name) {
-                match kind {
-                    LookupKind::Regular => {
-                        return NameReadInfo::Anywhere(static_info.as_key(name.into_key()));
-                    }
-                    LookupKind::Mutable => {
-                        if barrier {
-                            return NameReadInfo::Error(LookupError::NotMutable);
-                        }
-                    }
-                }
+                let forward_ref_key = static_info.as_key(name.into_key());
+                return NameReadInfo::Anywhere {
+                    key: forward_ref_key,
+                    is_initialized: if barrier {
+                        IsInitialized::Yes
+                    } else {
+                        IsInitialized::No
+                    },
+                };
             }
             barrier = barrier || scope.barrier;
         }
-        NameReadInfo::Error(LookupError::NotFound)
+        NameReadInfo::NotFound
     }
 
     /// Look up a name for a write operation.
@@ -1337,7 +1373,7 @@ impl ScopeTrace {
         let scope = self.toplevel_scope();
         for (name, static_info) in scope.stat.0.iter_hashed() {
             let exportable = match scope.flow.info.get_hashed(name) {
-                Some(FlowInfo { key, .. }) => {
+                Some(FlowInfo { idx: key, .. }) => {
                     if let Some(ann) = static_info.annot {
                         Exportable::Initialized(*key, Some(ann))
                     } else {

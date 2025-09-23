@@ -16,12 +16,7 @@ from typing import Any
 
 import aiosqlite
 
-from aiohttp_client_cache.backends import (
-    BaseCache,
-    CacheBackend,
-    ResponseOrKey,
-    get_valid_kwargs,
-)
+from aiohttp_client_cache.backends import BaseCache, CacheBackend, ResponseOrKey, get_valid_kwargs
 
 bulk_commit_var: ContextVar[bool] = ContextVar('bulk_commit', default=False)
 logger = getLogger(__name__)
@@ -31,7 +26,9 @@ closed_session_warning = functools.partial(
     warnings.warn,
     'Cache access after closing the `Cachedsession` context manager '
     + 'is discouraged and can be forbidden in the future to prevent '
-    + 'errors related to a closed database connection.',
+    + 'errors related to a closed database connection. Use `autoclose=False` '
+    + 'if you are managing the cache backend connection on your side or '
+    + 'reusing a single cache class instance in multiple `CachedSession`.',
     stacklevel=2,
 )
 
@@ -68,7 +65,14 @@ class SQLiteBackend(CacheBackend):
         self.responses = SQLitePickleCache(
             cache_name, 'responses', use_temp=use_temp, fast_save=fast_save, **kwargs
         )
-        self.redirects = SQLiteCache(cache_name, 'redirects', use_temp=use_temp, **kwargs)
+        self.redirects = SQLiteCache(
+            cache_name,
+            'redirects',
+            use_temp=use_temp,
+            connection=self.responses._connection,
+            lock=self.responses._lock,
+            **kwargs,
+        )
 
 
 class SQLiteCache(BaseCache):
@@ -85,6 +89,8 @@ class SQLiteCache(BaseCache):
         table_name: Table name
         use_temp: Store database in a temp directory (e.g., ``/tmp/http_cache.sqlite``).
             Note: if ``cache_name`` is an absolute path, this option will be ignored.
+        connection: Existing aiosqlite connection to reuse
+        lock: Existing async lock to reuse
         kwargs: Additional keyword arguments for :py:func:`sqlite3.connect`
     """
 
@@ -94,22 +100,33 @@ class SQLiteCache(BaseCache):
         table_name: str = 'aiohttp-cache',
         use_temp: bool = False,
         fast_save: bool = False,
+        connection: aiosqlite.Connection | None = None,
+        lock: asyncio.Lock | None = None,
         **kwargs: Any,
     ):
         super().__init__(**kwargs)
-        self.connection_kwargs = get_valid_kwargs(sqlite_template, kwargs)
         self.fast_save = fast_save
         self.filename = _get_cache_filename(filename, use_temp)
         self.table_name = table_name
 
-        self._connection: aiosqlite.Connection | None = None
-        self._lock = asyncio.Lock()
+        # Create a connection object, but delay actually connecting until the first request
+        connection_kwargs = get_valid_kwargs(sqlite_template, kwargs)
+        self._connection = connection or aiosqlite.connect(self.filename, **connection_kwargs)
+        self._lock = lock or asyncio.Lock()
+        self._initialized = False
 
     @asynccontextmanager
     async def get_connection(self, commit: bool = False) -> AsyncIterator[aiosqlite.Connection]:
+        """Wrapper around aiosqlite connection to ensure it and the database are initialized"""
+        # Note: aiosqlite.Connection is a Thread subclass. Awaiting it will start the thread,
+        # set an internal _connection attribute (sqlite3.Connection), and return itself.
+        # Doing this here delays the actual connection until the first request, and allows sharing
+        # the connection object between multiple SQLiteCache instances.
         async with self._lock:
-            if self._connection is None:
-                self._connection = await aiosqlite.connect(self.filename, **self.connection_kwargs)
+            if self._connection._connection is None:
+                self._connection = await self._connection
+            # If reusing an existing connection, database may not be initialized yet
+            if not self._initialized:
                 await self._init_db()
 
         yield self._connection
@@ -122,11 +139,11 @@ class SQLiteCache(BaseCache):
     async def _init_db(self):
         """Initialize the database, if it hasn't already been"""
         if self.fast_save:
-            await self._connection.execute('PRAGMA synchronous = 0;')  # type: ignore[union-attr]
-        await self._connection.execute(  # type: ignore[union-attr]
+            await self._connection.execute('PRAGMA synchronous = 0;')
+        await self._connection.execute(
             f'CREATE TABLE IF NOT EXISTS `{self.table_name}` (key PRIMARY KEY, value)'
         )
-        return self._connection
+        self._initialized = True
 
     def __del__(self):
         """If the aiosqlite connection is still open when this object is deleted, force its thread
@@ -158,7 +175,7 @@ class SQLiteCache(BaseCache):
         bulk_commit_var.set(True)
         try:
             yield
-            await self._connection.commit()  # type: ignore[union-attr]
+            await self._connection.commit()
         finally:
             bulk_commit_var.set(False)
 

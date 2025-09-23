@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Dynamic Table API
+Snowflake Dynamic Table API.
 
 The Snowflake Dynamic Table API is a REST API that you can use to access, update, and perform certain actions on Dynamic Tables resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.dynamic_table._generated.api.dynamic_table_api import DynamicTableApi
-
-# import ApiClient
-from snowflake.core.dynamic_table._generated.api_client import ApiClient
-from snowflake.core.dynamic_table._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.dynamic_table._generated.models.downstream_lag import DownstreamLag

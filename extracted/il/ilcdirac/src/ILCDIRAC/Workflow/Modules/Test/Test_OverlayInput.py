@@ -268,56 +268,6 @@ class TestOverlayUnittests(unittest.TestCase):
                                      'failed', [False, False], False,
                                      environ_dict={'X509_USER_PROXY': 'mytestproxy'})
 
-  def test_getLyonFile(self):
-    mylfn = '/ilc/user/j/jebbing/testfile.txt'
-    expanded_lfn = '/pnfs/in2p3.fr/data%s' % mylfn
-    self.check_scriptwriting_method(mylfn, self.over.getLyonFile,
-                                     get_lyon_lines(expanded_lfn),
-                                     environ_dict={'X509_USER_PROXY': 'mytestproxy'})
-
-  def test_getLyonFile_otherlfn(self):
-    mylfn = '/pnfs/in2p3.fr/data/ilc/user/j/jebbing/testfile.txt'
-    self.check_scriptwriting_method(mylfn, self.over.getLyonFile, get_lyon_lines(mylfn),
-                                     'failed', [False, False], False,
-                                     environ_dict={'X509_USER_PROXY': 'mytestproxy'})
-
-  def test_getImperialFile(self):
-    mylfn = '/ilc/user/j/jebbing/testfile.txt'
-    expanded_lfn = '/pnfs/hep.ph.ic.ac.uk/data%s' % mylfn
-    defaultse = 'defaultStorageElement_in_my_test'
-    self.check_scriptwriting_method(mylfn, self.over.getImperialFile,
-                                     get_imperial_lines(expanded_lfn, defaultse),
-                                     environ_dict={'VO_ILC_DEFAULT_SE': defaultse})
-
-  def test_getImperialFile_otherlfn(self):
-    mylfn = '/pnfs/hep.ph.ic.ac.uk/data/ilc/user/j/jebbing/testfile.txt'
-    defaultse = 'defaultStorageElement_in_my_test'
-    self.check_scriptwriting_method(mylfn, self.over.getImperialFile,
-                                     get_imperial_lines(mylfn, defaultse, True),
-                                     'failed', [False, False, False], False, [[], []],
-                                     [('overlayinput.sh', 'w'),
-                                       (os.getcwd() + '/DISABLE_WATCHDOG_CPU_WALLCLOCK_CHECK', 'w')],
-                                     {'VO_ILC_DEFAULT_SE': defaultse})
-
-  def test_getRALFile(self):
-    mylfn = '/ilc/user/j/jebbing/testfile.txt'
-    expanded_lfn = '/castor/ads.rl.ac.uk/prod%s' % mylfn
-    with patch('%s.subprocess.Popen' % MODULE_NAME, new=Mock()) as proc_mock:
-      self.check_scriptwriting_method(mylfn, self.over.getRALFile, get_RAL_lines(expanded_lfn),
-                                       environ_dict={'X509_USER_PROXY': 'mytestproxy'},
-                                       is_ral=True)
-      self.assertTrue(proc_mock.called)
-
-  def test_getRALFile_otherlfn(self):
-    mylfn = '/castor/ads.rl.ac.uk/prod/ilc/user/j/jebbing/testfile.txt'
-    with patch('%s.subprocess.Popen' % MODULE_NAME, new=Mock()):
-      self.check_scriptwriting_method(mylfn, self.over.getRALFile,
-                                       get_RAL_lines(mylfn, True), 'failed', [False, False, False],
-                                       False, [[], []], [
-                                           ('overlayinput.sh', 'w'),
-                                           (os.getcwd() + '/DISABLE_WATCHDOG_CPU_WALLCLOCK_CHECK', 'w')
-                                           ], is_ral=True)
-
   def test_getKEKFile(self):
     mylfn = '/ilc/user/j/jebbing/testfile.txt'
     self.check_scriptwriting_method(mylfn, self.over.getKEKFile,

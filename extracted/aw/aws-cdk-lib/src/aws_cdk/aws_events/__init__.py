@@ -361,6 +361,24 @@ archive = Archive(stack, "Archive",
 
 To enable archives or schema discovery on an event bus, customers has the choice of using either an AWS owned key or a customer managed key.
 For more information, see [KMS key options for event bus encryption](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-encryption-at-rest-key-options.html).
+
+## Configuring logging
+
+To configure logging for an Event Bus, leverage the LogConfig property. It allows different level of logging (NONE, INFO, TRACE, ERROR) and wether to include details or not.
+
+```python
+from aws_cdk.aws_events import EventBus, IncludeDetail, Level
+
+
+bus = EventBus(self, "Bus",
+    log_config=events.LogConfig(
+        include_detail=IncludeDetail.FULL,
+        level=Level.TRACE
+    )
+)
+```
+
+See more [Specifying event bus log level](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus-logs.html#eb-event-bus-logs-level)
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -3386,6 +3404,7 @@ class EventBusPolicyReference:
         "event_bus_name": "eventBusName",
         "event_source_name": "eventSourceName",
         "kms_key": "kmsKey",
+        "log_config": "logConfig",
     },
 )
 class EventBusProps:
@@ -3397,6 +3416,7 @@ class EventBusProps:
         event_bus_name: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
         kms_key: typing.Optional[_IKey_5f11635f] = None,
+        log_config: typing.Optional[typing.Union["LogConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties to define an event bus.
 
@@ -3405,6 +3425,7 @@ class EventBusProps:
         :param event_bus_name: The name of the event bus you are creating Note: If 'eventSourceName' is passed in, you cannot set this. Default: - automatically generated name
         :param event_source_name: The partner event source to associate with this event bus resource Note: If 'eventBusName' is passed in, you cannot set this. Default: - no partner event source
         :param kms_key: The customer managed key that encrypt events on this event bus. Default: - Use an AWS managed key
+        :param log_config: The Logging Configuration of the Èvent Bus. Default: - no logging
 
         :exampleMetadata: infused
 
@@ -3428,6 +3449,8 @@ class EventBusProps:
                 )]
             )
         '''
+        if isinstance(log_config, dict):
+            log_config = LogConfig(**log_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa9c8b743)
             check_type(argname="argument dead_letter_queue", value=dead_letter_queue, expected_type=type_hints["dead_letter_queue"])
@@ -3435,6 +3458,7 @@ class EventBusProps:
             check_type(argname="argument event_bus_name", value=event_bus_name, expected_type=type_hints["event_bus_name"])
             check_type(argname="argument event_source_name", value=event_source_name, expected_type=type_hints["event_source_name"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument log_config", value=log_config, expected_type=type_hints["log_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if dead_letter_queue is not None:
             self._values["dead_letter_queue"] = dead_letter_queue
@@ -3446,6 +3470,8 @@ class EventBusProps:
             self._values["event_source_name"] = event_source_name
         if kms_key is not None:
             self._values["kms_key"] = kms_key
+        if log_config is not None:
+            self._values["log_config"] = log_config
 
     @builtins.property
     def dead_letter_queue(self) -> typing.Optional[_IQueue_7ed6f679]:
@@ -3501,6 +3527,15 @@ class EventBusProps:
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[_IKey_5f11635f], result)
+
+    @builtins.property
+    def log_config(self) -> typing.Optional["LogConfig"]:
+        '''The Logging Configuration of the Èvent Bus.
+
+        :default: - no logging
+        '''
+        result = self._values.get("log_config")
+        return typing.cast(typing.Optional["LogConfig"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4858,6 +4893,142 @@ class _IRuleTargetProxy:
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IRuleTarget).__jsii_proxy_class__ = lambda : _IRuleTargetProxy
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_events.IncludeDetail")
+class IncludeDetail(enum.Enum):
+    '''Whether EventBridge include detailed event information in the records it generates.
+
+    Detailed data can be useful for troubleshooting and debugging.
+    This information includes details of the event itself, as well as target details.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_events import EventBus, IncludeDetail, Level
+        
+        
+        bus = EventBus(self, "Bus",
+            log_config=events.LogConfig(
+                include_detail=IncludeDetail.FULL,
+                level=Level.TRACE
+            )
+        )
+    '''
+
+    FULL = "FULL"
+    '''FULL: Include all details related to event itself and the request EventBridge sends to the target.
+
+    Detailed data can be useful for troubleshooting and debugging.
+    '''
+    NONE = "NONE"
+    '''NONE: Does not include any details.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_events.Level")
+class Level(enum.Enum):
+    '''The level of logging detail to include.
+
+    This applies to all log destinations for the event bus.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.aws_events import EventBus, IncludeDetail, Level
+        
+        
+        bus = EventBus(self, "Bus",
+            log_config=events.LogConfig(
+                include_detail=IncludeDetail.FULL,
+                level=Level.TRACE
+            )
+        )
+    '''
+
+    INFO = "INFO"
+    '''INFO: EventBridge sends any logs related to errors, as well as major steps performed during event processing.'''
+    ERROR = "ERROR"
+    '''ERROR: EventBridge sends any logs related to errors generated during event processing and target delivery.'''
+    TRACE = "TRACE"
+    '''TRACE: EventBridge sends any logs generated during all steps in the event processing.'''
+    OFF = "OFF"
+    '''OFF: EventBridge does not send any logs.
+
+    This is the default.
+    '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_events.LogConfig",
+    jsii_struct_bases=[],
+    name_mapping={"include_detail": "includeDetail", "level": "level"},
+)
+class LogConfig:
+    def __init__(
+        self,
+        *,
+        include_detail: typing.Optional[IncludeDetail] = None,
+        level: typing.Optional[Level] = None,
+    ) -> None:
+        '''Interface for Logging Configuration of the Event Bus.
+
+        :param include_detail: Whether EventBridge include detailed event information in the records it generates. Default: no details
+        :param level: Logging level. Default: OFF
+
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk.aws_events import EventBus, IncludeDetail, Level
+            
+            
+            bus = EventBus(self, "Bus",
+                log_config=events.LogConfig(
+                    include_detail=IncludeDetail.FULL,
+                    level=Level.TRACE
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__198ca7d856a2573ae11c3570c27c6ff5d3b3d059abd28650a790b698a11f30b9)
+            check_type(argname="argument include_detail", value=include_detail, expected_type=type_hints["include_detail"])
+            check_type(argname="argument level", value=level, expected_type=type_hints["level"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if include_detail is not None:
+            self._values["include_detail"] = include_detail
+        if level is not None:
+            self._values["level"] = level
+
+    @builtins.property
+    def include_detail(self) -> typing.Optional[IncludeDetail]:
+        '''Whether EventBridge include detailed event information in the records it generates.
+
+        :default: no details
+        '''
+        result = self._values.get("include_detail")
+        return typing.cast(typing.Optional[IncludeDetail], result)
+
+    @builtins.property
+    def level(self) -> typing.Optional[Level]:
+        '''Logging level.
+
+        :default: OFF
+        '''
+        result = self._values.get("level")
+        return typing.cast(typing.Optional[Level], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LogConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(_IResolvable_da3f097b)
@@ -13153,6 +13324,7 @@ class EventBus(
         event_bus_name: typing.Optional[builtins.str] = None,
         event_source_name: typing.Optional[builtins.str] = None,
         kms_key: typing.Optional[_IKey_5f11635f] = None,
+        log_config: typing.Optional[typing.Union[LogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -13162,6 +13334,7 @@ class EventBus(
         :param event_bus_name: The name of the event bus you are creating Note: If 'eventSourceName' is passed in, you cannot set this. Default: - automatically generated name
         :param event_source_name: The partner event source to associate with this event bus resource Note: If 'eventBusName' is passed in, you cannot set this. Default: - no partner event source
         :param kms_key: The customer managed key that encrypt events on this event bus. Default: - Use an AWS managed key
+        :param log_config: The Logging Configuration of the Èvent Bus. Default: - no logging
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95a51d19a0503daf5e05f08738b44a6276eaa23c373c99735de37b1247783380)
@@ -13173,6 +13346,7 @@ class EventBus(
             event_bus_name=event_bus_name,
             event_source_name=event_source_name,
             kms_key=kms_key,
+            log_config=log_config,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -13417,6 +13591,9 @@ __all__ = [
     "IRule",
     "IRuleRef",
     "IRuleTarget",
+    "IncludeDetail",
+    "Level",
+    "LogConfig",
     "Match",
     "OAuthAuthorizationProps",
     "OnEventOptions",
@@ -13689,6 +13866,7 @@ def _typecheckingstub__298a8c4285f4e039344007a0deb097d820ddec52c59d396d7a8faa1aa
     event_bus_name: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
     kms_key: typing.Optional[_IKey_5f11635f] = None,
+    log_config: typing.Optional[typing.Union[LogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13772,6 +13950,14 @@ def _typecheckingstub__d2c68164c7bcf711cce4fa768eb0c26c773cd00ae54af79587f28c0ff
 def _typecheckingstub__ee62e84f884e0e5476947339e584feca527844abc70d56b2fe2d048cc2ce09bb(
     rule: IRule,
     id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__198ca7d856a2573ae11c3570c27c6ff5d3b3d059abd28650a790b698a11f30b9(
+    *,
+    include_detail: typing.Optional[IncludeDetail] = None,
+    level: typing.Optional[Level] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14977,6 +15163,7 @@ def _typecheckingstub__95a51d19a0503daf5e05f08738b44a6276eaa23c373c99735de37b124
     event_bus_name: typing.Optional[builtins.str] = None,
     event_source_name: typing.Optional[builtins.str] = None,
     kms_key: typing.Optional[_IKey_5f11635f] = None,
+    log_config: typing.Optional[typing.Union[LogConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

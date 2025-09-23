@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pynautobot
-Version: 2.6.5
+Version: 2.6.6
 Summary: Nautobot API client library
 Home-page: https://nautobot.com
 License: Apache-2.0
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: packaging (>=23.2,<24.0)
+Requires-Dist: packaging (>=23.2)
 Requires-Dist: requests (>=2.30.0,<3.0.0)
 Requires-Dist: urllib3 (>=2.2.3,<3.0.0)
 Project-URL: Documentation, https://pynautobot.readthedocs.io

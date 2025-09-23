@@ -6,7 +6,8 @@ readme = "README.md"
 
 requires-python = ">=3.9"
 dependencies = [
-    "Sphinx"
+    "Sphinx",
+    "pygments-styles",
 ]
 
 license = {text = "BSD-3-Clause"}
@@ -69,7 +70,11 @@ dev = [
     "sphinxcontrib-mermaid>=1.0.0",
     "sphinxcontrib-video>=0.4.1",
     "sphinxcontrib-youtube>=1.4.1",
+    "click-extra[sphinx]>=4.10.0",
 ]
 serve = [
     "livereload>=2.7.1",
 ]
+
+[tool.ruff]
+line-length = 120

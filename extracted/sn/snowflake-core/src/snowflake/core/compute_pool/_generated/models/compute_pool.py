@@ -1,6 +1,5 @@
-
 """
-Snowflake Compute Pools API
+Snowflake Compute Pools API.
 
 The Snowflake Compute Pools API is a REST API that you can use to access, update, and perform common actions on Compute Pool resources.  # noqa: E501
 
@@ -38,7 +37,7 @@ class ComputePool(BaseModel):
     max_nodes : int
         Maximum number of nodes for the compute pool.
     instance_family : str
-        Instance family for the compute pool.
+        Instance family for the compute pool. Use the /api/v2/compute-pools/instance-families endpoint to retrieve available values.
     auto_resume : bool, optional
         Whether Snowflake automatically resumes the compute pool when any statement that requires the compute pool is submitted.
     comment : str, optional
@@ -79,6 +78,10 @@ class ComputePool(BaseModel):
         Number of nodes to maintain on the compute pool
     desired_nodes_expire_after : datetime, optional
         Time after which the desired nodes on the compute pool will expire.
+    optimize_for_capacity : bool, optional
+        Whether the compute pool is optimized for capacity.
+    placement_group : str, optional
+        The name of the placement group on the compute pool.
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -129,6 +132,10 @@ class ComputePool(BaseModel):
 
     desired_nodes_expire_after: Optional[datetime] = None
 
+    optimize_for_capacity: Optional[StrictBool] = None
+
+    placement_group: Optional[StrictStr] = None
+
     __properties = [
         "name",
         "min_nodes",
@@ -154,6 +161,8 @@ class ComputePool(BaseModel):
         "status_message",
         "desired_nodes",
         "desired_nodes_expire_after",
+        "optimize_for_capacity",
+        "placement_group",
     ]
 
     @field_validator("name")
@@ -186,14 +195,14 @@ class ComputePool(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> ComputePool:
-        """Create an instance of ComputePool from a JSON string"""
+        """Create an instance of ComputePool from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -216,6 +225,8 @@ class ComputePool(BaseModel):
                     "status_message",
                     "desired_nodes",
                     "desired_nodes_expire_after",
+                    "optimize_for_capacity",
+                    "placement_group",
                 }
             )
 
@@ -262,6 +273,8 @@ class ComputePool(BaseModel):
                 "status_message": obj.get("status_message"),
                 "desired_nodes": obj.get("desired_nodes"),
                 "desired_nodes_expire_after": obj.get("desired_nodes_expire_after"),
+                "optimize_for_capacity": obj.get("optimize_for_capacity"),
+                "placement_group": obj.get("placement_group"),
             }
         )
 
@@ -296,6 +309,8 @@ class ComputePoolModel:
         status_message: Optional[str] = None,
         desired_nodes: Optional[int] = None,
         desired_nodes_expire_after: Optional[datetime] = None,
+        optimize_for_capacity: Optional[bool] = None,
+        placement_group: Optional[str] = None,
     ):
         """A model object representing the ComputePool resource.
 
@@ -310,7 +325,7 @@ class ComputePoolModel:
         max_nodes : int
             Maximum number of nodes for the compute pool.
         instance_family : str
-            Instance family for the compute pool.
+            Instance family for the compute pool. Use the /api/v2/compute-pools/instance-families endpoint to retrieve available values.
         auto_resume : bool, optional
             Whether Snowflake automatically resumes the compute pool when any statement that requires the compute pool is submitted.
         comment : str, optional
@@ -351,6 +366,10 @@ class ComputePoolModel:
             Number of nodes to maintain on the compute pool
         desired_nodes_expire_after : datetime, optional
             Time after which the desired nodes on the compute pool will expire.
+        optimize_for_capacity : bool, optional
+            Whether the compute pool is optimized for capacity.
+        placement_group : str, optional
+            The name of the placement group on the compute pool.
         """
         self.name = name
         self.min_nodes = min_nodes
@@ -376,6 +395,8 @@ class ComputePoolModel:
         self.status_message = status_message
         self.desired_nodes = desired_nodes
         self.desired_nodes_expire_after = desired_nodes_expire_after
+        self.optimize_for_capacity = optimize_for_capacity
+        self.placement_group = placement_group
 
     __properties = [
         "name",
@@ -402,6 +423,8 @@ class ComputePoolModel:
         "status_message",
         "desired_nodes",
         "desired_nodes_expire_after",
+        "optimize_for_capacity",
+        "placement_group",
     ]
 
     def __repr__(self) -> str:
@@ -433,6 +456,8 @@ class ComputePoolModel:
             status_message=self.status_message,
             desired_nodes=self.desired_nodes,
             desired_nodes_expire_after=self.desired_nodes_expire_after,
+            optimize_for_capacity=self.optimize_for_capacity,
+            placement_group=self.placement_group,
         )
 
     @classmethod
@@ -462,6 +487,8 @@ class ComputePoolModel:
             status_message=model.status_message,
             desired_nodes=model.desired_nodes,
             desired_nodes_expire_after=model.desired_nodes_expire_after,
+            optimize_for_capacity=model.optimize_for_capacity,
+            placement_group=model.placement_group,
         )
 
     def to_dict(self):

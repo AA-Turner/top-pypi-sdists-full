@@ -518,10 +518,12 @@ class SnapshotEvaluator:
             target_snapshots: Snapshots to cleanup.
             on_complete: A callback to call on each successfully deleted database object.
         """
+        target_snapshots = [
+            t for t in target_snapshots if t.snapshot.is_model and not t.snapshot.is_symbolic
+        ]
         snapshots_to_dev_table_only = {
             t.snapshot.snapshot_id: t.dev_table_only for t in target_snapshots
         }
-
         with self.concurrent_context():
             concurrent_apply_to_snapshots(
                 [t.snapshot for t in target_snapshots],
@@ -793,6 +795,7 @@ class SnapshotEvaluator:
             if (
                 snapshot.is_materialized
                 and target_table_exists
+                and adapter.wap_enabled
                 and (model.wap_supported or adapter.wap_supported(target_table_name))
             ):
                 wap_id = random_id()[0:8]

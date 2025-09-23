@@ -1,6 +1,6 @@
 import logging
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from snowflake.connector import SnowflakeConnection
 
@@ -79,10 +79,6 @@ class RESTRoot(Root):
             self._root_config = root_config or RootConfiguration()
         else:
             super().__init__(connection, root_config)
-
-    def set_configuration_host_if_rest(self, api_client: Any) -> None:
-        if self._restConnection is not None:
-            api_client.configuration.host = self._restConnection.url
 
     @property
     def session(self) -> "Session":

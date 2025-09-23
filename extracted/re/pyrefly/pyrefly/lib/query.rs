@@ -57,6 +57,7 @@ use starlark_map::small_set::SmallSet;
 use crate::alt::answers::Answers;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyClassSynthesizedFields;
 use crate::binding::bindings::Bindings;
 use crate::config::finder::ConfigFinder;
 use crate::module::module_info::ModuleInfo;
@@ -289,23 +290,29 @@ impl Query {
             })
             .last()?;
         let class_ty = transaction.get_type_at(&handle, cls.name.start());
+        fn get_kind_and_field_type(ty: &Type) -> (Option<String>, &Type) {
+            match ty {
+                Type::Function(f) if f.metadata.flags.is_property_getter => {
+                    (Some(String::from("property")), ty)
+                }
+                Type::ClassType(c) if c.name() == "classproperty" => {
+                    let result_ty = c.targs().as_slice().get(1).unwrap();
+                    (Some(String::from("property")), result_ty)
+                }
+                _ => (None, ty),
+            }
+        }
         if let Some(Type::ClassDef(cd)) = &class_ty {
             let res = cd
                 .fields()
                 .filter_map(|n| {
                     let range = cd.field_decl_range(n)?;
                     let field_ty = transaction.get_type_at(&handle, range.start())?;
-                    let kind = if let Type::Function(f) = &field_ty
-                        && f.metadata.flags.is_property_getter
-                    {
-                        Some(String::from("property"))
-                    } else {
-                        None
-                    };
+                    let (kind, field_ty) = get_kind_and_field_type(&field_ty);
                     Some(Attribute {
                         name: n.to_string(),
                         kind,
-                        annotation: type_to_string(&field_ty),
+                        annotation: type_to_string(field_ty),
                     })
                 })
                 .collect_vec();
@@ -355,17 +362,11 @@ impl Query {
                         }
                     }
                 }
-                FunctionKind::IsInstance => String::from("isinstance"),
-                FunctionKind::IsSubclass => String::from("issubclass"),
-                FunctionKind::Cast => String::from("typing.cast"),
-                // should never see this in expression context
-                FunctionKind::Dataclass => String::from("dataclasses.dataclass"),
-                FunctionKind::DataclassField => String::from("dataclasses.field"),
                 FunctionKind::CallbackProtocol(cls) => {
                     format!("{}.__call__", qname_to_string(cls.qname()))
                 }
-                FunctionKind::Final => String::from("typing.Final"),
-                _ => panic!("target_from_def_kind - unsupported function kind: {kind:?}"),
+
+                x => x.as_func_id().format(ModuleName::builtins()),
             }
         }
         fn repr_from_arguments(
@@ -600,6 +601,7 @@ impl Query {
                 None
             }
         }
+
         fn find_init_or_new(
             cls: &Class,
             transaction: &Transaction<'_>,
@@ -607,9 +609,11 @@ impl Query {
         ) -> Vec<Callee> {
             callee_from_mro(cls, transaction, handle, "__init__", |solver, c| {
                 // find first class that has __init__ or __new__
-                let class_metadata = solver.get_metadata_for_class(c);
-                if c.contains(&dunder::INIT) || class_metadata.dataclass_metadata().is_some() {
-                    // treat dataclasses as always having __init__
+                let has_init = c.contains(&dunder::INIT)
+                    || solver
+                        .get_from_class(c, &KeyClassSynthesizedFields(c.index()))
+                        .is_some_and(|f| f.get(&dunder::INIT).is_some());
+                if has_init {
                     Some(format!("{}.{}.__init__", c.module_name(), c.name()))
                 } else if c.contains(&dunder::NEW) {
                     Some(format!("{}.{}.__new__", c.module_name(), c.name()))

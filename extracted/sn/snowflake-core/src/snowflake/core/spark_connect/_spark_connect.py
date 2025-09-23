@@ -9,10 +9,10 @@ from snowflake.connector import SnowflakeConnection
 from snowflake.core import PollingOperation, RESTRoot
 from snowflake.core.exceptions import UnexpectedResponseError
 
+from .._generated.api_client import StoredProcApiClient
 from .._internal.root_configuration import RootConfiguration
 from .._rest_connection import RESTConnection
 from ._generated.api import SparkConnectApi
-from ._generated.api_client import StoredProcApiClient
 
 
 if TYPE_CHECKING:
@@ -46,7 +46,6 @@ class SparkConnectResource:
         self._api = SparkConnectApi(
             root=self._root, resource_class=SparkConnectResource, sproc_client=StoredProcApiClient(root=self._root)
         )
-        self._root.set_configuration_host_if_rest(self._api.api_client)
 
     @property
     def root(self) -> "RESTRoot":

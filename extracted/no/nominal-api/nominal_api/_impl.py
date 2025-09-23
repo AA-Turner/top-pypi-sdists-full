@@ -13722,16 +13722,18 @@ class ingest_workflow_api_IngestDataflashResponse(ConjureBeanType):
             'units': ConjureFieldDefinition('units', Dict[str, str]),
             'parquet_object_locators': ConjureFieldDefinition('parquetObjectLocators', List[ingest_workflow_api_ObjectLocator]),
             'timestamp_series_name': ConjureFieldDefinition('timestampSeriesName', str),
-            'time_unit': ConjureFieldDefinition('timeUnit', ingest_workflow_api_TimeUnitSeconds)
+            'time_unit': ConjureFieldDefinition('timeUnit', ingest_workflow_api_TimeUnitSeconds),
+            'avro_locator': ConjureFieldDefinition('avroLocator', OptionalTypeWrapper[ingest_workflow_api_ObjectLocator])
         }
 
-    __slots__: List[str] = ['_units', '_parquet_object_locators', '_timestamp_series_name', '_time_unit']
+    __slots__: List[str] = ['_units', '_parquet_object_locators', '_timestamp_series_name', '_time_unit', '_avro_locator']
 
-    def __init__(self, parquet_object_locators: List["ingest_workflow_api_ObjectLocator"], time_unit: "ingest_workflow_api_TimeUnitSeconds", timestamp_series_name: str, units: Dict[str, str]) -> None:
+    def __init__(self, parquet_object_locators: List["ingest_workflow_api_ObjectLocator"], time_unit: "ingest_workflow_api_TimeUnitSeconds", timestamp_series_name: str, units: Dict[str, str], avro_locator: Optional["ingest_workflow_api_ObjectLocator"] = None) -> None:
         self._units = units
         self._parquet_object_locators = parquet_object_locators
         self._timestamp_series_name = timestamp_series_name
         self._time_unit = time_unit
+        self._avro_locator = avro_locator
 
     @builtins.property
     def units(self) -> Dict[str, str]:
@@ -13755,6 +13757,13 @@ only a single file is supported, the list type is used for future compatibility.
         """The unit of time for the timestamp column. Can only be seconds.
         """
         return self._time_unit
+
+    @builtins.property
+    def avro_locator(self) -> Optional["ingest_workflow_api_ObjectLocator"]:
+        """Azure or S3-style blob locator of avro file when avro processing is configured.
+This field is only set when the workflow is configured to write avro stream.
+        """
+        return self._avro_locator
 
 
 ingest_workflow_api_IngestDataflashResponse.__name__ = "IngestDataflashResponse"
@@ -16804,6 +16813,7 @@ when accounting for out-of-order points.
     _range: Optional[List["scout_compute_api_Range"]] = None
     _enum_point: Optional[Optional["scout_compute_api_EnumPoint"]] = None
     _numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None
+    _single_point: Optional[Optional["scout_compute_api_SinglePoint"]] = None
     _log_point: Optional[Optional["scout_compute_api_LogPoint"]] = None
     _range_value: Optional[Optional["scout_compute_api_Range"]] = None
     _numeric: Optional["scout_compute_api_NumericPlot"] = None
@@ -16822,6 +16832,7 @@ when accounting for out-of-order points.
             'range': ConjureFieldDefinition('range', List[scout_compute_api_Range]),
             'enum_point': ConjureFieldDefinition('enumPoint', OptionalTypeWrapper[scout_compute_api_EnumPoint]),
             'numeric_point': ConjureFieldDefinition('numericPoint', OptionalTypeWrapper[scout_compute_api_NumericPoint]),
+            'single_point': ConjureFieldDefinition('singlePoint', OptionalTypeWrapper[scout_compute_api_SinglePoint]),
             'log_point': ConjureFieldDefinition('logPoint', OptionalTypeWrapper[scout_compute_api_LogPoint]),
             'range_value': ConjureFieldDefinition('rangeValue', OptionalTypeWrapper[scout_compute_api_Range]),
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericPlot),
@@ -16840,6 +16851,7 @@ when accounting for out-of-order points.
             range: Optional[List["scout_compute_api_Range"]] = None,
             enum_point: Optional[Optional["scout_compute_api_EnumPoint"]] = None,
             numeric_point: Optional[Optional["scout_compute_api_NumericPoint"]] = None,
+            single_point: Optional[Optional["scout_compute_api_SinglePoint"]] = None,
             log_point: Optional[Optional["scout_compute_api_LogPoint"]] = None,
             range_value: Optional[Optional["scout_compute_api_Range"]] = None,
             numeric: Optional["scout_compute_api_NumericPlot"] = None,
@@ -16854,7 +16866,7 @@ when accounting for out-of-order points.
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (arrow_numeric is not None) + (arrow_enum is not None) + (arrow_bucketed_numeric is not None) + (arrow_bucketed_enum is not None) + (grouped is not None) != 1:
+            if (range is not None) + (enum_point is not None) + (numeric_point is not None) + (single_point is not None) + (log_point is not None) + (range_value is not None) + (numeric is not None) + (enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) + (arrow_numeric is not None) + (arrow_enum is not None) + (arrow_bucketed_numeric is not None) + (arrow_bucketed_enum is not None) + (grouped is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -16866,6 +16878,9 @@ when accounting for out-of-order points.
             if numeric_point is not None:
                 self._numeric_point = numeric_point
                 self._type = 'numericPoint'
+            if single_point is not None:
+                self._single_point = single_point
+                self._type = 'singlePoint'
             if log_point is not None:
                 self._log_point = log_point
                 self._type = 'logPoint'
@@ -16915,6 +16930,11 @@ when accounting for out-of-order points.
                 raise ValueError('a union value must not be None')
             self._numeric_point = numeric_point
             self._type = 'numericPoint'
+        elif type_of_union == 'singlePoint':
+            if single_point is None:
+                raise ValueError('a union value must not be None')
+            self._single_point = single_point
+            self._type = 'singlePoint'
         elif type_of_union == 'logPoint':
             if log_point is None:
                 raise ValueError('a union value must not be None')
@@ -16989,6 +17009,12 @@ ranges, possibly merging them if they overlap or are adjacent.
         """Merging can be done by keeping track of the applicable point present within the current window
         """
         return self._numeric_point
+
+    @builtins.property
+    def single_point(self) -> Optional[Optional["scout_compute_api_SinglePoint"]]:
+        """Merging can be done by keeping track of the applicable point present within the current window
+        """
+        return self._single_point
 
     @builtins.property
     def log_point(self) -> Optional[Optional["scout_compute_api_LogPoint"]]:
@@ -17074,6 +17100,8 @@ with the newer ones.
             return visitor._enum_point(self.enum_point)
         if self._type == 'numericPoint' and self.numeric_point is not None:
             return visitor._numeric_point(self.numeric_point)
+        if self._type == 'singlePoint' and self.single_point is not None:
+            return visitor._single_point(self.single_point)
         if self._type == 'logPoint' and self.log_point is not None:
             return visitor._log_point(self.log_point)
         if self._type == 'rangeValue' and self.range_value is not None:
@@ -17115,6 +17143,10 @@ class persistent_compute_api_ComputeNodeAppendResponseVisitor:
 
     @abstractmethod
     def _numeric_point(self, numeric_point: Optional["scout_compute_api_NumericPoint"]) -> Any:
+        pass
+
+    @abstractmethod
+    def _single_point(self, single_point: Optional["scout_compute_api_SinglePoint"]) -> Any:
         pass
 
     @abstractmethod
@@ -53959,9 +53991,7 @@ scout_compute_api_SignalFilterSeries.__module__ = "nominal_api.scout_compute_api
 
 
 class scout_compute_api_SinglePoint(ConjureBeanType):
-    """A return type used for sending generic point value returns. Uses strings to pass Int64. 
-Precision loss is a warning that will be true if any of the referenced series are Int series and 
-the result is computed with casting values to doubles due to lack of ability to be done in clickhouse.
+    """Return type representing a single point value.
     """
 
     @builtins.classmethod
@@ -53989,6 +54019,9 @@ the result is computed with casting values to doubles due to lack of ability to 
 
     @builtins.property
     def precision_loss(self) -> bool:
+        """Returns true if the result required downcasting to a type with less precision, 
+for example if the input series was Int64 and the result is a Float64.
+        """
         return self._precision_loss
 
 
@@ -55642,13 +55675,13 @@ scout_compute_api_UnitsMissing.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Value(ConjureUnionType):
-    """A way to represent any general return value. Supports numeric, string, array, and struct returns.
+    """A single value. The type is dictated by the returned variant
     """
     _string_value: Optional[str] = None
     _float64_value: Optional[float] = None
     _int64_value: Optional[str] = None
     _array_value: Optional[List[Optional["scout_compute_api_Value"]]] = None
-    _object_value: Optional[Dict[str, Optional["scout_compute_api_Value"]]] = None
+    _struct_value: Optional[Dict[str, Optional["scout_compute_api_Value"]]] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -55657,7 +55690,7 @@ class scout_compute_api_Value(ConjureUnionType):
             'float64_value': ConjureFieldDefinition('float64Value', float),
             'int64_value': ConjureFieldDefinition('int64Value', str),
             'array_value': ConjureFieldDefinition('arrayValue', List[OptionalTypeWrapper[scout_compute_api_Value]]),
-            'object_value': ConjureFieldDefinition('objectValue', Dict[str, OptionalTypeWrapper[scout_compute_api_Value]])
+            'struct_value': ConjureFieldDefinition('structValue', Dict[str, OptionalTypeWrapper[scout_compute_api_Value]])
         }
 
     def __init__(
@@ -55666,11 +55699,11 @@ class scout_compute_api_Value(ConjureUnionType):
             float64_value: Optional[float] = None,
             int64_value: Optional[str] = None,
             array_value: Optional[List[Optional["scout_compute_api_Value"]]] = None,
-            object_value: Optional[Dict[str, Optional["scout_compute_api_Value"]]] = None,
+            struct_value: Optional[Dict[str, Optional["scout_compute_api_Value"]]] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (string_value is not None) + (float64_value is not None) + (int64_value is not None) + (array_value is not None) + (object_value is not None) != 1:
+            if (string_value is not None) + (float64_value is not None) + (int64_value is not None) + (array_value is not None) + (struct_value is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if string_value is not None:
@@ -55685,9 +55718,9 @@ class scout_compute_api_Value(ConjureUnionType):
             if array_value is not None:
                 self._array_value = array_value
                 self._type = 'arrayValue'
-            if object_value is not None:
-                self._object_value = object_value
-                self._type = 'objectValue'
+            if struct_value is not None:
+                self._struct_value = struct_value
+                self._type = 'structValue'
 
         elif type_of_union == 'stringValue':
             if string_value is None:
@@ -55709,11 +55742,11 @@ class scout_compute_api_Value(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._array_value = array_value
             self._type = 'arrayValue'
-        elif type_of_union == 'objectValue':
-            if object_value is None:
+        elif type_of_union == 'structValue':
+            if struct_value is None:
                 raise ValueError('a union value must not be None')
-            self._object_value = object_value
-            self._type = 'objectValue'
+            self._struct_value = struct_value
+            self._type = 'structValue'
 
     @builtins.property
     def string_value(self) -> Optional[str]:
@@ -55732,8 +55765,8 @@ class scout_compute_api_Value(ConjureUnionType):
         return self._array_value
 
     @builtins.property
-    def object_value(self) -> Optional[Dict[str, Optional["scout_compute_api_Value"]]]:
-        return self._object_value
+    def struct_value(self) -> Optional[Dict[str, Optional["scout_compute_api_Value"]]]:
+        return self._struct_value
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_ValueVisitor):
@@ -55746,8 +55779,8 @@ class scout_compute_api_Value(ConjureUnionType):
             return visitor._int64_value(self.int64_value)
         if self._type == 'arrayValue' and self.array_value is not None:
             return visitor._array_value(self.array_value)
-        if self._type == 'objectValue' and self.object_value is not None:
-            return visitor._object_value(self.object_value)
+        if self._type == 'structValue' and self.struct_value is not None:
+            return visitor._struct_value(self.struct_value)
 
 
 scout_compute_api_Value.__name__ = "Value"
@@ -55774,7 +55807,7 @@ class scout_compute_api_ValueVisitor:
         pass
 
     @abstractmethod
-    def _object_value(self, object_value: Dict[str, Optional["scout_compute_api_Value"]]) -> Any:
+    def _struct_value(self, struct_value: Dict[str, Optional["scout_compute_api_Value"]]) -> Any:
         pass
 
 

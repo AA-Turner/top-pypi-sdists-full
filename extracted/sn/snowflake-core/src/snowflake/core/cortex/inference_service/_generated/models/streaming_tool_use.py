@@ -1,6 +1,5 @@
-
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 
@@ -34,8 +33,6 @@ class StreamingToolUse(BaseModel):
     name : str, optional
         Name of the tool to execute. Must match a tool name from the tools array
     input : str, optional
-
-
     """
 
     tool_use_id: Optional[StrictStr] = None
@@ -60,14 +57,14 @@ class StreamingToolUse(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> StreamingToolUse:
-        """Create an instance of StreamingToolUse from a JSON string"""
+        """Create an instance of StreamingToolUse from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -119,7 +116,6 @@ class StreamingToolUseModel:
         name : str, optional
             Name of the tool to execute. Must match a tool name from the tools array
         input : str, optional
-
         """
         self.tool_use_id = tool_use_id
         self.name = name

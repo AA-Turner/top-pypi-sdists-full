@@ -25,12 +25,14 @@ from ..utils import (
     BBoxSmoothingTracker
 )
 from ..utils.geometry_utils import get_bbox_center, point_in_polygon, get_bbox_bottom25_center
+from ..usecases.color.clip import ClipProcessor
 #from turbojpeg import TurboJPEG, TJPF_RGB
 
 @dataclass
 class ColorDetectionConfig(BaseConfig):
     """Configuration for color detection use case."""
     confidence_threshold: float = 0.9
+    usecase: str = "color_detection"
     top_k_colors: int = 3
     frame_skip: int = 1
     usecase_categories: List[str] = field(
@@ -90,6 +92,7 @@ class ColorDetectionConfig(BaseConfig):
         }
     }
 )
+    true_import: bool = False
 
     def validate(self) -> List[str]:
         errors = super().validate()
@@ -108,6 +111,7 @@ class ColorDetectionConfig(BaseConfig):
         if self.smoothing_confidence_range_factor <= 0:
             errors.append("smoothing_confidence_range_factor must be positive")
         return errors
+    
 
 
 class ColorDetectionUseCase(BaseProcessor):
@@ -155,6 +159,9 @@ class ColorDetectionUseCase(BaseProcessor):
         self._zone_current_counts = {}  # zone_name -> current count in zone
         self._zone_total_counts = {}  # zone_name -> total count that have been in zone
         self.logger.info("Initialized ColorDetectionUseCase with zone tracking")
+        self.detector = None #ClipProcessor()
+        self.all_color_data = {}
+        self.all_color_counts = {}
         #self.jpeg = TurboJPEG()
         
     def process(
@@ -176,6 +183,10 @@ class ColorDetectionUseCase(BaseProcessor):
                     context=context
                 )
             
+            if config.true_import and self.detector is None:
+                self.detector = ClipProcessor()
+                self.logger.info("Initialized ClipProcessor for color detection")
+
             if context is None:
                 context = ProcessingContext()
             
@@ -257,6 +268,7 @@ class ColorDetectionUseCase(BaseProcessor):
                 config
             )
 
+            curr_frame_color = self.detector.process_color_in_frame(color_processed_data,input_bytes,config.zone_config)
             
             # Step 8: Update color tracking state
             self._update_color_tracking_state_from_analysis(color_analysis)
@@ -297,7 +309,7 @@ class ColorDetectionUseCase(BaseProcessor):
             incidents_list = self._generate_incidents(color_summary, alerts, config, frame_number, stream_info)
             incidents_list = []
 
-            tracking_stats_list = self._generate_tracking_stats(color_summary, alerts, config, frame_number, stream_info)
+            tracking_stats_list = self._generate_tracking_stats(color_summary, alerts, config, frame_number, stream_info, curr_frame_color)
 
             business_analytics_list = []
             summary_list = self._generate_summary(color_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
@@ -344,6 +356,44 @@ class ColorDetectionUseCase(BaseProcessor):
                 category=self.category,
                 context=context
             )
+    
+    def color_helper(self, curr_data):
+        for tid, data in curr_data.items():
+            if tid not in self.all_color_data:
+                # First time seeing this track
+                self.all_color_data[tid] = {
+                    "color": data.get("color"),
+                    "confidence": data.get("confidence"),
+                }
+
+                # update color counts
+                color = data.get("color")
+                if color:
+                    self.all_color_counts[color] = self.all_color_counts.get(color, 0) + 1
+
+            else:
+                # Update only if new confidence is higher
+                if data.get("confidence", 0) > self.all_color_data[tid]["confidence"]:
+                    old_color = self.all_color_data[tid]["color"]
+                    new_color = data.get("color")
+
+                    if new_color != old_color:
+                        # decrease old color count
+                        if old_color in self.all_color_counts:
+                            self.all_color_counts[old_color] -= 1
+                            if self.all_color_counts[old_color] <= 0:
+                                del self.all_color_counts[old_color]
+
+                        # increase new color count
+                        if new_color:
+                            self.all_color_counts[new_color] = self.all_color_counts.get(new_color, 0) + 1
+
+                    # update track info
+                    self.all_color_data[tid]["color"] = new_color
+                    self.all_color_data[tid]["confidence"] = data.get("confidence")
+
+
+
 
     def _analyze_colors_in_media(
         self, 
@@ -863,7 +913,8 @@ class ColorDetectionUseCase(BaseProcessor):
             alerts: Any,
             config: ColorDetectionConfig,
             frame_number: Optional[int] = None,
-            stream_info: Optional[Dict[str, Any]] = None
+            stream_info: Optional[Dict[str, Any]] = None,
+            curr_frame_color: Any = None
     ) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info and detections with masks."""
         # frame_key = str(frame_number) if frame_number is not None else "current_frame"
@@ -894,8 +945,28 @@ class ColorDetectionUseCase(BaseProcessor):
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
 
         camera_info = self.get_camera_info_from_stream(stream_info)
+        total_color_data = self.color_helper(curr_frame_color)
+        print("========================CURR FRAME=======================")
+        print(curr_frame_color)
+        print("========================CURR FRAME=======================")
+
+        print("========================TOTAL=======================")
+        print(total_color_data)
+        print("========================TOTAL=======================")
 
         human_text_lines = []
+        color_counts = {}
+
+        if curr_frame_color:
+            for tid, data in curr_frame_color.items():
+                color = data.get("color")
+                if color not in color_counts:
+                    color_counts[color] = 0
+                color_counts[color] += 1
+
+        # After processing all frames, print the final counts
+        print("Unique color counts:", color_counts)
+
 
         # CURRENT FRAME section
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
@@ -911,8 +982,8 @@ class ColorDetectionUseCase(BaseProcessor):
             human_text_lines.append(f"\t- {detection_text}")
 
             # Colors (current frame)
-            if current_color_count:
-                color_counts_text = ", ".join([f"{count} {color}" for color, count in current_color_count.items()])
+            if color_counts:
+                color_counts_text = ", ".join([f"{count} {color}" for color, count in color_counts.items()])
                 human_text_lines.append(f"\t- Colors: {color_counts_text}")
         else:
             human_text_lines.append(f"\t- No detections")
@@ -930,9 +1001,9 @@ class ColorDetectionUseCase(BaseProcessor):
                 if count > 0:
                     human_text_lines.append(f"\t\t- {cat}: {count}")
         # Add color-wise totals
-        if total_color_counts_dict:
+        if total_color_data:
             human_text_lines.append("\t- Colors:")
-            for color, count in total_color_counts_dict.items():
+            for color, count in total_color_data.items():
                 if count > 0:
                     human_text_lines.append(f"\t\t- {color}: {count}")
         # Build current_counts array in expected format  

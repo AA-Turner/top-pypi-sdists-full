@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.53.0
+Version: 2.54.0
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -26,7 +26,7 @@ Requires-Python: <4.0,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic<3.0.0,>=2.0.0
-Requires-Dist: docling-core[chunking]<3.0.0,>=2.48.0
+Requires-Dist: docling-core[chunking]<3.0.0,>=2.48.2
 Requires-Dist: docling-parse<5.0.0,>=4.4.0
 Requires-Dist: docling-ibm-models<4,>=3.9.1
 Requires-Dist: filetype<2.0.0,>=1.2.0
@@ -101,7 +101,7 @@ Docling simplifies document processing, parsing diverse formats — including ad
 
 ## Features
 
-* 🗂️ Parsing of [multiple document formats][supported_formats] incl. PDF, DOCX, PPTX, XLSX, HTML, WAV, MP3, images (PNG, TIFF, JPEG, ...), and more
+* 🗂️ Parsing of [multiple document formats][supported_formats] incl. PDF, DOCX, PPTX, XLSX, HTML, WAV, MP3, VTT, images (PNG, TIFF, JPEG, ...), and more
 * 📑 Advanced PDF understanding incl. page layout, reading order, table structure, code, formulas, image classification, and more
 * 🧬 Unified, expressive [DoclingDocument][docling_document] representation format
 * ↪️ Various [export formats][supported_formats] and options, including Markdown, HTML, [DocTags](https://arxiv.org/abs/2503.11576) and lossless JSON
@@ -117,13 +117,13 @@ Docling simplifies document processing, parsing diverse formats — including ad
 * 📤 Structured [information extraction][extraction] \[🧪 beta\]
 * 📑 New layout model (**Heron**) by default, for faster PDF parsing
 * 🔌 [MCP server](https://docling-project.github.io/docling/usage/mcp/) for agentic applications
+* 💬 Parsing of Web Video Text Tracks (WebVTT) files
 
 ### Coming soon
 
 * 📝 Metadata extraction, including title, authors, references & language
 * 📝 Chart understanding (Barchart, Piechart, LinePlot, etc)
 * 📝 Complex chemistry understanding (Molecular structures)
-* 📝 Parsing of Web Video Text Tracks (WebVTT) files
 
 ## Installation
 

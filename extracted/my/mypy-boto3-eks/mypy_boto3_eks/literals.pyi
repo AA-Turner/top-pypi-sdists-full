@@ -72,6 +72,7 @@ __all__ = (
     "NodegroupUpdateStrategiesType",
     "PaginatorName",
     "RegionName",
+    "RepairActionType",
     "ResolveConflictsType",
     "ResourceServiceName",
     "ServiceName",
@@ -256,6 +257,7 @@ NodegroupStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DEGRADED", "DELETE_FAILED", "DELETING", "UPDATING"
 ]
 NodegroupUpdateStrategiesType = Literal["DEFAULT", "MINIMAL"]
+RepairActionType = Literal["NoAction", "Reboot", "Replace"]
 ResolveConflictsType = Literal["NONE", "OVERWRITE", "PRESERVE"]
 SupportTypeType = Literal["EXTENDED", "STANDARD"]
 TaintEffectType = Literal["NO_EXECUTE", "NO_SCHEDULE", "PREFER_NO_SCHEDULE"]
@@ -280,6 +282,7 @@ UpdateParamTypeType = Literal[
     "MaxUnavailable",
     "MaxUnavailablePercentage",
     "MinSize",
+    "NodeRepairConfig",
     "NodeRepairEnabled",
     "PlatformVersion",
     "PodIdentityAssociations",
@@ -683,7 +686,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -776,6 +778,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

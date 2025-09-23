@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-compute
-Version: 36.0.0
+Version: 37.0.0
 Summary: Microsoft Azure Compute Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
@@ -16,26 +15,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: isodate>=0.6.1
-Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
+Requires-Dist: msrest>=0.7.1
 Requires-Dist: azure-mgmt-core>=1.6.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Requires-Dist: typing-extensions>=4.6.0
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Microsoft Azure SDK for Python
 
@@ -99,8 +85,75 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 37.0.0 (2025-09-22)
+
+### Features Added
+
+  - Added operation VirtualMachineScaleSetsOperations.begin_scale_out
+  - Added operation group GalleryInVMAccessControlProfileVersionsOperations
+  - Added operation group GalleryInVMAccessControlProfilesOperations
+  - Added operation group SoftDeletedResourceOperations
+  - Model AccessUri has a new parameter security_metadata_access_sas
+  - Model CapacityReservation has a new parameter schedule_profile
+  - Model CapacityReservationGroup has a new parameter reservation_type
+  - Model CapacityReservationGroupUpdate has a new parameter reservation_type
+  - Model CapacityReservationUpdate has a new parameter schedule_profile
+  - Model CreationData has a new parameter instant_access_duration_minutes
+  - Model CreationData has a new parameter security_metadata_uri
+  - Model Disk has a new parameter availability_policy
+  - Model Disk has a new parameter system_data
+  - Model DiskAccess has a new parameter system_data
+  - Model DiskEncryptionSet has a new parameter system_data
+  - Model DiskRestorePoint has a new parameter logical_sector_size
+  - Model DiskRestorePoint has a new parameter system_data
+  - Model DiskUpdate has a new parameter availability_policy
+  - Model EventGridAndResourceGraph has a new parameter scheduled_events_api_version
+  - Model Gallery has a new parameter identity
+  - Model Gallery has a new parameter system_data
+  - Model GalleryApplication has a new parameter system_data
+  - Model GalleryApplicationVersion has a new parameter system_data
+  - Model GalleryImage has a new parameter allow_update_image
+  - Model GalleryImage has a new parameter system_data
+  - Model GalleryImageFeature has a new parameter starts_at_version
+  - Model GalleryImageUpdate has a new parameter allow_update_image
+  - Model GalleryImageVersion has a new parameter restore
+  - Model GalleryImageVersion has a new parameter system_data
+  - Model GalleryImageVersion has a new parameter validations_profile
+  - Model GalleryImageVersionSafetyProfile has a new parameter block_deletion_before_end_of_life
+  - Model GalleryImageVersionUpdate has a new parameter restore
+  - Model GalleryImageVersionUpdate has a new parameter validations_profile
+  - Model GalleryList has a new parameter security_profile
+  - Model GalleryUpdate has a new parameter identity
+  - Model OrchestrationServiceSummary has a new parameter last_status_change_time
+  - Model OrchestrationServiceSummary has a new parameter latest_operation_status
+  - Model PrivateEndpointConnection has a new parameter system_data
+  - Model ProxyAgentSettings has a new parameter add_proxy_agent_extension
+  - Model ResiliencyPolicy has a new parameter zone_allocation_policy
+  - Model ScheduledEventsPolicy has a new parameter all_instances_down
+  - Model Snapshot has a new parameter snapshot_access_state
+  - Model Snapshot has a new parameter system_data
+  - Model SnapshotUpdate has a new parameter snapshot_access_state
+  - Model SupportedCapabilities has a new parameter supported_security_option
+  - Model TargetRegion has a new parameter additional_replica_sets
+  - Model UserArtifactSettings has a new parameter script_behavior_after_reboot
+  - Model VirtualMachineNetworkInterfaceConfiguration has a new parameter tags
+  - Model VirtualMachinePublicIPAddressConfiguration has a new parameter tags
+  - Model VirtualMachineRunCommandScriptSource has a new parameter gallery_script_reference_id
+  - Model VirtualMachineRunCommandScriptSource has a new parameter script_shell
+  - Model VirtualMachineScaleSet has a new parameter high_speed_interconnect_placement
+  - Model VirtualMachineScaleSet has a new parameter placement
+  - Model VirtualMachineScaleSetNetworkConfiguration has a new parameter tags
+  - Model VirtualMachineScaleSetPublicIPAddressConfiguration has a new parameter tags
+  - Model VirtualMachineScaleSetUpdateNetworkConfiguration has a new parameter tags
+  - Model VirtualMachineScaleSetUpdatePublicIPAddressConfiguration has a new parameter tags
+  - Model WindowsParameters has a new parameter patch_name_masks_to_exclude
+  - Model WindowsParameters has a new parameter patch_name_masks_to_include
+
+### Breaking Changes
+
+  - Parameter value of model PrivateEndpointConnectionListResult is now required
 
 ## 36.0.0 (2025-08-22)
 

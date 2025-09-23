@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Cortex Agent API
+Cortex Agent API.
 
 OpenAPI 3.0 specification for the Cortex Agent API  # noqa: E501
 
@@ -21,14 +21,17 @@ __version__ = "1.0.0"
 # import apis into sdk package
 from snowflake.core.cortex.lite_agent_service._generated.api.cortex_lite_agent_api import CortexLiteAgentApi
 
-# import ApiClient
-from snowflake.core.cortex.lite_agent_service._generated.api_client import ApiClient
-from snowflake.core.cortex.lite_agent_service._generated.configuration import Configuration
-
 # import models into sdk package
+from snowflake.core.cortex.lite_agent_service._generated.models.agent_instructions import AgentInstructions
+from snowflake.core.cortex.lite_agent_service._generated.models.agent_models import AgentModels
+from snowflake.core.cortex.lite_agent_service._generated.models.agent_orchestration import AgentOrchestration
+from snowflake.core.cortex.lite_agent_service._generated.models.agent_orchestration_budget import (
+    AgentOrchestrationBudget,
+)
 from snowflake.core.cortex.lite_agent_service._generated.models.agent_run_request import AgentRunRequest
 from snowflake.core.cortex.lite_agent_service._generated.models.error_response import ErrorResponse
 from snowflake.core.cortex.lite_agent_service._generated.models.message import Message
+from snowflake.core.cortex.lite_agent_service._generated.models.sample_question import SampleQuestion
 from snowflake.core.cortex.lite_agent_service._generated.models.tool import Tool
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_choice import ToolChoice
 from snowflake.core.cortex.lite_agent_service._generated.models.tool_tool_spec import ToolToolSpec

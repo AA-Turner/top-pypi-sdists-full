@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Role API
+Snowflake Role API.
 
 The Snowflake Role API is a REST API that you can use to access, update, and perform certain actions on Role resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.role._generated.api.role_api import RoleApi
-
-# import ApiClient
-from snowflake.core.role._generated.api_client import ApiClient
-from snowflake.core.role._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.role._generated.models.containing_scope import ContainingScope

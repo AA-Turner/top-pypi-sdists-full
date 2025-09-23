@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake User Defined Function API
+Snowflake User Defined Function API.
 
 The Snowflake User Defined Function API is a REST API that you can use to access, update, and perform certain actions on User Defined Function resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.user_defined_function._generated.api.user_defined_function_api import UserDefinedFunctionApi
-
-# import ApiClient
-from snowflake.core.user_defined_function._generated.api_client import ApiClient
-from snowflake.core.user_defined_function._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.user_defined_function._generated.models.argument import Argument

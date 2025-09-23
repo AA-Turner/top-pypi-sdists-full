@@ -1,6 +1,5 @@
-
 """
-Cortex Embed API
+Cortex Embed API.
 
 OpenAPI 3.0 specification for the Cortex Embed REST API  # noqa: E501
 
@@ -17,7 +16,7 @@ import json
 import pprint
 import re  # noqa: F401
 
-from typing import Any, List
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, StrictStr
 from typing_extensions import Annotated
@@ -40,13 +39,17 @@ class EmbedRequest(BaseModel):
     text : list[str]
         An array of input texts for which vector embeddings will be calculated.
         Example: ["Hello world", "Machine learning is fascinating"]
+    provisioned_throughput_id : str, optional
+        The provisioned throughput ID to be used with the request.
     """
 
     model: StrictStr
 
     text: Annotated[List[StrictStr], Field(min_length=1)]
 
-    __properties = ["model", "text"]
+    provisioned_throughput_id: Optional[StrictStr] = None
+
+    __properties = ["model", "text", "provisioned_throughput_id"]
 
     class Config:
         populate_by_name = True
@@ -62,20 +65,24 @@ class EmbedRequest(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> EmbedRequest:
-        """Create an instance of EmbedRequest from a JSON string"""
+        """Create an instance of EmbedRequest from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
             exclude_properties.update({})
 
         _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+
+        # set to None if provisioned_throughput_id (nullable) is None
+        if self.provisioned_throughput_id is None:
+            _dict["provisioned_throughput_id"] = None
 
         return _dict
 
@@ -96,6 +103,7 @@ class EmbedRequest(BaseModel):
             {
                 "model": obj.get("model"),
                 "text": obj.get("text"),
+                "provisioned_throughput_id": obj.get("provisioned_throughput_id"),
             }
         )
 
@@ -108,6 +116,7 @@ class EmbedRequestModel:
         model: str,
         text: list[str],
         # optional properties
+        provisioned_throughput_id: Optional[str] = None,
     ):
         """A model object representing the EmbedRequest resource.
 
@@ -127,11 +136,14 @@ class EmbedRequestModel:
                     An array of input texts for which vector embeddings will be calculated.
         Example: ["Hello world", "Machine learning is fascinating"]
 
+                provisioned_throughput_id : str, optional
+                    The provisioned throughput ID to be used with the request.
         """
         self.model = model
         self.text = text
+        self.provisioned_throughput_id = provisioned_throughput_id
 
-    __properties = ["model", "text"]
+    __properties = ["model", "text", "provisioned_throughput_id"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -140,6 +152,7 @@ class EmbedRequestModel:
         return EmbedRequest(
             model=self.model,
             text=self.text,
+            provisioned_throughput_id=self.provisioned_throughput_id,
         )
 
     @classmethod
@@ -147,6 +160,7 @@ class EmbedRequestModel:
         return EmbedRequestModel(
             model=model.model,
             text=model.text,
+            provisioned_throughput_id=model.provisioned_throughput_id,
         )
 
     def to_dict(self):

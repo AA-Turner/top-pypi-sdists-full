@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import StrictStr
 
 from snowflake.core._common import DeleteMode
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core.grant._generated import GrantApi
-from snowflake.core.grant._generated.api_client import StoredProcApiClient
 from snowflake.core.grant._generated.models import Grant as GrantModel
 from snowflake.core.grant._generated.models.grant import GrantModel as GrantModel_generated
 from snowflake.core.grant._grant import Grant

@@ -3,9 +3,11 @@ from typing import Iterable, Union
 
 import numpy as np
 
+from timezonefinder.configs import IntegerLike
+
 from timezonefinder import utils
 from timezonefinder.coord_accessors import AbstractCoordAccessor, create_coord_accessor
-from timezonefinder.flatbuf.polygon_utils import (
+from timezonefinder.flatbuf.io.polygons import (
     get_coordinate_path,
 )
 from timezonefinder.np_binary_helpers import (
@@ -30,13 +32,11 @@ class PolygonArray:
         in_memory: bool = False,
     ):
         """
-        Initialize the AbstractTimezoneFinder.
-        :param bin_file_location: The path to the binary data files to use. If None, uses native package data.
+        Initialize the PolygonArray.
+        :param data_location: The path to the binary data files to use.
         :param in_memory: Whether to completely read and keep the coordinate data in memory as numpy.
         """
         self.in_memory = in_memory
-        self._file_handle = None
-
         self.data_location: Path = Path(data_location)
 
         xmin_path = get_xmin_path(self.data_location)
@@ -56,7 +56,11 @@ class PolygonArray:
 
     def __del__(self):
         """Clean up resources when the object is destroyed."""
-        self.coordinates.cleanup()
+        del self.coordinates
+        del self.xmin
+        del self.xmax
+        del self.ymin
+        del self.ymax
 
     def __len__(self) -> int:
         """
@@ -65,7 +69,7 @@ class PolygonArray:
         """
         return len(self.xmin)
 
-    def outside_bbox(self, poly_id: int, x: int, y: int) -> bool:
+    def outside_bbox(self, poly_id: IntegerLike, x: int, y: int) -> bool:
         """
         Check if a point is outside the bounding box of a polygon.
 
@@ -84,7 +88,7 @@ class PolygonArray:
             return True
         return False
 
-    def coords_of(self, idx: int) -> np.ndarray:
+    def coords_of(self, idx: IntegerLike) -> np.ndarray:
         """
         Get the polygon coordinates for the given index.
 
@@ -96,7 +100,7 @@ class PolygonArray:
         """
         return self.coordinates[idx]
 
-    def pip(self, poly_id: int, x: int, y: int) -> bool:
+    def pip(self, poly_id: IntegerLike, x: int, y: int) -> bool:
         """
         Point in polygon (PIP) test.
 
@@ -108,7 +112,7 @@ class PolygonArray:
         polygon = self.coords_of(poly_id)
         return utils.inside_polygon(x, y, polygon)
 
-    def pip_with_bbox_check(self, poly_id: int, x: int, y: int) -> bool:
+    def pip_with_bbox_check(self, poly_id: IntegerLike, x: int, y: int) -> bool:
         """
         Point in polygon (PIP) test with bounding box check.
 

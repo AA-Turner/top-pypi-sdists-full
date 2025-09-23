@@ -13,6 +13,7 @@ from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated
 from snowflake.core._operation import PollingOperations
@@ -25,7 +26,6 @@ from snowflake.core.task._generated import (
     TaskRun,
     TaskSchedule,
 )
-from snowflake.core.task._generated.api_client import StoredProcApiClient
 from snowflake.core.task._generated.models import Task as TaskModel
 
 from .._options import snowpark

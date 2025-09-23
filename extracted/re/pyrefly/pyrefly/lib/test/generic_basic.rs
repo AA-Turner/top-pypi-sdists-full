@@ -1014,3 +1014,29 @@ def g[U, *Us, **Q](x: U, xs: tuple[*Us], f: Callable[Q, None]):
     assert_type(f, Callable[Q, None])
     "#,
 );
+
+testcase!(
+    test_function_legacy_typevar_dotted_name,
+    env_exported_type_var(),
+    r#"
+import lib
+from typing import assert_type
+
+def f(x: lib.T) -> lib.T:
+    return x
+assert_type(f(0), int)
+    "#,
+);
+
+testcase!(
+    test_class_legacy_typevar_dotted_name,
+    env_exported_type_var(),
+    r#"
+import lib
+from typing import assert_type, Generic
+
+class A(Generic[lib.T]):
+    x: lib.T
+assert_type(A[int]().x, int)
+    "#,
+);

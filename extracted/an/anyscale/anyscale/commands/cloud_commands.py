@@ -265,7 +265,13 @@ def cloud_config_group() -> None:
     "--cloud",
     help="The name of the cloud to add the new resource to.",
     type=str,
-    required=True,
+    required=False,
+)
+@click.option(
+    "--cloud-id",
+    help="The ID of the cloud to add the new resource to.",
+    type=str,
+    required=False,
 )
 @click.option(
     "--file",
@@ -283,10 +289,16 @@ def cloud_config_group() -> None:
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
 def cloud_resource_create(
-    cloud: str, file: str, skip_verification: bool, yes: bool,
+    cloud: Optional[str],
+    cloud_id: Optional[str],
+    file: str,
+    skip_verification: bool,
+    yes: bool,
 ) -> None:
     try:
-        CloudController().create_cloud_resource(cloud, file, skip_verification, yes)
+        CloudController().create_cloud_resource(
+            cloud, cloud_id, file, skip_verification, yes
+        )
     except click.ClickException as e:
         print(e)
 

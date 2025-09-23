@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: marimo
-Version: 0.16.0
+Version: 0.16.1
 Summary: A library for making reactive notebooks and apps
 License: 
                                           Apache License
@@ -225,7 +225,7 @@ Requires-Dist: pymdown-extensions>=10.15,<11
 Requires-Dist: pygments>=2.13,<3
 Requires-Dist: tomlkit>=0.12.0
 Requires-Dist: pyyaml>=6.0
-Requires-Dist: uvicorn>=0.22.0
+Requires-Dist: uvicorn>=0.22.0,<0.36.0
 Requires-Dist: starlette>=0.35.0,!=0.36.0
 Requires-Dist: websockets>=14.2.0
 Requires-Dist: loro>=1.5.0 ; python_full_version >= '3.11'

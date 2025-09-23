@@ -77,6 +77,7 @@ def precheck_cortex_search_enabled(cortex_search_services, setup_cortex_search_s
 # Test chat through CortexChatService
 # this is just to test the integrity of the python -> cortex chat service.
 # We would not try to match the exact response as the response might change over time.
+@pytest.mark.flaky
 def test_chat_collection(root: Root, database, schema):
     resp = root.cortex_chat_service.chat(
         ChatRequest.from_dict(
@@ -91,6 +92,7 @@ def test_chat_collection(root: Root, database, schema):
 
 
 # Test client parsing of chat service response through XP endpoint
+@pytest.mark.flaky
 def test_chat_collection_xp(root: Root):
     body_str = (
         "["

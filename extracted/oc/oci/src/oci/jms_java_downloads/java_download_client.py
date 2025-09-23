@@ -22,7 +22,7 @@ missing = Sentinel("Missing")
 
 class JavaDownloadClient(object):
     """
-    The APIs for the <a href="https://docs.oracle.com/en-us/iaas/jms/doc/java-download.html">Java Download</a> feature of Java Management Service.
+    The APIs for the [Java Download](https://docs.oracle.com/en-us/iaas/jms/doc/java-download.html) feature of Java Management Service.
     """
 
     def __init__(self, config, **kwargs):
@@ -150,14 +150,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/cancel_work_request.py.html>`__ to see an example of how to use cancel_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
         resource_path = "/20230601/workRequests/{workRequestId}"
         method = "DELETE"
         operation_name = "cancel_work_request"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/WorkRequest/CancelWorkRequest"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -256,14 +256,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/create_java_download_report.py.html>`__ to see an example of how to use create_java_download_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/create_java_download_report.py.html>`__ to see an example of how to use create_java_download_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/20230601/javaDownloadReports"
         method = "POST"
         operation_name = "create_java_download_report"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadReport/CreateJavaDownloadReport"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -353,14 +353,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/create_java_download_token.py.html>`__ to see an example of how to use create_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/create_java_download_token.py.html>`__ to see an example of how to use create_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/20230601/javaDownloadTokens"
         method = "POST"
         operation_name = "create_java_download_token"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadToken/CreateJavaDownloadToken"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -451,14 +451,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/create_java_license_acceptance_record.py.html>`__ to see an example of how to use create_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/create_java_license_acceptance_record.py.html>`__ to see an example of how to use create_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/20230601/javaLicenseAcceptanceRecords"
         method = "POST"
         operation_name = "create_java_license_acceptance_record"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaLicenseAcceptanceRecord/CreateJavaLicenseAcceptanceRecord"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -549,14 +549,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/delete_java_download_report.py.html>`__ to see an example of how to use delete_java_download_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/delete_java_download_report.py.html>`__ to see an example of how to use delete_java_download_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadReportId']
         resource_path = "/20230601/javaDownloadReports/{javaDownloadReportId}"
         method = "DELETE"
         operation_name = "delete_java_download_report"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadReport/DeleteJavaDownloadReport"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -654,14 +654,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/delete_java_download_token.py.html>`__ to see an example of how to use delete_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/delete_java_download_token.py.html>`__ to see an example of how to use delete_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadTokenId']
         resource_path = "/20230601/javaDownloadTokens/{javaDownloadTokenId}"
         method = "DELETE"
         operation_name = "delete_java_download_token"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadToken/DeleteJavaDownloadToken"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -759,14 +759,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/delete_java_license_acceptance_record.py.html>`__ to see an example of how to use delete_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/delete_java_license_acceptance_record.py.html>`__ to see an example of how to use delete_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaLicenseAcceptanceRecordId']
         resource_path = "/20230601/javaLicenseAcceptanceRecords/{javaLicenseAcceptanceRecordId}"
         method = "DELETE"
         operation_name = "delete_java_license_acceptance_record"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaLicenseAcceptanceRecord/DeleteJavaLicenseAcceptanceRecord"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -862,14 +862,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/generate_artifact_download_url.py.html>`__ to see an example of how to use generate_artifact_download_url API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/generate_artifact_download_url.py.html>`__ to see an example of how to use generate_artifact_download_url API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/20230601/actions/generateArtifactDownloadUrl"
         method = "POST"
         operation_name = "generate_artifact_download_url"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/DownloadUrl/GenerateArtifactDownloadUrl"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -950,14 +950,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/get_java_download_report.py.html>`__ to see an example of how to use get_java_download_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/get_java_download_report.py.html>`__ to see an example of how to use get_java_download_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadReportId']
         resource_path = "/20230601/javaDownloadReports/{javaDownloadReportId}"
         method = "GET"
         operation_name = "get_java_download_report"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadReport/GetJavaDownloadReport"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1048,14 +1048,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/get_java_download_report_content.py.html>`__ to see an example of how to use get_java_download_report_content API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/get_java_download_report_content.py.html>`__ to see an example of how to use get_java_download_report_content API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadReportId']
         resource_path = "/20230601/javaDownloadReports/{javaDownloadReportId}/content"
         method = "GET"
         operation_name = "get_java_download_report_content"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadReport/GetJavaDownloadReportContent"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1146,14 +1146,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/get_java_download_token.py.html>`__ to see an example of how to use get_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/get_java_download_token.py.html>`__ to see an example of how to use get_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadTokenId']
         resource_path = "/20230601/javaDownloadTokens/{javaDownloadTokenId}"
         method = "GET"
         operation_name = "get_java_download_token"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadToken/GetJavaDownloadToken"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1225,7 +1225,7 @@ class JavaDownloadClient(object):
         :param str license_type: (required)
             Unique Java license type.
 
-            Allowed values are: "OTN", "NFTC", "RESTRICTED"
+            Allowed values are: "OTN", "NFTC", "BCL", "RESTRICTED"
 
         :param str opc_request_id: (optional)
             The client request ID for tracing.
@@ -1246,14 +1246,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/get_java_license.py.html>`__ to see an example of how to use get_java_license API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/get_java_license.py.html>`__ to see an example of how to use get_java_license API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['licenseType']
         resource_path = "/20230601/javaLicenses/{licenseType}"
         method = "GET"
         operation_name = "get_java_license"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaLicense/GetJavaLicense"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1344,14 +1344,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/get_java_license_acceptance_record.py.html>`__ to see an example of how to use get_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/get_java_license_acceptance_record.py.html>`__ to see an example of how to use get_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaLicenseAcceptanceRecordId']
         resource_path = "/20230601/javaLicenseAcceptanceRecords/{javaLicenseAcceptanceRecordId}"
         method = "GET"
         operation_name = "get_java_license_acceptance_record"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaLicenseAcceptanceRecord/GetJavaLicenseAcceptanceRecord"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1442,14 +1442,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
         resource_path = "/20230601/workRequests/{workRequestId}"
         method = "GET"
         operation_name = "get_work_request"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/WorkRequest/GetWorkRequest"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1585,14 +1585,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_java_download_records.py.html>`__ to see an example of how to use list_java_download_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_java_download_records.py.html>`__ to see an example of how to use list_java_download_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/20230601/javaDownloadRecords"
         method = "GET"
         operation_name = "list_java_download_records"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadRecord/ListJavaDownloadRecords"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1743,14 +1743,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_java_download_reports.py.html>`__ to see an example of how to use list_java_download_reports API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_java_download_reports.py.html>`__ to see an example of how to use list_java_download_reports API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/20230601/javaDownloadReports"
         method = "GET"
         operation_name = "list_java_download_reports"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadReport/ListJavaDownloadReports"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -1911,14 +1911,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_java_download_tokens.py.html>`__ to see an example of how to use list_java_download_tokens API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_java_download_tokens.py.html>`__ to see an example of how to use list_java_download_tokens API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/20230601/javaDownloadTokens"
         method = "GET"
         operation_name = "list_java_download_tokens"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadToken/ListJavaDownloadTokens"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2039,7 +2039,7 @@ class JavaDownloadClient(object):
         :param str license_type: (optional)
             Unique Java license type.
 
-            Allowed values are: "OTN", "NFTC", "RESTRICTED"
+            Allowed values are: "OTN", "NFTC", "BCL", "RESTRICTED"
 
         :param str status: (optional)
             The status of license acceptance.
@@ -2081,14 +2081,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_java_license_acceptance_records.py.html>`__ to see an example of how to use list_java_license_acceptance_records API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_java_license_acceptance_records.py.html>`__ to see an example of how to use list_java_license_acceptance_records API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/20230601/javaLicenseAcceptanceRecords"
         method = "GET"
         operation_name = "list_java_license_acceptance_records"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaLicenseAcceptanceRecord/ListJavaLicenseAcceptanceRecords"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2110,7 +2110,7 @@ class JavaDownloadClient(object):
                 f"list_java_license_acceptance_records got unknown kwargs: {extra_kwargs!r}")
 
         if 'license_type' in kwargs:
-            license_type_allowed_values = ["OTN", "NFTC", "RESTRICTED"]
+            license_type_allowed_values = ["OTN", "NFTC", "BCL", "RESTRICTED"]
             if kwargs['license_type'] not in license_type_allowed_values:
                 raise ValueError(
                     f"Invalid value for `license_type`, must be one of { license_type_allowed_values }"
@@ -2199,7 +2199,7 @@ class JavaDownloadClient(object):
         :param str license_type: (optional)
             Unique Java license type.
 
-            Allowed values are: "OTN", "NFTC", "RESTRICTED"
+            Allowed values are: "OTN", "NFTC", "BCL", "RESTRICTED"
 
         :param str display_name: (optional)
             A filter to return only resources that match the display name.
@@ -2239,14 +2239,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_java_licenses.py.html>`__ to see an example of how to use list_java_licenses API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_java_licenses.py.html>`__ to see an example of how to use list_java_licenses API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/20230601/javaLicenses"
         method = "GET"
         operation_name = "list_java_licenses"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaLicense/ListJavaLicenses"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2266,7 +2266,7 @@ class JavaDownloadClient(object):
                 f"list_java_licenses got unknown kwargs: {extra_kwargs!r}")
 
         if 'license_type' in kwargs:
-            license_type_allowed_values = ["OTN", "NFTC", "RESTRICTED"]
+            license_type_allowed_values = ["OTN", "NFTC", "BCL", "RESTRICTED"]
             if kwargs['license_type'] not in license_type_allowed_values:
                 raise ValueError(
                     f"Invalid value for `license_type`, must be one of { license_type_allowed_values }"
@@ -2380,14 +2380,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
         resource_path = "/20230601/workRequests/{workRequestId}/errors"
         method = "GET"
         operation_name = "list_work_request_errors"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/WorkRequestError/ListWorkRequestErrors"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2522,14 +2522,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
         resource_path = "/20230601/workRequests/{workRequestId}/logs"
         method = "GET"
         operation_name = "list_work_request_logs"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/WorkRequestLogEntry/ListWorkRequestLogs"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2677,14 +2677,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/20230601/workRequests"
         method = "GET"
         operation_name = "list_work_requests"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/WorkRequest/ListWorkRequests"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2805,14 +2805,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/request_summarized_java_download_counts.py.html>`__ to see an example of how to use request_summarized_java_download_counts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/request_summarized_java_download_counts.py.html>`__ to see an example of how to use request_summarized_java_download_counts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/20230601/actions/requestSummarizedJavaDownloadCounts"
         method = "POST"
         operation_name = "request_summarized_java_download_counts"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadCountAggregation/RequestSummarizedJavaDownloadCounts"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -2903,14 +2903,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/update_java_download_token.py.html>`__ to see an example of how to use update_java_download_token API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/update_java_download_token.py.html>`__ to see an example of how to use update_java_download_token API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaDownloadTokenId']
         resource_path = "/20230601/javaDownloadTokens/{javaDownloadTokenId}"
         method = "PUT"
         operation_name = "update_java_download_token"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaDownloadToken/UpdateJavaDownloadToken"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -3013,14 +3013,14 @@ class JavaDownloadClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.1/jmsjavadownloads/update_java_license_acceptance_record.py.html>`__ to see an example of how to use update_java_license_acceptance_record API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.160.2/jmsjavadownloads/update_java_license_acceptance_record.py.html>`__ to see an example of how to use update_java_license_acceptance_record API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['javaLicenseAcceptanceRecordId']
         resource_path = "/20230601/javaLicenseAcceptanceRecords/{javaLicenseAcceptanceRecordId}"
         method = "PUT"
         operation_name = "update_java_license_acceptance_record"
-        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/jms-java-download/20230601/JavaLicenseAcceptanceRecord/UpdateJavaLicenseAcceptanceRecord"
+        api_reference_link = ""
 
         # Don't accept unknown kwargs
         expected_kwargs = [

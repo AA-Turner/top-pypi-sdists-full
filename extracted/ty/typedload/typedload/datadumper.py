@@ -26,8 +26,9 @@ from inspect import signature
 from enum import Enum
 import pathlib
 import re
-from typing import *
 import uuid
+from typing import Any, Callable, get_type_hints, Type
+
 
 from .exceptions import TypedloadValueError
 from .typechecks import is_attrs, NONETYPE, is_literal
@@ -71,8 +72,8 @@ class Dumper:
     handlers: This is the list that the dumper uses to
         perform its task.
         The type is:
-        List[
-            Tuple[
+        list[
+            tuple[
                 Callable[[Any], bool],
                 Callable[['Dumper', Any, Any], Any]
             ]
@@ -99,7 +100,7 @@ class Dumper:
     There is support for:
         * Basic python types (int, str, bool, float, NoneType)
         * NamedTuple, dataclasses, attrs, TypedDict
-        * Dict[TypeA, TypeB]
+        * dict[TypeA, TypeB]
         * Enum
         * List
         * Tuple
@@ -145,16 +146,16 @@ class Dumper:
             (lambda value: '__dataclass_fields__' in dir(value), _dataclassdump),
             (lambda value: isinstance(value, (list, tuple, set, frozenset)), _iteratordump),
             (lambda value: isinstance(value, Enum), lambda l, value, t: l.dump(value.value)),
-            (lambda value: isinstance(value, Dict), lambda l, value, t: {l.dump(k): l.dump(v) for k, v in value.items()}),
+            (lambda value: isinstance(value, dict), lambda l, value, t: {l.dump(k): l.dump(v) for k, v in value.items()}),
             (is_attrs, _attrdump),
             (lambda value: isinstance(value, (datetime.date, datetime.time)), _datetimedump),
             (lambda value: isinstance(value, datetime.timedelta), _timedeltadump),
             (lambda value: isinstance(value, re.Pattern), _patterndump),
             (lambda value: type(value) in self.strconstructed, lambda l, value, t: str(value)),
-        ]  # type: List[Tuple[Callable[[Any], bool], Callable[['Dumper', Any, Any], Any]|Callable[['Dumper', Any], Any]]]
+        ]  # type: list[tuple[Callable[[Any], bool], Callable[['Dumper', Any, Any], Any]|Callable[['Dumper', Any], Any]]]
 
-        self._handlerscache = {}  # type: Dict[Type[Any], Callable[['Dumper', Any, Any], Any]]
-        self._dataclasscache = {}  # type: Dict[Type[Any], Tuple[Set[str], Dict[str, Any], Dict[str, Any], Dict[str, str], Set[str], bool]]
+        self._handlerscache = {}  # type: dict[Type[Any], Callable[['Dumper', Any, Any], Any]]
+        self._dataclasscache = {}  # type: dict[Type[Any], tuple[set[str], dict[str, Any], dict[str, Any], dict[str, str], set[str], bool]]
 
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -202,11 +203,11 @@ class Dumper:
                 func = lambda d, v, _: f(d, v)  # type: ignore
             else:
                 func = f  # type: ignore
-            self._handlerscache[t] = func  # type: ignore
-        return func(self, value, annotated_type)  # type: ignore
+            self._handlerscache[t] = func
+        return func(self, value, annotated_type)
 
 
-def _attrdump(d, value, t) -> Dict[str, Any]:
+def _attrdump(d, value, t) -> dict[str, Any]:
     r = {}
     for attr in value.__attrs_attrs__:
         attrval = getattr(value, attr.name)
@@ -222,7 +223,7 @@ def _attrdump(d, value, t) -> Dict[str, Any]:
     return r
 
 
-def _datetimedump(d: Dumper, value: Union[datetime.time, datetime.date, datetime.datetime], t):
+def _datetimedump(d: Dumper, value: datetime.time | datetime.date | datetime.datetime, t):
     if d.isodates:
         return value.isoformat()
     import warnings
@@ -251,7 +252,7 @@ def _patterndump(d: Dumper, value: re.Pattern, t):
     return value.pattern
 
 
-def _namedtupledump(d: Dumper, value, t) -> Dict[str, Any]:
+def _namedtupledump(d: Dumper, value, t) -> dict[str, Any]:
     field_defaults = getattr(value, '_field_defaults', {})
     # Named tuple, skip default values
     return {
@@ -260,7 +261,7 @@ def _namedtupledump(d: Dumper, value, t) -> Dict[str, Any]:
     }
 
 
-def _dataclassdump(d: Dumper, value, t) -> Dict[str, Any]:
+def _dataclassdump(d: Dumper, value, t) -> dict[str, Any]:
     t = type(value)
     try:
         fields, defaults, type_hints, renames, needs_dump, hasdict  = d._dataclasscache[t]
@@ -304,7 +305,7 @@ def _dataclassdump(d: Dumper, value, t) -> Dict[str, Any]:
 
     return r
 
-def _iteratordump(d: Dumper, value: Any, t: Any) -> List[Any]:
+def _iteratordump(d: Dumper, value: Any, t: Any) -> list[Any]:
     if t != Any:
         try:
             itertypes = t.__args__
@@ -313,7 +314,7 @@ def _iteratordump(d: Dumper, value: Any, t: Any) -> List[Any]:
     else:
         itertypes = (Any,)
     # list[T] or tuple[T, ...]
-    if (len(itertypes) == 1) or (len(itertypes) == 2 and itertypes[1] == ...):  # type: ignore
+    if (len(itertypes) == 1) or (len(itertypes) == 2 and itertypes[1] == ...):
         # This is true for lists/sets but not tuples
         itertype = itertypes[0]
     else:

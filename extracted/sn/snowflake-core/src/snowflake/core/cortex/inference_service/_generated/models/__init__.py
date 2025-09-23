@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 

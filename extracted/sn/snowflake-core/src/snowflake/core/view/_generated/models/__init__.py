@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake View API
+Snowflake View API.
 
 The Snowflake View API is a REST API that you can use to access, update, and perform certain actions on View resource in a Snowflake database.  # noqa: E501
 

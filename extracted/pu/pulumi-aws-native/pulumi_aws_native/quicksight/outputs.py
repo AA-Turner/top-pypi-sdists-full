@@ -687,6 +687,7 @@ __all__ = [
     'DashboardDataQaEnabledOption',
     'DashboardDataSetIdentifierDeclaration',
     'DashboardDataSetReference',
+    'DashboardDataStoriesSharingOption',
     'DashboardDateAxisOptions',
     'DashboardDateDimensionField',
     'DashboardDateMeasureField',
@@ -728,6 +729,7 @@ __all__ = [
     'DashboardEntity',
     'DashboardError',
     'DashboardExcludePeriodConfiguration',
+    'DashboardExecutiveSummaryOption',
     'DashboardExplicitHierarchy',
     'DashboardExportHiddenFieldsOption',
     'DashboardExportToCsvOption',
@@ -38538,6 +38540,8 @@ class DashboardAssetOptions(dict):
                  timezone: Optional[builtins.str] = None,
                  week_start: Optional['DashboardDayOfTheWeek'] = None):
         """
+        :param Sequence[builtins.str] excluded_data_set_arns: A list of dataset ARNS to exclude from Dashboard Q&A.
+        :param 'DashboardQBusinessInsightsStatus' q_business_insights_status: Determines whether insight summaries from Amazon Q Business are allowed in Dashboard Q&A.
         :param builtins.str timezone: Determines the timezone for the analysis.
         :param 'DashboardDayOfTheWeek' week_start: Determines the week start day for an analysis.
         """
@@ -38553,11 +38557,17 @@ class DashboardAssetOptions(dict):
     @property
     @pulumi.getter(name="excludedDataSetArns")
     def excluded_data_set_arns(self) -> Optional[Sequence[builtins.str]]:
+        """
+        A list of dataset ARNS to exclude from Dashboard Q&A.
+        """
         return pulumi.get(self, "excluded_data_set_arns")
 
     @property
     @pulumi.getter(name="qBusinessInsightsStatus")
     def q_business_insights_status(self) -> Optional['DashboardQBusinessInsightsStatus']:
+        """
+        Determines whether insight summaries from Amazon Q Business are allowed in Dashboard Q&A.
+        """
         return pulumi.get(self, "q_business_insights_status")
 
     @property
@@ -44798,12 +44808,18 @@ class DashboardDataQaEnabledOption(dict):
 
     def __init__(__self__, *,
                  availability_status: Optional['DashboardBehavior'] = None):
+        """
+        :param 'DashboardBehavior' availability_status: The status of the Data Q&A option on the dashboard.
+        """
         if availability_status is not None:
             pulumi.set(__self__, "availability_status", availability_status)
 
     @property
     @pulumi.getter(name="availabilityStatus")
     def availability_status(self) -> Optional['DashboardBehavior']:
+        """
+        The status of the Data Q&A option on the dashboard.
+        """
         return pulumi.get(self, "availability_status")
 
 
@@ -44903,6 +44919,36 @@ class DashboardDataSetReference(dict):
         <p>Dataset placeholder.</p>
         """
         return pulumi.get(self, "data_set_placeholder")
+
+
+@pulumi.output_type
+class DashboardDataStoriesSharingOption(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "availabilityStatus":
+            suggest = "availability_status"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DashboardDataStoriesSharingOption. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DashboardDataStoriesSharingOption.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DashboardDataStoriesSharingOption.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 availability_status: Optional['DashboardBehavior'] = None):
+        if availability_status is not None:
+            pulumi.set(__self__, "availability_status", availability_status)
+
+    @property
+    @pulumi.getter(name="availabilityStatus")
+    def availability_status(self) -> Optional['DashboardBehavior']:
+        return pulumi.get(self, "availability_status")
 
 
 @pulumi.output_type
@@ -47319,6 +47365,36 @@ class DashboardExcludePeriodConfiguration(dict):
         - `DISABLED`
         """
         return pulumi.get(self, "status")
+
+
+@pulumi.output_type
+class DashboardExecutiveSummaryOption(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "availabilityStatus":
+            suggest = "availability_status"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DashboardExecutiveSummaryOption. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DashboardExecutiveSummaryOption.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DashboardExecutiveSummaryOption.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 availability_status: Optional['DashboardBehavior'] = None):
+        if availability_status is not None:
+            pulumi.set(__self__, "availability_status", availability_status)
+
+    @property
+    @pulumi.getter(name="availabilityStatus")
+    def availability_status(self) -> Optional['DashboardBehavior']:
+        return pulumi.get(self, "availability_status")
 
 
 @pulumi.output_type
@@ -63573,6 +63649,10 @@ class DashboardPublishOptions(dict):
             suggest = "data_point_tooltip_option"
         elif key == "dataQaEnabledOption":
             suggest = "data_qa_enabled_option"
+        elif key == "dataStoriesSharingOption":
+            suggest = "data_stories_sharing_option"
+        elif key == "executiveSummaryOption":
+            suggest = "executive_summary_option"
         elif key == "exportToCsvOption":
             suggest = "export_to_csv_option"
         elif key == "exportWithHiddenFieldsOption":
@@ -63605,6 +63685,8 @@ class DashboardPublishOptions(dict):
                  data_point_menu_label_option: Optional['outputs.DashboardDataPointMenuLabelOption'] = None,
                  data_point_tooltip_option: Optional['outputs.DashboardDataPointTooltipOption'] = None,
                  data_qa_enabled_option: Optional['outputs.DashboardDataQaEnabledOption'] = None,
+                 data_stories_sharing_option: Optional['outputs.DashboardDataStoriesSharingOption'] = None,
+                 executive_summary_option: Optional['outputs.DashboardExecutiveSummaryOption'] = None,
                  export_to_csv_option: Optional['outputs.DashboardExportToCsvOption'] = None,
                  export_with_hidden_fields_option: Optional['outputs.DashboardExportWithHiddenFieldsOption'] = None,
                  sheet_controls_option: Optional['outputs.DashboardSheetControlsOption'] = None,
@@ -63618,6 +63700,7 @@ class DashboardPublishOptions(dict):
         :param 'DashboardDataPointDrillUpDownOption' data_point_drill_up_down_option: The drill-down options of data points in a dashboard.
         :param 'DashboardDataPointMenuLabelOption' data_point_menu_label_option: The data point menu label options of a dashboard.
         :param 'DashboardDataPointTooltipOption' data_point_tooltip_option: The data point tool tip options of a dashboard.
+        :param 'DashboardDataQaEnabledOption' data_qa_enabled_option: Adds Q&A capabilities to an Amazon QuickSight dashboard. If no topic is linked, Dashboard Q&A uses the data values that are rendered on the dashboard. End users can use Dashboard Q&A to ask for different slices of the data that they see on the dashboard. If a topic is linked, Topic Q&A is used.
         :param 'DashboardExportToCsvOption' export_to_csv_option: Export to .csv option.
         :param 'DashboardExportWithHiddenFieldsOption' export_with_hidden_fields_option: Determines if hidden fields are exported with a dashboard.
         :param 'DashboardSheetControlsOption' sheet_controls_option: Sheet controls option.
@@ -63636,6 +63719,10 @@ class DashboardPublishOptions(dict):
             pulumi.set(__self__, "data_point_tooltip_option", data_point_tooltip_option)
         if data_qa_enabled_option is not None:
             pulumi.set(__self__, "data_qa_enabled_option", data_qa_enabled_option)
+        if data_stories_sharing_option is not None:
+            pulumi.set(__self__, "data_stories_sharing_option", data_stories_sharing_option)
+        if executive_summary_option is not None:
+            pulumi.set(__self__, "executive_summary_option", executive_summary_option)
         if export_to_csv_option is not None:
             pulumi.set(__self__, "export_to_csv_option", export_to_csv_option)
         if export_with_hidden_fields_option is not None:
@@ -63686,7 +63773,20 @@ class DashboardPublishOptions(dict):
     @property
     @pulumi.getter(name="dataQaEnabledOption")
     def data_qa_enabled_option(self) -> Optional['outputs.DashboardDataQaEnabledOption']:
+        """
+        Adds Q&A capabilities to an Amazon QuickSight dashboard. If no topic is linked, Dashboard Q&A uses the data values that are rendered on the dashboard. End users can use Dashboard Q&A to ask for different slices of the data that they see on the dashboard. If a topic is linked, Topic Q&A is used.
+        """
         return pulumi.get(self, "data_qa_enabled_option")
+
+    @property
+    @pulumi.getter(name="dataStoriesSharingOption")
+    def data_stories_sharing_option(self) -> Optional['outputs.DashboardDataStoriesSharingOption']:
+        return pulumi.get(self, "data_stories_sharing_option")
+
+    @property
+    @pulumi.getter(name="executiveSummaryOption")
+    def executive_summary_option(self) -> Optional['outputs.DashboardExecutiveSummaryOption']:
+        return pulumi.get(self, "executive_summary_option")
 
     @property
     @pulumi.getter(name="exportToCsvOption")

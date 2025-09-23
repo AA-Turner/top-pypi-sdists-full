@@ -1,6 +1,5 @@
-
 """
-Snowflake User Defined Function API
+Snowflake User Defined Function API.
 
 The Snowflake User Defined Function API is a REST API that you can use to access, update, and perform certain actions on User Defined Function resource in a Snowflake database.  # noqa: E501
 
@@ -44,9 +43,7 @@ class UserDefinedFunction(BaseModel):
         List of arguments for the function/procedure
     return_type : ReturnType
 
-
     language_config : FunctionLanguage
-
 
     is_temporary : bool, optional
         Specifies whether the UDF is temporary or not
@@ -197,14 +194,14 @@ class UserDefinedFunction(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> UserDefinedFunction:
-        """Create an instance of UserDefinedFunction from a JSON string"""
+        """Create an instance of UserDefinedFunction from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

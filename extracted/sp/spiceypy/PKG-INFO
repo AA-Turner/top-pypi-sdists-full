@@ -1,13 +1,26 @@
 Metadata-Version: 2.4
 Name: spiceypy
-Version: 6.0.3
+Version: 7.0.0
 Summary: A Python Wrapper for the NAIF CSPICE Toolkit
-Home-page: https://github.com/AndrewAnnex/SpiceyPy
-Author: Andrew Annex
-Author-email: ama6fy@virginia.edu
-Maintainer: Andrew Annex
-Maintainer-email: ama6fy@virginia.edu
-License: MIT
+Keywords: spiceypy,spice,cspice,naif,jpl,space,geometry,ephemeris
+Author-Email: "Andrew M. annex" <ama6fy@virginia.edu>
+Maintainer-Email: "Andrew M. annex" <ama6fy@virginia.edu>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Natural Language :: English
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Astronomy
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Cython
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: POSIX :: BSD :: FreeBSD
+Classifier: Operating System :: Microsoft :: Windows
 Project-URL: Homepage, https://github.com/AndrewAnnex/SpiceyPy
 Project-URL: Repository, https://github.com/AndrewAnnex/SpiceyPy
 Project-URL: Source, https://github.com/AndrewAnnex/SpiceyPy
@@ -15,44 +28,14 @@ Project-URL: Conda-Forge, https://anaconda.org/conda-forge/spiceypy
 Project-URL: Documentation, https://spiceypy.readthedocs.io
 Project-URL: Bug Tracker, https://github.com/AndrewAnnex/SpiceyPy/issues
 Project-URL: Changelog, https://github.com/AndrewAnnex/SpiceyPy/blob/main/CHANGELOG.md
-Keywords: spiceypy,spice,cspice,naif,jpl,space,geometry,ephemeris
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Natural Language :: English
-Classifier: Topic :: Scientific/Engineering
-Classifier: Topic :: Scientific/Engineering :: Astronomy
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Operating System :: POSIX :: Linux
-Classifier: Operating System :: POSIX :: BSD :: FreeBSD
-Classifier: Operating System :: Microsoft :: Windows
-Requires-Python: <4,>=3.10
-Description-Content-Type: text/x-rst
-License-File: LICENSE
+Requires-Python: >=3.10
 Requires-Dist: numpy>=1.23.5
-Provides-Extra: tests
-Requires-Dist: numpy>=1.23.5; extra == "tests"
-Requires-Dist: pytest>=7.0.0; extra == "tests"
-Requires-Dist: pandas>=2.2.2; extra == "tests"
-Provides-Extra: dev
-Requires-Dist: numpy>=1.23.5; extra == "dev"
-Requires-Dist: pytest>=7.0.0; extra == "dev"
-Requires-Dist: pandas>=2.2.2; extra == "dev"
-Requires-Dist: coverage>=7.0.0; extra == "dev"
-Requires-Dist: twine>=3.3.0; extra == "dev"
-Requires-Dist: wheel; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Dynamic: license-file
+Description-Content-Type: text/x-rst
 
 SpiceyPy
 ========
 
-SpiceyPy is a Python wrapper for the NAIF C SPICE Toolkit (N66), written using ctypes.
+SpiceyPy is a Python wrapper for the NAIF C SPICE Toolkit, written using ctypes and Cython.
 
 +------------------------+-------------------+--------+------------+--------------+
 | Continuous Integration | Code Coverage     | Docs   |  Citation  |  Code Style  |
@@ -126,7 +109,9 @@ Anaconda users should use the conda-forge distribution of SpiceyPy by running:
 
 ``conda install spiceypy``
 
-If you wish to install spiceypy from source first download or clone the project. Then run ``python setup.py install``.
+or the same commands prefixed by `mamba` or `micromamba` or other conda-like system.
+
+If you wish to install spiceypy from source first download or clone the project. Then run ``python -m build`` and install the resulting wheel file in `dist`.
 To uninstall run ``pip uninstall spiceypy``.
 
 Documentation
@@ -146,7 +131,7 @@ How to Help
 
 Feedback is always welcomed, if you discover that a function is not working as expected,
 submit an issue detailing how to reproduce the problem. If you utilize SpiceyPy frequently 
-please consider contributing to the project by citing me using the zenodo DOI above.
+please consider contributing to the project by citing me using the Zenodo DOI above.
 
 Known Working Environments:
 ---------------------------
@@ -159,14 +144,16 @@ Please note that support for Python minor versions are generally phased out
 as newer versions are released. 
 
 - OS: OS X, Linux, Windows, FreeBSD
-- CPU: 64bit only!
-- Python 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12
+- CPU: x64, arm
+- Python 3.10, 3.11, 3.12, 3.13
 - ARM support for Linux-aarch64 & osx-arm64
 
 * Support for Python 2.7 ended with version 2.3.2 January 2020 *
 
 Acknowledgements
 ----------------
+
+Supported in part through NASA PDART23 80NSSC25K7040 FY24-FY27. 
 
 `DaRasch <https://github.com/DaRasch>`__ wrote spiceminer, which I
 looked at to get SpiceCells working, thanks!

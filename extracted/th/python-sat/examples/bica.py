@@ -259,7 +259,6 @@ class Bica:
         :type otrim: int
         :type weighted: bool
         :type verbose: int
-
     """
 
     def __init__(self, formula, negated=None, target='cnf', psolver='cd19',
@@ -662,8 +661,8 @@ if __name__ == '__main__':
 
     if files:
         # read CNF from file
-        if re.search(r'cnf(\.(gz|bz2|lzma|xz))?$', files[0]):
-            formula = CNF(from_file=files[0])
+        assert re.search(r'cnf(\.(gz|bz2|lzma|xz|zst))?$', files[0]), 'Unknown input file extension'
+        formula = CNF(from_file=files[0])
 
         # creating an object of Primer
         with Bica(formula, negated=None, target=mode, psolver=psolver,

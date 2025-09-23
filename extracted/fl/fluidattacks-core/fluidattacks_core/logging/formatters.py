@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-import simplejson as json  # type: ignore[import-untyped]
+import simplejson as json
 from pythonjsonlogger.json import JsonFormatter
 
 from fluidattacks_core.logging.utils import (
@@ -56,6 +56,12 @@ class CustomJsonFormatter(JsonFormatter):
                 return object_.astimezone(tz=UTC).isoformat()
             if isinstance(object_, float):
                 return Decimal(str(object_))
+
+            if hasattr(object_, "__dict__"):
+                try:
+                    return {k: v for k, v in object_.__dict__.items() if not k.startswith("_")}
+                except (TypeError, ValueError, RecursionError):
+                    return f"<{type(object_).__name__} object>"
 
             return object_
 

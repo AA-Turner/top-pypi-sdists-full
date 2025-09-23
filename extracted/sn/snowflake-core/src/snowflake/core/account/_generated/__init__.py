@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Account API
+Snowflake Account API.
 
 The Snowflake Account API is a REST API that you can use to access, update, and perform certain actions on Account resource in Snowflake.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.account._generated.api.account_api import AccountApi
-
-# import ApiClient
-from snowflake.core.account._generated.api_client import ApiClient
-from snowflake.core.account._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.account._generated.models.account import Account

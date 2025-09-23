@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Account API
+Snowflake Account API.
 
 The Snowflake Account API is a REST API that you can use to access, update, and perform certain actions on Account resource in Snowflake.  # noqa: E501
 

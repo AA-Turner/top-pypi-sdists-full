@@ -1,21 +1,22 @@
 use std::collections::HashMap;
 
 use log::debug;
+use serde::Serialize;
 
 use super::normalizer::integral_normalizer;
 use super::point_group::{iter_trans_mat_basis, iter_unimodular_trans_mat};
 use super::rotation_type::identify_rotation_type;
-use super::space_group::{match_origin_shift, SpaceGroup};
+use super::space_group::{SpaceGroup, match_origin_shift};
 use crate::base::{
-    project_rotations, MagneticOperations, MoyoError, Operation, Operations, Rotation, Translation,
-    UnimodularTransformation,
+    Lattice, MagneticOperations, MoyoError, Operation, Operations, Rotation, Translation,
+    UnimodularTransformation, project_rotations,
 };
 use crate::data::{
-    get_magnetic_space_group_type, hall_symbol_entry, magnetic_hall_symbol_entry, uni_number_range,
     ConstructType, HallSymbol, MagneticHallSymbol, MagneticHallSymbolEntry, Setting, UNINumber,
+    get_magnetic_space_group_type, hall_symbol_entry, magnetic_hall_symbol_entry, uni_number_range,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MagneticSpaceGroup {
     pub uni_number: UNINumber,
     /// Transformation to the representative for `uni_number` in primitive
@@ -56,7 +57,7 @@ impl MagneticSpaceGroup {
             }
 
             let entry = magnetic_hall_symbol_entry(uni_number).unwrap();
-            let mhs = MagneticHallSymbol::new(&entry.magnetic_hall_symbol)
+            let mhs = MagneticHallSymbol::new(entry.magnetic_hall_symbol)
                 .ok_or(MoyoError::MagneticSpaceGroupTypeIdentificationError)?;
             let db_prim_mag_operations = mhs.primitive_traverse();
             let (db_ref_prim_operations, db_ref_prim_generators) =
@@ -95,13 +96,7 @@ impl MagneticSpaceGroup {
                     let identity = Rotation::identity();
                     let original_anti_translation = prim_mag_operations
                         .iter()
-                        .filter_map(|mops| {
-                            if (mops.operation.rotation == identity) && mops.time_reversal {
-                                Some(mops)
-                            } else {
-                                None
-                            }
-                        })
+                        .filter(|mops| (mops.operation.rotation == identity) && mops.time_reversal)
                         .nth(0)
                         .unwrap();
                     let src_translation = std_ref_spg
@@ -112,13 +107,7 @@ impl MagneticSpaceGroup {
                     // TODO: refactor filtering anti-translation
                     let dst_translation = db_prim_mag_operations
                         .iter()
-                        .filter_map(|mops| {
-                            if (mops.operation.rotation == identity) && mops.time_reversal {
-                                Some(mops)
-                            } else {
-                                None
-                            }
-                        })
+                        .filter(|mops| (mops.operation.rotation == identity) && mops.time_reversal)
                         .nth(0)
                         .unwrap()
                         .operation
@@ -132,7 +121,7 @@ impl MagneticSpaceGroup {
                     ) {
                         let new_transformation = std_ref_spg.transformation.clone() * corr_trans;
                         let new_prim_mag_operations =
-                            new_transformation.transform_magnetic_operations(&prim_mag_operations);
+                            new_transformation.transform_magnetic_operations(prim_mag_operations);
                         if Self::match_prim_mag_operations(
                             &new_prim_mag_operations,
                             &db_prim_mag_operations,
@@ -149,6 +138,23 @@ impl MagneticSpaceGroup {
             }
         }
         Err(MoyoError::MagneticSpaceGroupTypeIdentificationError)
+    }
+
+    pub fn from_lattice(
+        lattice: &Lattice,
+        prim_mag_operations: &MagneticOperations,
+        epsilon: f64,
+    ) -> Result<Self, MoyoError> {
+        let (_, reduced_trans_mat) = lattice.minkowski_reduce()?;
+        let to_reduced = UnimodularTransformation::from_linear(reduced_trans_mat);
+        let reduced_prim_mag_operations =
+            to_reduced.transform_magnetic_operations(prim_mag_operations);
+
+        let reduced_magnetic_space_group = Self::new(&reduced_prim_mag_operations, epsilon)?;
+        Ok(Self {
+            uni_number: reduced_magnetic_space_group.uni_number,
+            transformation: reduced_magnetic_space_group.transformation * to_reduced,
+        })
     }
 
     pub fn reference_space_group(&self) -> SpaceGroup {
@@ -174,14 +180,14 @@ impl MagneticSpaceGroup {
         let mut hm_translation = HashMap::new();
         for mops1 in prim_mag_operations1 {
             hm_translation.insert(
-                (mops1.operation.rotation.clone(), mops1.time_reversal),
+                (mops1.operation.rotation, mops1.time_reversal),
                 mops1.operation.translation,
             );
         }
 
         for mops2 in prim_mag_operations2 {
             if let Some(translation1) =
-                hm_translation.get(&(mops2.operation.rotation.clone(), mops2.time_reversal))
+                hm_translation.get(&(mops2.operation.rotation, mops2.time_reversal))
             {
                 let diff = mops2.operation.translation - translation1;
                 if !diff.iter().all(|e| (e - e.round()).abs() < epsilon) {
@@ -285,7 +291,7 @@ pub fn family_space_group_from_magnetic_space_group(
         }
 
         fsg.push(mops.operation.clone());
-        hm_translation.insert(mops.operation.rotation.clone(), mops.operation.translation);
+        hm_translation.insert(mops.operation.rotation, mops.operation.translation);
         contained[i] = true;
     }
     (fsg, is_type2, contained)
@@ -295,7 +301,7 @@ pub fn family_space_group_from_magnetic_space_group(
 /// This function assumes the magnetic Hall symbol is extended from the Hall symbol in the standard setting.
 fn db_reference_space_group_primitive(entry: &MagneticHallSymbolEntry) -> (Operations, Operations) {
     let ref_hall_entry = hall_symbol_entry(entry.reference_hall_number()).unwrap();
-    let ref_hall_symbol = HallSymbol::new(&ref_hall_entry.hall_symbol).unwrap();
+    let ref_hall_symbol = HallSymbol::new(ref_hall_entry.hall_symbol).unwrap();
     let ref_prim_operations = ref_hall_symbol.primitive_traverse();
     let identity = Rotation::identity();
 
@@ -358,7 +364,7 @@ mod tests {
 
     use super::*;
     use crate::data::{
-        magnetic_hall_symbol_entry, MagneticHallSymbol, NUM_MAGNETIC_SPACE_GROUP_TYPES,
+        MagneticHallSymbol, NUM_MAGNETIC_SPACE_GROUP_TYPES, magnetic_hall_symbol_entry,
     };
 
     fn get_prim_mag_operations(uni_number: UNINumber) -> MagneticOperations {

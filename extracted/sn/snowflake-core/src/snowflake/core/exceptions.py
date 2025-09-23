@@ -2,6 +2,8 @@ import json
 import logging
 import typing
 
+from textwrap import dedent
+
 
 if typing.TYPE_CHECKING:
     from urllib3.response import HTTPHeaderDict  # type: ignore[attr-defined]
@@ -117,26 +119,39 @@ class APIError(_OpenAPIError):
                 logger.debug("The response body is: %r", self.body)
         super().__init__(str(self))
 
-    def __str__(self) -> str:
-        """Provide a custom error message for the exception."""
-        error_message = f"({self.status})\nReason: {self.reason}\n"
-        body = ""
+    def get_request_info(self) -> dict[str, typing.Any]:
+        message = None
+        request_id = None
+        error_code = None
         if self.body:
             if isinstance(self.body, bytes):
                 body = self.body.decode()
             else:
                 body = self.body
-        if body:
-            json_body = json.loads(body)
-            message = json_body.get("message", "").strip()
-            request_id = json_body.get("request_id", "")
-            error_code = json_body.get("error_code", "")
-            if not error_code:
-                error_code = json_body.get("code", "")
-            error_message += f"Error Message: {message}\n"
-            error_message += f"HTTP response code: {self.status}\n"
-            error_message += f"Request ID: {request_id}\n"
-            error_message += f"Error Code: {error_code}\n"
+            if body:
+                json_body = json.loads(body)
+                message = json_body.get("message", "").strip()
+                request_id = json_body.get("request_id", "")
+                error_code = json_body.get("error_code", "")
+                if not error_code:
+                    error_code = json_body.get("code", "")
+
+        return {
+            "message": message,
+            "request_id": request_id,
+            "error_code": error_code,
+        }
+
+    def __str__(self) -> str:
+        """Provide a custom error message for the exception."""
+        error_message = f"({self.status})\nReason: {self.reason}\n"
+        request_info = self.get_request_info()
+        if request_info["message"]:
+            error_message += dedent(f"""\
+            Error Message: {request_info["message"]}
+            HTTP response code: {self.status}
+            Request ID: {request_info["request_id"]}
+            Error Code: {request_info["error_code"]}""")
 
         return error_message
 

@@ -1,5 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Any, Dict
-from copy import deepcopy
+from typing import TYPE_CHECKING, Optional, Any
 
 from .value_normalization import normalize
 
@@ -15,51 +14,19 @@ class Parameter:
 
         self.expr = default_expr
 
-        # Stores the evaluated result of self.expr so that subsequent queries do
-        # not need to repeatedly re-evaluate it
-        self._value: Any = None
 
-
-    def __deepcopy__(self, memo: Dict[int, Any]) -> 'Parameter':
-        """
-        Never implicitly deepcopy a Parameter object. Parameters are pointed to
-        by reference so that value overrides propagate through the expression
-        tree correctly.
-        """
-        return self
-
-
-    def _copy_for_inst(self, memo: Dict[int, Any]) -> 'Parameter':
-        """
-        Explicitly deepcopy this object. This is only used when instantiating
-        the enclosing component
-        """
-        if id(self) in memo:
-            return memo[id(self)]
-
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            setattr(result, k, deepcopy(v, memo))
-
-        # Reset cached value when copying
-        result._value = None
-
-        return result
-
-
-    def get_value(self) -> Any:
+    def get_value(self, assignee_node: 'Node') -> Any:
         """
         Evaluate self.expr to get the parameter's value
         """
-        if (self._value is None) and (self.expr is not None):
-            self._value = self.expr.get_value()
+        if self.expr is None:
+            # No expression was assigned
+            return None
 
-        return self._value
+        return self.expr.get_value(assignee_node=assignee_node)
 
 
-    def get_normalized_parameter(self) -> str:
+    def get_normalized_parameter(self, assignee_node: 'Node') -> str:
         """
         Converts the parameter to the normalized type name segment as defined in
         SystemRDL 2.0 Section 5.1.1.4-c
@@ -67,4 +34,4 @@ class Parameter:
         Returns the whole parameter string:
             <parameter name> + "_" + <normalized value>
         """
-        return self.name + "_" + normalize(self.get_value())
+        return self.name + "_" + normalize(self.get_value(assignee_node))

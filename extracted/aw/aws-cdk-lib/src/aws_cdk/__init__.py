@@ -13718,19 +13718,19 @@ class Duration(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Duration"):
 
     Example::
 
-        # my_role: iam.Role
+        import aws_cdk.aws_lambda as lambda_
         
-        cr.AwsCustomResource(self, "Customized",
-            role=my_role,  # must be assumable by the `lambda.amazonaws.com` service principal
-            timeout=Duration.minutes(10),  # defaults to 2 minutes
-            memory_size=1025,  # defaults to 512 if installLatestAwsSdk is true
-            log_group=logs.LogGroup(self, "AwsCustomResourceLogs",
-                retention=logs.RetentionDays.ONE_DAY
-            ),
-            function_name="my-custom-name",  # defaults to a CloudFormation generated name
-            removal_policy=RemovalPolicy.RETAIN,  # defaults to `RemovalPolicy.DESTROY`
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE
+        # fn: lambda.Function
+        
+        fn_url = fn.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
+        
+        cloudfront.Distribution(self, "Distribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.FunctionUrlOrigin(fn_url,
+                    read_timeout=Duration.seconds(30),
+                    response_completion_timeout=Duration.seconds(90),
+                    keepalive_timeout=Duration.seconds(45)
+                )
             )
         )
     '''
@@ -23286,24 +23286,24 @@ class Size(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Size"):
 
     Example::
 
-        # bucket: s3.Bucket
-        # Provide a Lambda function that will transform records before delivery, with custom
-        # buffering and retry configuration
-        lambda_function = lambda_.Function(self, "Processor",
-            runtime=lambda_.Runtime.NODEJS_LATEST,
-            handler="index.handler",
-            code=lambda_.Code.from_asset(path.join(__dirname, "process-records"))
-        )
-        lambda_processor = firehose.LambdaFunctionProcessor(lambda_function,
-            buffer_interval=Duration.minutes(5),
-            buffer_size=Size.mebibytes(5),
-            retries=5
-        )
-        s3_destination = firehose.S3Bucket(bucket,
-            processor=lambda_processor
-        )
-        firehose.DeliveryStream(self, "Delivery Stream",
-            destination=s3_destination
+        # my_file_system: efs.IFileSystem
+        # my_job_role: iam.Role
+        
+        my_file_system.grant_read(my_job_role)
+        
+        job_defn = batch.EcsJobDefinition(self, "JobDefn",
+            container=batch.EcsEc2ContainerDefinition(self, "containerDefn",
+                image=ecs.ContainerImage.from_registry("public.ecr.aws/amazonlinux/amazonlinux:latest"),
+                memory=cdk.Size.mebibytes(2048),
+                cpu=256,
+                volumes=[batch.EcsVolume.efs(
+                    name="myVolume",
+                    file_system=my_file_system,
+                    container_path="/Volumes/myVolume",
+                    use_job_role=True
+                )],
+                job_role=my_job_role
+            )
         )
     '''
 

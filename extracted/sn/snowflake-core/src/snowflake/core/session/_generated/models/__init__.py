@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Session API
+Snowflake Session API.
 
 The Snowflake Session API is a REST API that you can use to query your current session properties.  # noqa: E501
 

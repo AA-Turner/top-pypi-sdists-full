@@ -366,10 +366,11 @@ class SplitMixin(object):
       ddsim = DDSim()
       ddsim.setVersion('ILCSoft-2018-08-10_gcc62')
       ddsim.setDetectorModel('CLIC_o3_v14')
+      ddsim.setNumberOfEvents(100)
 
       # the named placeholder '%(particle)s' has the same name as the first argument of setSplitParameter
-      ddsim.setExtraCLIArguments('--gun.particle=%(particle)s')
-      ddsim.setOutputFile('%(outputFile)s.slcio')
+      ddsim.setExtraCLIArguments('--enableGun --gun.particle=%(particle)s')
+      ddsim.setOutputFile('%(outputFile)s')
 
     :param str parameterName: name of the parameter and the placeholder
     :param list listOfValues: the list of values to be used, one per job

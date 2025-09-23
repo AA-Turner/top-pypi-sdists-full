@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Warehouse API
+Snowflake Warehouse API.
 
 The Snowflake Warehouse API is a REST API that you can use to access, customize and manage virtual warehouse in a Snowflake account.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.warehouse._generated.api.warehouse_api import WarehouseApi
-
-# import ApiClient
-from snowflake.core.warehouse._generated.api_client import ApiClient
-from snowflake.core.warehouse._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.warehouse._generated.models.error_response import ErrorResponse

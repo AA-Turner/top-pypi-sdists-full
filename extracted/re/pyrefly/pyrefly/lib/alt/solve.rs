@@ -12,6 +12,7 @@ use dupe::Dupe;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::facet::FacetKind;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::typed_dict::TypedDict;
 use pyrefly_util::prelude::SliceExt;
@@ -209,7 +210,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         binding: &BindingLegacyTypeParam,
     ) -> Arc<LegacyTypeParameterLookup> {
-        match self.get_idx(binding.0).ty() {
+        let maybe_parameter = match binding {
+            BindingLegacyTypeParam::ParamKeyed(k) => self.get_idx(*k),
+            BindingLegacyTypeParam::ModuleKeyed(k, attr) => {
+                let module = self.get_idx(*k);
+                // Errors in attribute lookup are reported elsewhere, so we provide dummy values
+                // for arguments related to error reporting.
+                self.attr_infer(
+                    &module,
+                    attr,
+                    TextRange::default(),
+                    &self.error_swallower(),
+                    None,
+                )
+                .into()
+            }
+        };
+        match maybe_parameter.ty() {
             Type::TypeVar(x) => {
                 let q = Quantified::type_var(
                     x.qname().id().clone(),
@@ -1948,6 +1965,42 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     TypeInfo::of_ty(Type::never())
                 }
             }
+            Binding::CheckLegacyTypeParam(key, range_if_scoped_params_exist) => {
+                let ty = match &*self.get_idx(*key) {
+                    LegacyTypeParameterLookup::Parameter(p) => {
+                        // This class or function has scoped (PEP 695) type parameters. Mixing legacy-style parameters is an error.
+                        if let Some(r) = range_if_scoped_params_exist {
+                            self.error(
+                                errors,
+                                *r,
+                                ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
+                                format!(
+                                    "Type parameter {} is not included in the type parameter list",
+                                    self.module().display(&self.bindings().idx_to_key(*key).0)
+                                ),
+                            );
+                        }
+                        p.quantified.clone().to_value()
+                    }
+                    LegacyTypeParameterLookup::NotParameter(ty) => ty.clone(),
+                };
+                match self.bindings().get(*key) {
+                    BindingLegacyTypeParam::ModuleKeyed(idx, attr) => {
+                        // `idx` points to a module whose `attr` attribute may be a legacy type
+                        // variable that needs to be replaced with a QuantifiedValue. Since the
+                        // ModuleKeyed binding is for the module itself, we use the mechanism for
+                        // attribute ("facet") type narrowing to change the type that will be
+                        // produced when `attr` is accessed.
+                        let module = (*self.get_idx(*idx)).clone();
+                        if matches!(ty, Type::QuantifiedValue(_)) {
+                            module.with_narrow(&vec1![FacetKind::Attribute((**attr).clone())], ty)
+                        } else {
+                            module
+                        }
+                    }
+                    BindingLegacyTypeParam::ParamKeyed(_) => TypeInfo::of_ty(ty),
+                }
+            }
             _ => {
                 // All other Bindings model `Type` level operations where we do not
                 // propagate any attribute narrows.
@@ -2216,7 +2269,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Binding::Phi(..)
             | Binding::Narrow(..)
             | Binding::AssignToAttribute(..)
-            | Binding::AssignToSubscript(..) => {
+            | Binding::AssignToSubscript(..)
+            | Binding::CheckLegacyTypeParam(..) => {
                 // These forms require propagating attribute narrowing information, so they
                 // are handled in `binding_to_type_info`
                 self.binding_to_type_info(binding, errors).into_ty()
@@ -2996,26 +3050,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Type::Module(ModuleType::new_as(*m))
                         }
                     }
-                }
-            }
-            Binding::CheckLegacyTypeParam(key, range_if_scoped_params_exist) => {
-                match &*self.get_idx(*key) {
-                    LegacyTypeParameterLookup::Parameter(p) => {
-                        // This class or function has scoped (PEP 695) type parameters. Mixing legacy-style parameters is an error.
-                        if let Some(r) = range_if_scoped_params_exist {
-                            self.error(
-                                errors,
-                                *r,
-                                ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
-                                format!(
-                                    "Type parameter {} is not included in the type parameter list",
-                                    self.module().display(&self.bindings().idx_to_key(*key).0)
-                                ),
-                            );
-                        }
-                        p.quantified.clone().to_value()
-                    }
-                    LegacyTypeParameterLookup::NotParameter(ty) => ty.clone(),
                 }
             }
             Binding::ScopedTypeAlias(name, params, expr) => {

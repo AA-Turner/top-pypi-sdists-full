@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Table API
+Snowflake Table API.
 
 The Snowflake Table API is a REST API that you can use to access, update, and perform certain actions on Tables resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.table._generated.api.table_api import TableApi
-
-# import ApiClient
-from snowflake.core.table._generated.api_client import ApiClient
-from snowflake.core.table._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.table._generated.models.constraint import Constraint

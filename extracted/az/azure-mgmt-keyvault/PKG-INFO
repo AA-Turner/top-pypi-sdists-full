@@ -1,11 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-keyvault
-Version: 12.0.0
-Summary: Microsoft Azure Key Vault Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 12.1.0
+Summary: Microsoft Azure Keyvault Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
@@ -15,14 +14,14 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: isodate>=0.6.1
+Requires-Dist: msrest>=0.7.1
+Requires-Dist: azure-mgmt-core>=1.6.0
 Requires-Dist: typing-extensions>=4.6.0
-Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.5.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
@@ -86,8 +85,15 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 12.1.0 (2025-09-22)
+
+### Features Added
+
+  - Model `KeyVaultManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Model `MHSMNetworkRuleSet` added property `service_tags`
+  - Added model `MHSMServiceTagRule`
 
 ## 12.0.0 (2025-07-07)
 

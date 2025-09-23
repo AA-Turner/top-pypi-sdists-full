@@ -46,4 +46,4 @@ class UndeployPod(Command):
         return super().completion(state)
 
     def help(self, _: ReplState):
-        return f'{UndeployPod.COMMAND}\t undeploy pod'
+        return f'{UndeployPod.COMMAND}\t undeploy Ops pod'

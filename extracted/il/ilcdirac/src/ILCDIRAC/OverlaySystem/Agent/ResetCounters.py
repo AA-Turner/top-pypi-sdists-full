@@ -65,7 +65,9 @@ class ResetCounters (AgentModule):
       res = self.jobmon.getCounters(['Status'], attribdict)
       if not res['OK']:
         continue
-      sitedict[site] = res['Value'].get('Running', 0)
+      # res['Value'] looks like: [({'Status': 'Failed'}, 2)] (list of tuples)
+      resultDict = {statDict['Status']: entries for statDict, entries in res["Value"] }
+      sitedict[site] = resultDict.get('Running', 0)
     gLogger.info("Setting new values %s" % sitedict)
     res = self.ovc.setJobsAtSites(sitedict)
     if not res['OK']:

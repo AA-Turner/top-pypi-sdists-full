@@ -10,11 +10,10 @@ import zipfile
 import os
 import requests
 import logging
-from PIL import Image
 from io import BytesIO
 from collections import Counter
-from matrice.deploy.utils.post_processing.core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
-from matrice.deploy.utils.post_processing.utils import (
+from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol
+from ..utils import (
     filter_by_confidence,
     filter_by_categories,
     # apply_category_mapping,
@@ -31,8 +30,12 @@ import cv2
 import numpy as np
 #import torch
 import re
-from matrice.deploy.utils.post_processing.core.config import BaseConfig, AlertConfig, ZoneConfig
-import onnxruntime as ort
+from ..core.config import BaseConfig, AlertConfig, ZoneConfig
+try:
+    from PIL import Image
+    import onnxruntime as ort
+except:
+    print("Unable to import onnxruntime")
 
 
 def apply_category_mapping(results: Any, index_to_category: Dict[str, str]) -> Any:
@@ -325,8 +328,8 @@ class AgeGenderUseCase(BaseProcessor):
             
             # Step 5: Apply advanced tracking
             try:
-                from matrice.deploy.utils.post_processing.advanced_tracker import AdvancedTracker
-                from matrice.deploy.utils.post_processing.advanced_tracker.config import TrackerConfig
+                from matrice_analytics.post_processing.advanced_tracker import AdvancedTracker
+                from matrice_analytics.post_processing.advanced_tracker import TrackerConfig
                 if self.tracker is None:
                     tracker_config = TrackerConfig(
                         track_high_thresh=float(config.confidence_threshold),

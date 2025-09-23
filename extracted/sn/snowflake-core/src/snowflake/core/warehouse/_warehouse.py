@@ -5,11 +5,11 @@ from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import AccountObjectCollectionParent, CreateMode, ObjectReferenceMixin
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated
 from snowflake.core._operation import PollingOperations
 from snowflake.core.warehouse._generated.api import WarehouseApi
-from snowflake.core.warehouse._generated.api_client import StoredProcApiClient
 from snowflake.core.warehouse._generated.models.warehouse import WarehouseModel as Warehouse
 
 

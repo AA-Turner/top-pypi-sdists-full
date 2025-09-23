@@ -16,7 +16,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Unio
 import trafaret as t
 
 from datarobot.client import get_client, staticproperty
-from datarobot.utils import from_api
+from datarobot.utils import from_api, to_api
 
 T = TypeVar("T", bound="APIObject")
 ServerDataDictType = Dict[str, Any]
@@ -27,6 +27,14 @@ ServerDataType = Union[ServerDataDictType, ServerDataListType]
 class APIObject:  # pylint: disable=missing-class-docstring
     _client = staticproperty(get_client)
     _converter = t.Dict({}).allow_extra("*")
+
+    def __eq__(self, other: Any) -> bool:
+        """
+        Determine if this object is equal to the other.
+        """
+        if isinstance(other, APIObject):
+            return to_api(self) == to_api(other)
+        return to_api(self) == other
 
     @classmethod
     def _fields(cls) -> Set[str]:

@@ -12069,13 +12069,17 @@ class FunctionUrlAuthType(enum.Enum):
     Example::
 
         import aws_cdk.aws_lambda as lambda_
-        
         # fn: lambda.Function
         
-        fn_url = fn.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
         
-        cloudfront.Distribution(self, "Distribution",
-            default_behavior=cloudfront.BehaviorOptions(origin=origins.FunctionUrlOrigin(fn_url))
+        fn_url = fn.add_function_url(
+            auth_type=lambda_.FunctionUrlAuthType.AWS_IAM
+        )
+        
+        cloudfront.Distribution(self, "MyDistribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.FunctionUrlOrigin.with_origin_access_control(fn_url)
+            )
         )
     '''
 
@@ -12249,13 +12253,17 @@ class FunctionUrlOptions:
         Example::
 
             import aws_cdk.aws_lambda as lambda_
-            
             # fn: lambda.Function
             
-            fn_url = fn.add_function_url(auth_type=lambda_.FunctionUrlAuthType.NONE)
             
-            cloudfront.Distribution(self, "Distribution",
-                default_behavior=cloudfront.BehaviorOptions(origin=origins.FunctionUrlOrigin(fn_url))
+            fn_url = fn.add_function_url(
+                auth_type=lambda_.FunctionUrlAuthType.AWS_IAM
+            )
+            
+            cloudfront.Distribution(self, "MyDistribution",
+                default_behavior=cloudfront.BehaviorOptions(
+                    origin=origins.FunctionUrlOrigin.with_origin_access_control(fn_url)
+                )
             )
         '''
         if isinstance(cors, dict):

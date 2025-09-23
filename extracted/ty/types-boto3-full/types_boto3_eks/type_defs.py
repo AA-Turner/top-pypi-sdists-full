@@ -44,6 +44,7 @@ from .literals import (
     NodegroupIssueCodeType,
     NodegroupStatusType,
     NodegroupUpdateStrategiesType,
+    RepairActionType,
     ResolveConflictsType,
     SupportTypeType,
     TaintEffectType,
@@ -247,7 +248,10 @@ __all__ = (
     "LoggingTypeDef",
     "LoggingUnionTypeDef",
     "MarketplaceInformationTypeDef",
+    "NodeRepairConfigOutputTypeDef",
+    "NodeRepairConfigOverridesTypeDef",
     "NodeRepairConfigTypeDef",
+    "NodeRepairConfigUnionTypeDef",
     "NodegroupHealthTypeDef",
     "NodegroupResourcesTypeDef",
     "NodegroupScalingConfigTypeDef",
@@ -551,10 +555,6 @@ LaunchTemplateSpecificationTypeDef = TypedDict(
         "id": NotRequired[str],
     },
 )
-
-
-class NodeRepairConfigTypeDef(TypedDict):
-    enabled: NotRequired[bool]
 
 
 class NodegroupScalingConfigTypeDef(TypedDict):
@@ -928,6 +928,13 @@ LogSetupTypeDef = TypedDict(
         "enabled": NotRequired[bool],
     },
 )
+
+
+class NodeRepairConfigOverridesTypeDef(TypedDict):
+    nodeMonitoringCondition: NotRequired[str]
+    nodeUnhealthyReason: NotRequired[str]
+    minRepairWaitTimeMins: NotRequired[int]
+    repairAction: NotRequired[RepairActionType]
 
 
 class RemoteAccessConfigOutputTypeDef(TypedDict):
@@ -1517,6 +1524,24 @@ class LoggingTypeDef(TypedDict):
     clusterLogging: NotRequired[Sequence[LogSetupTypeDef]]
 
 
+class NodeRepairConfigOutputTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    maxUnhealthyNodeThresholdCount: NotRequired[int]
+    maxUnhealthyNodeThresholdPercentage: NotRequired[int]
+    maxParallelNodesRepairedCount: NotRequired[int]
+    maxParallelNodesRepairedPercentage: NotRequired[int]
+    nodeRepairConfigOverrides: NotRequired[List[NodeRepairConfigOverridesTypeDef]]
+
+
+class NodeRepairConfigTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    maxUnhealthyNodeThresholdCount: NotRequired[int]
+    maxUnhealthyNodeThresholdPercentage: NotRequired[int]
+    maxParallelNodesRepairedCount: NotRequired[int]
+    maxParallelNodesRepairedPercentage: NotRequired[int]
+    nodeRepairConfigOverrides: NotRequired[Sequence[NodeRepairConfigOverridesTypeDef]]
+
+
 RemoteAccessConfigUnionTypeDef = Union[RemoteAccessConfigTypeDef, RemoteAccessConfigOutputTypeDef]
 
 
@@ -1600,17 +1625,6 @@ class InsightCategorySpecificSummaryTypeDef(TypedDict):
     addonCompatibilityDetails: NotRequired[List[AddonCompatibilityDetailTypeDef]]
 
 
-class UpdateNodegroupConfigRequestTypeDef(TypedDict):
-    clusterName: str
-    nodegroupName: str
-    labels: NotRequired[UpdateLabelsPayloadTypeDef]
-    taints: NotRequired[UpdateTaintsPayloadTypeDef]
-    scalingConfig: NotRequired[NodegroupScalingConfigTypeDef]
-    updateConfig: NotRequired[NodegroupUpdateConfigTypeDef]
-    nodeRepairConfig: NotRequired[NodeRepairConfigTypeDef]
-    clientRequestToken: NotRequired[str]
-
-
 class CreateEksAnywhereSubscriptionResponseTypeDef(TypedDict):
     subscription: EksAnywhereSubscriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1674,6 +1688,9 @@ class ListInsightsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+LoggingUnionTypeDef = Union[LoggingTypeDef, LoggingOutputTypeDef]
+
+
 class NodegroupTypeDef(TypedDict):
     nodegroupName: NotRequired[str]
     nodegroupArn: NotRequired[str]
@@ -1696,36 +1713,12 @@ class NodegroupTypeDef(TypedDict):
     diskSize: NotRequired[int]
     health: NotRequired[NodegroupHealthTypeDef]
     updateConfig: NotRequired[NodegroupUpdateConfigTypeDef]
-    nodeRepairConfig: NotRequired[NodeRepairConfigTypeDef]
+    nodeRepairConfig: NotRequired[NodeRepairConfigOutputTypeDef]
     launchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
     tags: NotRequired[Dict[str, str]]
 
 
-LoggingUnionTypeDef = Union[LoggingTypeDef, LoggingOutputTypeDef]
-
-
-class CreateNodegroupRequestTypeDef(TypedDict):
-    clusterName: str
-    nodegroupName: str
-    subnets: Sequence[str]
-    nodeRole: str
-    scalingConfig: NotRequired[NodegroupScalingConfigTypeDef]
-    diskSize: NotRequired[int]
-    instanceTypes: NotRequired[Sequence[str]]
-    amiType: NotRequired[AMITypesType]
-    remoteAccess: NotRequired[RemoteAccessConfigUnionTypeDef]
-    labels: NotRequired[Mapping[str, str]]
-    taints: NotRequired[Sequence[TaintTypeDef]]
-    tags: NotRequired[Mapping[str, str]]
-    clientRequestToken: NotRequired[str]
-    launchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
-    updateConfig: NotRequired[NodegroupUpdateConfigTypeDef]
-    nodeRepairConfig: NotRequired[NodeRepairConfigTypeDef]
-    capacityType: NotRequired[CapacityTypesType]
-    version: NotRequired[str]
-    releaseVersion: NotRequired[str]
-
-
+NodeRepairConfigUnionTypeDef = Union[NodeRepairConfigTypeDef, NodeRepairConfigOutputTypeDef]
 ClusterTypeDef = TypedDict(
     "ClusterTypeDef",
     {
@@ -1885,6 +1878,39 @@ class DeleteNodegroupResponseTypeDef(TypedDict):
 class DescribeNodegroupResponseTypeDef(TypedDict):
     nodegroup: NodegroupTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateNodegroupRequestTypeDef(TypedDict):
+    clusterName: str
+    nodegroupName: str
+    subnets: Sequence[str]
+    nodeRole: str
+    scalingConfig: NotRequired[NodegroupScalingConfigTypeDef]
+    diskSize: NotRequired[int]
+    instanceTypes: NotRequired[Sequence[str]]
+    amiType: NotRequired[AMITypesType]
+    remoteAccess: NotRequired[RemoteAccessConfigUnionTypeDef]
+    labels: NotRequired[Mapping[str, str]]
+    taints: NotRequired[Sequence[TaintTypeDef]]
+    tags: NotRequired[Mapping[str, str]]
+    clientRequestToken: NotRequired[str]
+    launchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
+    updateConfig: NotRequired[NodegroupUpdateConfigTypeDef]
+    nodeRepairConfig: NotRequired[NodeRepairConfigUnionTypeDef]
+    capacityType: NotRequired[CapacityTypesType]
+    version: NotRequired[str]
+    releaseVersion: NotRequired[str]
+
+
+class UpdateNodegroupConfigRequestTypeDef(TypedDict):
+    clusterName: str
+    nodegroupName: str
+    labels: NotRequired[UpdateLabelsPayloadTypeDef]
+    taints: NotRequired[UpdateTaintsPayloadTypeDef]
+    scalingConfig: NotRequired[NodegroupScalingConfigTypeDef]
+    updateConfig: NotRequired[NodegroupUpdateConfigTypeDef]
+    nodeRepairConfig: NotRequired[NodeRepairConfigUnionTypeDef]
+    clientRequestToken: NotRequired[str]
 
 
 class CreateClusterResponseTypeDef(TypedDict):

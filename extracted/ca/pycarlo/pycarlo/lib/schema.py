@@ -19224,6 +19224,7 @@ class DomainOutput(sgqlc.types.Type):
         "name",
         "description",
         "created_by_email",
+        "domain_tag",
         "assignments",
         "excluded_assignments",
         "tags",
@@ -19242,6 +19243,9 @@ class DomainOutput(sgqlc.types.Type):
 
     created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
     """Domain created by email address"""
+
+    domain_tag = sgqlc.types.Field(String, graphql_name="domainTag")
+    """The domain's tag representation"""
 
     assignments = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="assignments")
     """Objects assigned to domain (as MCONs)"""

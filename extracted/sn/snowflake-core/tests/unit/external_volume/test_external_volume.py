@@ -8,7 +8,7 @@ from snowflake.core.external_volume import ExternalVolume, ExternalVolumeCollect
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.external_volume._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 @pytest.fixture
@@ -22,10 +22,8 @@ def external_volume(external_volumes):
 
 
 def test_create_external_volume(fake_root, external_volumes):
-    args = (fake_root, "POST", BASE_URL + "/external-volumes?createMode=errorIfExists")
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")], body={"name": "my_volume", "storage_locations": []}
-    )
+    args = (fake_root, "POST", BASE_URL + "/external-volumes")
+    kwargs = extra_params(query_params=[], body={"name": "my_volume", "storage_locations": []})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         ev_res = external_volumes.create(ExternalVolume(name="my_volume", storage_locations=[]))

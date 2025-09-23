@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Function API
+Snowflake Function API.
 
 The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
 

@@ -21,6 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+
 import warnings
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -32,9 +33,17 @@ from typing import Callable, Iterator, Iterable, Optional, Tuple, Union, Sequenc
 import numpy
 from numpy import ndarray, str_
 
+
 from .utils import support_types as stypes
 from .utils.libspicehelper import libspice
 from .utils.exceptions import *
+from .found_catcher import (
+    found_check_off,
+    found_check_on,
+    found_check,
+    get_found_catch_state,
+    spice_found_exception_thrower,
+)
 from . import config
 
 from .utils.callbacks import (
@@ -142,127 +151,6 @@ def spice_error_check(f):
             raise
 
     return with_errcheck
-
-
-def spice_found_exception_thrower(f: Callable) -> Callable:
-    """
-    Decorator for wrapping functions that use status codes
-    """
-
-    @functools.wraps(f)
-    def wrapper(*args, **kwargs):
-        res = f(*args, **kwargs)
-        if config.catch_false_founds:
-            found = res[-1]
-            if isinstance(found, bool) and not found:
-                raise NotFoundError(
-                    "Spice returns not found for function: {}".format(f.__name__),
-                    found=found,
-                )
-            elif stypes.is_iterable(found) and not all(found):
-                raise NotFoundError(
-                    "Spice returns not found in a series of calls for function: {}".format(
-                        f.__name__
-                    ),
-                    found=found,
-                )
-            else:
-                actualres = res[0:-1]
-                if len(actualres) == 1:
-                    return actualres[0]
-                else:
-                    return actualres
-        else:
-            return res
-
-    return wrapper
-
-
-@contextmanager
-def no_found_check() -> Iterator[None]:
-    """
-    Temporarily disables spiceypy default behavior which raises exceptions for
-    false found flags for certain spice functions. All spice
-    functions executed within the context manager will no longer check the found
-    flag return parameter and the found flag will be included in the return for
-    the given function.
-    For Example bodc2n in spiceypy is normally called like::
-
-        name = spice.bodc2n(399)
-
-    With the possibility that an exception is thrown in the even of a invalid ID::
-
-        name = spice.bodc2n(-999991) # throws a SpiceyError
-
-    With this function however, we can use it as a context manager to do this::
-
-        with spice.no_found_check():
-            name, found = spice.bodc2n(-999991) # found is false, no exception raised!
-
-    Within the context any spice functions called that normally check the found
-    flags will pass through the check without raising an exception if they are false.
-
-    """
-    current_catch_state = config.catch_false_founds
-    config.catch_false_founds = False
-    yield
-    config.catch_false_founds = current_catch_state
-
-
-@contextmanager
-def found_check() -> Iterator[None]:
-    """
-    Temporarily enables spiceypy default behavior which raises exceptions for
-    false found flags for certain spice functions. All spice
-    functions executed within the context manager will check the found
-    flag return parameter and the found flag will be removed from the return for
-    the given function.
-    For Example bodc2n in spiceypy is normally called like::
-
-        name = spice.bodc2n(399)
-
-    With the possibility that an exception is thrown in the even of a invalid ID::
-
-        name = spice.bodc2n(-999991) # throws a SpiceyError
-
-    With this function however, we can use it as a context manager to do this::
-
-        with spice.found_check():
-            found = spice.bodc2n(-999991) # will raise an exception!
-
-    Within the context any spice functions called that normally check the found
-    flags will pass through the check without raising an exception if they are false.
-
-    """
-    current_catch_state = config.catch_false_founds
-    config.catch_false_founds = True
-    yield
-    config.catch_false_founds = current_catch_state
-
-
-def found_check_off() -> None:
-    """
-    Method that turns off found catching
-
-    """
-    config.catch_false_founds = False
-
-
-def found_check_on() -> None:
-    """
-    Method that turns on found catching
-
-    """
-    config.catch_false_founds = True
-
-
-def get_found_catch_state() -> bool:
-    """
-    Returns the current found catch state
-
-    :return:
-    """
-    return config.catch_false_founds
 
 
 def cell_double(cell_size: int) -> SpiceCell:
@@ -1158,7 +1046,9 @@ def chkout(module: str) -> None:
 
 @spice_error_check
 @spice_found_exception_thrower
-def cidfrm(cent: int, lenout: int = _default_len_out) -> Union[Tuple[int, str, bool], Tuple[int, str]]:
+def cidfrm(
+    cent: int, lenout: int = _default_len_out
+) -> Union[Tuple[int, str, bool], Tuple[int, str]]:
     """
     Retrieve frame ID code and name to associate with a frame center.
 
@@ -1235,7 +1125,9 @@ def ckcov(
 
 @spice_error_check
 @spice_found_exception_thrower
-def ckfrot(inst: int, et: float) -> Union[Tuple[ndarray, int, bool], Tuple[ndarray, int]]:
+def ckfrot(
+    inst: int, et: float
+) -> Union[Tuple[ndarray, int, bool], Tuple[ndarray, int]]:
     """
     Find the rotation from a C-kernel Id to the native
     frame at the time requested.
@@ -1263,7 +1155,9 @@ def ckfrot(inst: int, et: float) -> Union[Tuple[ndarray, int, bool], Tuple[ndarr
 
 @spice_error_check
 @spice_found_exception_thrower
-def ckfxfm(inst: int, et: float) -> Union[Tuple[ndarray, int, bool], Tuple[ndarray, int]]:
+def ckfxfm(
+    inst: int, et: float
+) -> Union[Tuple[ndarray, int, bool], Tuple[ndarray, int]]:
     """
     Find the state transformation matrix from a C-kernel (CK) frame
     with the specified frame class ID (CK ID) to the base frame of
@@ -1772,7 +1666,6 @@ def ckw05(
     )
 
 
-@spice_error_check
 def clight() -> float:
     """
     Return the speed of light in a vacuum (IAU official value, in km/sec).
@@ -1849,7 +1742,9 @@ def cmprss(delim: str, n: int, instr: str, lenout: int = _default_len_out) -> st
 
 @spice_error_check
 @spice_found_exception_thrower
-def cnmfrm(cname: str, lenout: int = _default_len_out) -> Union[Tuple[int, str, bool], Tuple[int, str]]:
+def cnmfrm(
+    cname: str, lenout: int = _default_len_out
+) -> Union[Tuple[int, str, bool], Tuple[int, str]]:
     """
     Retrieve frame ID code and name to associate with an object.
 
@@ -2010,31 +1905,29 @@ def cvpool(agent: str) -> bool:
     return bool(update.value)
 
 
-@spice_error_check
-def cyllat(r: float, lonc: float, z: float) -> Tuple[float, float, float]:
+def cyllat(r: float, clon: float, z: float) -> Tuple[float, float, float]:
     """
     Convert from cylindrical to latitudinal coordinates.
 
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/cyllat_c.html
 
     :param r: Distance of point from z axis.
-    :param lonc: Cylindrical angle of point from XZ plane(radians).
+    :param clon: Cylindrical angle of point from XZ plane (radians).
     :param z: Height of point above XY plane.
     :return: Distance, Longitude (radians), and Latitude of point (radians).
     """
     r = ctypes.c_double(r)
-    lonc = ctypes.c_double(lonc)
+    clon = ctypes.c_double(clon)
     z = ctypes.c_double(z)
     radius = ctypes.c_double()
     lon = ctypes.c_double()
     lat = ctypes.c_double()
     libspice.cyllat_c(
-        r, lonc, z, ctypes.byref(radius), ctypes.byref(lon), ctypes.byref(lat)
+        r, clon, z, ctypes.byref(radius), ctypes.byref(lon), ctypes.byref(lat)
     )
     return radius.value, lon.value, lat.value
 
 
-@spice_error_check
 def cylrec(r: float, lon: float, z: float) -> ndarray:
     """
     Convert from cylindrical to rectangular coordinates.
@@ -2054,15 +1947,14 @@ def cylrec(r: float, lon: float, z: float) -> ndarray:
     return stypes.c_vector_to_python(rectan)
 
 
-@spice_error_check
-def cylsph(r: float, lonc: float, z: float) -> Tuple[float, float, float]:
+def cylsph(r: float, clon: float, z: float) -> Tuple[float, float, float]:
     """
     Convert from cylindrical to spherical coordinates.
 
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/cylsph_c.html
 
     :param r: Rectangular coordinates of the point.
-    :param lonc: Angle (radians) of point from XZ plane.
+    :param clon: Angle (radians) of point from XZ plane.
     :param z: Height of point above XY plane.
     :return:
             Distance of point from origin,
@@ -2070,15 +1962,15 @@ def cylsph(r: float, lonc: float, z: float) -> Tuple[float, float, float]:
             Azimuthal angle (longitude) of point (radians).
     """
     r = ctypes.c_double(r)
-    lonc = ctypes.c_double(lonc)
+    clon = ctypes.c_double(clon)
     z = ctypes.c_double(z)
     radius = ctypes.c_double()
     colat = ctypes.c_double()
-    lon = ctypes.c_double()
+    slon = ctypes.c_double()
     libspice.cylsph_c(
-        r, lonc, z, ctypes.byref(radius), ctypes.byref(colat), ctypes.byref(lon)
+        r, clon, z, ctypes.byref(radius), ctypes.byref(colat), ctypes.byref(slon)
     )
-    return radius.value, colat.value, lon.value
+    return radius.value, colat.value, slon.value
 
 
 ################################################################################
@@ -2299,7 +2191,9 @@ def dafgs(n: int = 125) -> ndarray:
 
 @spice_error_check
 @spice_found_exception_thrower
-def dafgsr(handle: int, recno: int, begin: int, end: int) -> Union[Tuple[ndarray, bool], ndarray]:
+def dafgsr(
+    handle: int, recno: int, begin: int, end: int
+) -> Union[Tuple[ndarray, bool], ndarray]:
     """
     Read a portion of the contents of (words in) a summary record in a DAF file.
 
@@ -3053,7 +2947,7 @@ def dgeodr(x: float, y: float, z: float, re: float, f: float) -> ndarray:
 
 @spice_error_check
 def diags2(
-    symmat: Union[ndarray, Iterable[Iterable[float]]]
+    symmat: Union[ndarray, Iterable[Iterable[float]]],
 ) -> Tuple[ndarray, ndarray]:
     """
     Diagonalize a symmetric 2x2 matrix.
@@ -3185,7 +3079,9 @@ def dlaopn(fname: str, ftype: str, ifname: str, ncomch: int) -> int:
 
 @spice_error_check
 @spice_found_exception_thrower
-def dlafns(handle: int, descr: SpiceDLADescr) -> Union[Tuple[SpiceDLADescr, bool], SpiceDLADescr]:
+def dlafns(
+    handle: int, descr: SpiceDLADescr
+) -> Union[Tuple[SpiceDLADescr, bool], SpiceDLADescr]:
     """
     Find the segment following a specified segment in a DLA file.
 
@@ -3207,7 +3103,9 @@ def dlafns(handle: int, descr: SpiceDLADescr) -> Union[Tuple[SpiceDLADescr, bool
 
 @spice_error_check
 @spice_found_exception_thrower
-def dlafps(handle: int, descr: SpiceDLADescr) -> Union[Tuple[SpiceDLADescr, bool], SpiceDLADescr]:
+def dlafps(
+    handle: int, descr: SpiceDLADescr
+) -> Union[Tuple[SpiceDLADescr, bool], SpiceDLADescr]:
     """
     Find the segment preceding a specified segment in a DLA file.
 
@@ -3331,7 +3229,6 @@ def dpgrdr(body: str, x: float, y: float, z: int, re: float, f: float) -> ndarra
     return stypes.c_matrix_to_numpy(jacobi)
 
 
-@spice_error_check
 def dpmax() -> float:
     """
     Return the value of the largest (positive) number representable
@@ -3346,7 +3243,6 @@ def dpmax() -> float:
     return libspice.dpmax_c()
 
 
-@spice_error_check
 def dpmin() -> float:
     """
     Return the value of the smallest (negative) number representable
@@ -3361,7 +3257,6 @@ def dpmin() -> float:
     return libspice.dpmin_c()
 
 
-@spice_error_check
 def dpr() -> float:
     """
     Return the number of degrees per radian.
@@ -4894,7 +4789,9 @@ def ekgc(
 
 @spice_error_check
 @spice_found_exception_thrower
-def ekgd(selidx: int, row: int, element: int) -> Union[Tuple[float, int, bool], Tuple[float, int]]:
+def ekgd(
+    selidx: int, row: int, element: int
+) -> Union[Tuple[float, int, bool], Tuple[float, int]]:
     """
     Return an element of an entry in a column of double precision type in a
     specified row.
@@ -4927,7 +4824,9 @@ def ekgd(selidx: int, row: int, element: int) -> Union[Tuple[float, int, bool], 
 
 @spice_error_check
 @spice_found_exception_thrower
-def ekgi(selidx: int, row: int, element: int) -> Union[Tuple[int, int, bool], Tuple[int, int]]:
+def ekgi(
+    selidx: int, row: int, element: int
+) -> Union[Tuple[int, int, bool], Tuple[int, int]]:
     """
     Return an element of an entry in a column of integer type in a specified
     row.
@@ -5876,7 +5775,7 @@ def etcal(
             libspice.etcal_c(t, lenout, string)
             check_for_spice_error(None)
             strings.append(stypes.to_python_string(string))
-        return strings
+        return numpy.asarray(strings)
     else:
         et = ctypes.c_double(et)
         libspice.etcal_c(et, lenout, string)
@@ -5960,6 +5859,7 @@ def ev2lin(et: float, geophs: Sequence[float], elems: Sequence[float]) -> ndarra
     return stypes.c_vector_to_python(state)
 
 
+@spice_error_check
 def evsgp4(et: float, geophs: Sequence[float], elems: Sequence[float]) -> ndarray:
     """
     Evaluate NORAD two-line element data for earth orbiting
@@ -6321,7 +6221,7 @@ def georec(lon: float, lat: float, alt: float, re: float, f: float) -> ndarray:
 
 
 @spice_error_check
-def getelm(frstyr: int, lineln: int, lines: Iterable[str]) -> Tuple[float, ndarray]:
+def getelm(frstyr: int, lines: Iterable[str]) -> Tuple[float, ndarray]:
     """
     Given a the "lines" of a two-line element set, parse the
     lines and return the elements in units suitable for use
@@ -6330,14 +6230,13 @@ def getelm(frstyr: int, lineln: int, lines: Iterable[str]) -> Tuple[float, ndarr
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/getelm_c.html
 
     :param frstyr: Year of earliest representable two-line elements.
-    :param lineln: Length of strings in lines array.
     :param lines: A pair of "lines" containing two-line elements.
     :return:
             The epoch of the elements in seconds past J2000,
             The elements converted to SPICE units (see naif docs for units).
     """
     frstyr = ctypes.c_int(frstyr)
-    lineln = ctypes.c_int(lineln)
+    lineln = ctypes.c_int(70)
     lines = stypes.list_to_char_array_ptr(lines, x_len=lineln, y_len=2)
     epoch = ctypes.c_double()
     elems = stypes.empty_double_vector(10)  # guess for length
@@ -7803,7 +7702,6 @@ def gnpool(
 # H
 
 
-@spice_error_check
 def halfpi() -> float:
     """
     Return half the value of pi (the ratio of the circumference of
@@ -7988,13 +7886,13 @@ def illumf(
     :param abcorr: Desired aberration correction.
     :param obsrvr: Name of observing body.
     :param spoint: Body-fixed coordinates of a target surface point.
-    :return: 
-        Target surface point epoch in seconds past J2000 TDB, 
+    :return:
+        Target surface point epoch in seconds past J2000 TDB,
         Vector from observer to target surface point in km,
-        Phase angle at the surface point in radians, 
+        Phase angle at the surface point in radians,
         Source incidence angle at the surface point in radians,
         Emission angle at the surface point in radians,
-        Visibility flag, 
+        Visibility flag,
         Illumination flag
     """
     method = stypes.string_to_char_p(method)
@@ -8071,11 +7969,11 @@ def illumg(
     :param abcorr: Desired aberration correction.
     :param obsrvr: Name of observing body.
     :param spoint: Body-fixed coordinates of a target surface point.
-    :return: 
-        Target surface point epoch in seconds past J2000 TDB, 
+    :return:
+        Target surface point epoch in seconds past J2000 TDB,
         Vector from observer to target surface point in km,
-        Phase angle at the surface point in radians, 
-        Source incidence angle at the surface point in radians, 
+        Phase angle at the surface point in radians,
+        Source incidence angle at the surface point in radians,
         Emission angle at the surface point in radians,
     """
     method = stypes.string_to_char_p(method)
@@ -8181,7 +8079,9 @@ def ilumin(
 
 @spice_error_check
 @spice_found_exception_thrower
-def inedpl(a: float, b: float, c: float, plane: Plane) -> Union[Tuple[Ellipse, bool], Ellipse]:
+def inedpl(
+    a: float, b: float, c: float, plane: Plane
+) -> Union[Tuple[Ellipse, bool], Ellipse]:
     """
     Find the intersection of a triaxial ellipsoid and a plane.
 
@@ -8625,9 +8525,10 @@ def iswhsp(string: str) -> bool:
 # J
 
 
-@spice_error_check
 def j1900() -> float:
     """
+    Return the Julian Date of 1899 DEC 31 12:00:00 (1900 JAN 0.5).
+
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/j1900_c.html
 
     :return: Julian Date of 1899 DEC 31 12:00:00
@@ -8635,9 +8536,10 @@ def j1900() -> float:
     return libspice.j1900_c()
 
 
-@spice_error_check
 def j1950() -> float:
     """
+    Return the Julian Date of 1950 JAN 01 00:00:00 (1950 JAN 1.0).
+
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/j1950_c.html
 
     :return: Julian Date of 1950 JAN 01 00:00:00
@@ -8645,9 +8547,10 @@ def j1950() -> float:
     return libspice.j1950_c()
 
 
-@spice_error_check
 def j2000() -> float:
     """
+    Return the Julian Date of 2000 JAN 01 12:00:00 (2000 JAN 1.5).
+
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/j2000_c.html
 
     :return: Julian Date of 2000 JAN 01 12:00:00
@@ -8655,9 +8558,10 @@ def j2000() -> float:
     return libspice.j2000_c()
 
 
-@spice_error_check
 def j2100() -> float:
     """
+    Return the Julian Date of 2100 JAN 01 12:00:00 (2100 JAN 1.5).
+
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/j2100_c.html
 
     :return: Julian Date of 2100 JAN 01 12:00:00
@@ -8665,9 +8569,10 @@ def j2100() -> float:
     return libspice.j2100_c()
 
 
-@spice_error_check
 def jyear() -> float:
     """
+    Return the number of seconds in a julian year.
+
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/jyear_c.html
 
     :return: number of seconds in a julian year
@@ -8939,7 +8844,6 @@ def lastnb(string: str) -> int:
     return libspice.lastnb_c(string)
 
 
-@spice_error_check
 def latcyl(radius: float, lon: float, lat: float) -> Tuple[float, float, float]:
     """
     Convert from latitudinal coordinates to cylindrical coordinates.
@@ -8963,10 +8867,7 @@ def latcyl(radius: float, lon: float, lat: float) -> Tuple[float, float, float]:
     return r.value, lonc.value, z.value
 
 
-@spice_error_check
-def latrec(
-    radius: float, longitude: Union[float, float], latitude: Union[float, float]
-) -> ndarray:
+def latrec(radius: float, longitude: float, latitude: float) -> ndarray:
     """
     Convert from latitudinal coordinates to rectangular coordinates.
 
@@ -8985,7 +8886,6 @@ def latrec(
     return stypes.c_vector_to_python(rectan)
 
 
-@spice_error_check
 def latsph(radius: float, lon: float, lat: float) -> Tuple[float, float, float]:
     """
     Convert from latitudinal coordinates to spherical coordinates.
@@ -9182,10 +9082,10 @@ def limbpt(
     :param schstp: Angular step size for searching.
     :param soltol: Solution convergence tolerance.
     :param maxn: Maximum number of entries in output arrays.
-    :return: 
+    :return:
         Counts of limb points corresponding to cuts
-        Limb points in km, 
-        Times associated with limb points in seconds, 
+        Limb points in km,
+        Times associated with limb points in seconds,
         Tangent vectors emanating from the observer in km
     """
     method = stypes.string_to_char_p(method)
@@ -9224,14 +9124,11 @@ def limbpt(
         epochs,
         tangts,
     )
-    # Clip the empty elements out of returned results
-    npts = stypes.c_vector_to_python(npts)
-    valid_points = numpy.where(npts >= 1)
     return (
-        npts[valid_points],
-        stypes.c_matrix_to_numpy(points)[valid_points],
-        stypes.c_vector_to_python(epochs)[valid_points],
-        stypes.c_matrix_to_numpy(tangts)[valid_points],
+        stypes.c_vector_to_python(npts),
+        stypes.c_matrix_to_numpy(points),
+        stypes.c_vector_to_python(epochs),
+        stypes.c_matrix_to_numpy(tangts),
     )
 
 
@@ -10416,7 +10313,7 @@ def pckcls(handle: int) -> None:
 
 
 @spice_error_check
-def pckcov(pck: str, idcode: int, cover: SpiceCell) -> None:
+def pckcov(pck: str, idcode: int, cover: Optional[SpiceCell] = None) -> SpiceCell:
     """
     Find the coverage window for a specified reference frame in a
     specified binary PCK file.
@@ -10425,13 +10322,18 @@ def pckcov(pck: str, idcode: int, cover: SpiceCell) -> None:
 
     :param pck: Name of PCK file.
     :param idcode: Class ID code of PCK reference frame.
-    :param cover: Window giving coverage in pck for idcode.
+    :param cover: Optional SPICE Window giving coverage in "pck" for "idcode".
+    :return: coverage window for a specified "idcode" in specified "pck" file
     """
     pck = stypes.string_to_char_p(pck)
     idcode = ctypes.c_int(idcode)
+    if cover is None:
+        cover = stypes.SPICEDOUBLE_CELL(2000)
+        scard(0, cover)
     assert isinstance(cover, stypes.SpiceCell)
     assert cover.dtype == 1
     libspice.pckcov_c(pck, idcode, ctypes.byref(cover))
+    return cover
 
 
 @spice_error_check
@@ -10638,7 +10540,6 @@ def phaseq(et: float, target: str, illmn: str, obsrvr: str, abcorr: str) -> floa
     return libspice.phaseq_c(et, target, illmn, obsrvr, abcorr)
 
 
-@spice_error_check
 def pi() -> float:
     """
     Return the value of pi (the ratio of the circumference of
@@ -11158,7 +11059,7 @@ def qxq(
 
 
 @spice_error_check
-def radrec(inrange: float, re: float, dec: float) -> ndarray:
+def radrec(inrange: float, ra: float, dec: float) -> ndarray:
     """
     Convert from range, right ascension, and declination to rectangular
     coordinates.
@@ -11166,15 +11067,15 @@ def radrec(inrange: float, re: float, dec: float) -> ndarray:
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/radrec_c.html
 
     :param inrange: Distance of a point from the origin.
-    :param re: Right ascension of point in radians.
+    :param ra: Right ascension of point in radians.
     :param dec: Declination of point in radians.
     :return: Rectangular coordinates of the point.
     """
     inrange = ctypes.c_double(inrange)
-    re = ctypes.c_double(re)
+    ra = ctypes.c_double(ra)
     dec = ctypes.c_double(dec)
     rectan = stypes.empty_double_vector(3)
-    libspice.radrec_c(inrange, re, dec, rectan)
+    libspice.radrec_c(inrange, ra, dec, rectan)
     return stypes.c_vector_to_python(rectan)
 
 
@@ -11812,7 +11713,6 @@ def rotvec(v1: Iterable[Union[float, float]], angle: float, iaxis: int) -> ndarr
     return stypes.c_vector_to_python(vout)
 
 
-@spice_error_check
 def rpd() -> float:
     """
     Return the number of radians per degree.
@@ -12330,7 +12230,6 @@ def size(cell: SpiceCell) -> int:
     return libspice.size_c(ctypes.byref(cell))
 
 
-@spice_error_check
 def spd() -> float:
     """
     Return the number of seconds in a day.
@@ -12342,11 +12241,9 @@ def spd() -> float:
     return libspice.spd_c()
 
 
-@spice_error_check
 def sphcyl(radius: float, colat: float, slon: float) -> Tuple[float, float, float]:
     """
-    This routine converts from spherical coordinates to cylindrical
-    coordinates.
+    Convert from spherical coordinates to cylindrical coordinates.
 
     https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs_N0067/C/cspice/sphcyl_c.html
 
@@ -12362,15 +12259,14 @@ def sphcyl(radius: float, colat: float, slon: float) -> Tuple[float, float, floa
     colat = ctypes.c_double(colat)
     slon = ctypes.c_double(slon)
     r = ctypes.c_double()
-    lon = ctypes.c_double()
+    clon = ctypes.c_double()
     z = ctypes.c_double()
     libspice.sphcyl_c(
-        radius, colat, slon, ctypes.byref(r), ctypes.byref(lon), ctypes.byref(z)
+        radius, colat, slon, ctypes.byref(r), ctypes.byref(clon), ctypes.byref(z)
     )
-    return r.value, lon.value, z.value
+    return r.value, clon.value, z.value
 
 
-@spice_error_check
 def sphlat(r: float, colat: float, lons: float) -> Tuple[float, float, float]:
     """
     Convert from spherical coordinates to latitudinal coordinates.
@@ -12665,6 +12561,7 @@ def spkcov(spk: str, idcode: int, cover: Optional[SpiceCell] = None) -> SpiceCel
     :param spk: Name of SPK file.
     :param idcode: ID code of ephemeris object.
     :param cover: Optional SPICE Window giving coverage in "spk" for "idcode".
+    :return cover: Coverage window for a specified object in a specified SPK file
     """
     spk = stypes.string_to_char_p(spk)
     idcode = ctypes.c_int(idcode)
@@ -12754,7 +12651,7 @@ def spkcpt(
 
     :param trgpos: Target position relative to center of motion.
     :param trgctr: Center of motion of target.
-    :param trgref: Observation epoch.
+    :param trgref: Frame of target position.
     :param et: Observation epoch in ephemeris seconds past J2000 TDB.
     :param outref: Reference frame of output state.
     :param refloc: Output reference frame evaluation locus.
@@ -13007,7 +12904,7 @@ def spkezr(
             check_for_spice_error(None)
             states.append(stypes.c_vector_to_python(starg))
             times.append(lt.value)
-        return states, times
+        return numpy.vstack(states), numpy.asarray(times)
     else:
         libspice.spkezr_c(
             targ, ctypes.c_double(et), ref, abcorr, obs, starg, ctypes.byref(lt)
@@ -13027,8 +12924,8 @@ def spkgeo(targ: int, et: float, ref: str, obs: int) -> Tuple[ndarray, float]:
     :param et: Target epoch.
     :param ref: Target reference frame.
     :param obs: Observing body.
-    :return: 
-        State of target in km and km/sec, 
+    :return:
+        State of target in km and km/sec,
         One way light time between observer and target in seconds.
     """
     targ = ctypes.c_int(targ)
@@ -13274,7 +13171,9 @@ def spkpvn(handle: int, descr: ndarray, et: float) -> Tuple[int, ndarray, int]:
 
 @spice_error_check
 @spice_found_exception_thrower
-def spksfs(body: int, et: float, idlen: int) -> Union[Tuple[int, ndarray, str, bool], Tuple[int, ndarray, str]]:
+def spksfs(
+    body: int, et: float, idlen: int
+) -> Union[Tuple[int, ndarray, str, bool], Tuple[int, ndarray, str]]:
     # spksfs has a Parameter SIDLEN,
     # sounds like an optional but is that possible?
     """
@@ -14121,7 +14020,9 @@ def spkw20(
 
 @spice_error_check
 @spice_found_exception_thrower
-def srfc2s(code: int, bodyid: int, srflen: int = _default_len_out) -> Union[Tuple[str, bool], str]:
+def srfc2s(
+    code: int, bodyid: int, srflen: int = _default_len_out
+) -> Union[Tuple[str, bool], str]:
     """
     Translate a surface ID code, together with a body ID code, to the
     corresponding surface name. If no such name exists, return a
@@ -14148,7 +14049,9 @@ def srfc2s(code: int, bodyid: int, srflen: int = _default_len_out) -> Union[Tupl
 
 @spice_error_check
 @spice_found_exception_thrower
-def srfcss(code: int, bodstr: str, srflen: int = _default_len_out) -> Union[Tuple[str, bool], str]:
+def srfcss(
+    code: int, bodstr: str, srflen: int = _default_len_out
+) -> Union[Tuple[str, bool], str]:
     """
     Translate a surface ID code, together with a body string, to the
     corresponding surface name. If no such surface name exists,
@@ -14281,7 +14184,7 @@ def srfxpt(
     Tuple[ndarray, float, float, ndarray, bool],
     Tuple[ndarray, float, float, ndarray],
     Tuple[ndarray, ndarray, ndarray, ndarray, ndarray],
-    Tuple[ndarray, ndarray, ndarray, ndarray]
+    Tuple[ndarray, ndarray, ndarray, ndarray],
 ]:
     """
     Deprecated: This routine has been superseded by the CSPICE
@@ -14534,9 +14437,11 @@ def datetime2et(dt: Union[Iterable[datetime], datetime]) -> Union[ndarray, float
 
 
 if hasattr(datetime, "fromisoformat"):
+
     def fromisoformat(s):
         return datetime.fromisoformat(s + "+00:00")
 else:
+
     def fromisoformat(s):
         return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%f").replace(tzinfo=timezone.utc)
 
@@ -15059,10 +14964,10 @@ def termpt(
     :param schstp: Angular step size for searching.
     :param soltol: Solution convergence tolerance.
     :param maxn: Maximum number of entries in output arrays.
-    :return: 
-        Counts of terminator points corresponding to cuts, 
-        Terminator points in km, 
-        Times associated with terminator points in seconds, 
+    :return:
+        Counts of terminator points corresponding to cuts,
+        Terminator points in km,
+        Times associated with terminator points in seconds,
         Terminator vectors emanating from the observer in km
     """
     method = stypes.string_to_char_p(method)
@@ -15104,13 +15009,11 @@ def termpt(
         trmvcs,
     )
     # Clip the empty elements out of returned results
-    npts = stypes.c_vector_to_python(npts)
-    valid_points = numpy.where(npts >= 1)
     return (
-        npts[valid_points],
-        stypes.c_matrix_to_numpy(points)[valid_points],
-        stypes.c_vector_to_python(epochs)[valid_points],
-        stypes.c_matrix_to_numpy(trmvcs)[valid_points],
+        stypes.c_vector_to_python(npts),
+        stypes.c_matrix_to_numpy(points),
+        stypes.c_vector_to_python(epochs),
+        stypes.c_matrix_to_numpy(trmvcs),
     )
 
 
@@ -15229,9 +15132,7 @@ def tkfram(typid: int) -> Union[Tuple[ndarray, int, bool], Tuple[ndarray, int]]:
     matrix = stypes.empty_double_matrix(x=3, y=3)
     next_frame = ctypes.c_int()
     found = ctypes.c_int()
-    libspice.tkfram_c(
-        code, matrix, ctypes.byref(next_frame), ctypes.byref(found)
-    )
+    libspice.tkfram_c(code, matrix, ctypes.byref(next_frame), ctypes.byref(found))
     return stypes.c_matrix_to_numpy(matrix), next_frame.value, bool(found.value)
 
 
@@ -15440,7 +15341,6 @@ def tsetyr(year: int) -> None:
     libspice.tsetyr_c(year)
 
 
-@spice_error_check
 def twopi() -> float:
     """
     Return twice the value of pi
@@ -15531,7 +15431,6 @@ def txtopn(fname: str) -> int:
     return unit_out.value
 
 
-@spice_error_check
 def tyear() -> float:
     """
     Return the number of seconds in a tropical year.
@@ -17073,10 +16972,10 @@ def zzdynrot(typid: int, center: int, et: float) -> Tuple[ndarray, int]:
     :return:  Rotation matrix from the input frame to the returned associated frame, id for the associated frame
     """
     warnings.warn(
-            f'zzdynrot is a "private routine" for spice. Users should avoid using it. It may disappear in future releases after v6.0.0',
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        'zzdynrot is a "private routine" for spice. Users should avoid using it. It may disappear in future releases after v6.0.0',
+        DeprecationWarning,
+        stacklevel=2,
+    )
     typid = ctypes.c_int(typid)
     center = ctypes.c_int(center)
     et = ctypes.c_double(et)

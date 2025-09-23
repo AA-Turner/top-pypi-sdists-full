@@ -538,6 +538,14 @@ arn = api.arn_for_execute_api_v2("$connect", "dev")
 
 For a detailed explanation of this function, including usage and examples, please refer to the [Generating ARN for Execute API](#generating-arn-for-execute-api) section under HTTP API.
 
+To disable schema validation, set `disableSchemaValidation` to true.
+
+```python
+apigwv2.WebSocketApi(self, "api",
+    disable_schema_validation=True
+)
+```
+
 You can configure IP address type for the API endpoint using `ipAddressType` property.
 Valid values are `IPV4` (default) and `DUAL_STACK`.
 
@@ -11722,6 +11730,7 @@ class WebSocketApi(
         connect_route_options: typing.Optional[typing.Union["WebSocketRouteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         default_route_options: typing.Optional[typing.Union["WebSocketRouteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_schema_validation: typing.Optional[builtins.bool] = None,
         disconnect_route_options: typing.Optional[typing.Union["WebSocketRouteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional[IpAddressType] = None,
         route_selection_expression: typing.Optional[builtins.str] = None,
@@ -11734,6 +11743,7 @@ class WebSocketApi(
         :param connect_route_options: Options to configure a '$connect' route. Default: - no '$connect' route configured
         :param default_route_options: Options to configure a '$default' route. Default: - no '$default' route configured
         :param description: The description of the API. Default: - none
+        :param disable_schema_validation: Avoid validating models when creating a deployment. Default: false
         :param disconnect_route_options: Options to configure a '$disconnect' route. Default: - no '$disconnect' route configured
         :param ip_address_type: The IP address types that can invoke the API. Default: undefined - AWS default is IPV4
         :param route_selection_expression: The route selection expression for the API. Default: '$request.body.action'
@@ -11748,6 +11758,7 @@ class WebSocketApi(
             connect_route_options=connect_route_options,
             default_route_options=default_route_options,
             description=description,
+            disable_schema_validation=disable_schema_validation,
             disconnect_route_options=disconnect_route_options,
             ip_address_type=ip_address_type,
             route_selection_expression=route_selection_expression,
@@ -12069,6 +12080,7 @@ class WebSocketApiKeySelectionExpression(
         "connect_route_options": "connectRouteOptions",
         "default_route_options": "defaultRouteOptions",
         "description": "description",
+        "disable_schema_validation": "disableSchemaValidation",
         "disconnect_route_options": "disconnectRouteOptions",
         "ip_address_type": "ipAddressType",
         "route_selection_expression": "routeSelectionExpression",
@@ -12083,6 +12095,7 @@ class WebSocketApiProps:
         connect_route_options: typing.Optional[typing.Union["WebSocketRouteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         default_route_options: typing.Optional[typing.Union["WebSocketRouteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         description: typing.Optional[builtins.str] = None,
+        disable_schema_validation: typing.Optional[builtins.bool] = None,
         disconnect_route_options: typing.Optional[typing.Union["WebSocketRouteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional[IpAddressType] = None,
         route_selection_expression: typing.Optional[builtins.str] = None,
@@ -12094,6 +12107,7 @@ class WebSocketApiProps:
         :param connect_route_options: Options to configure a '$connect' route. Default: - no '$connect' route configured
         :param default_route_options: Options to configure a '$default' route. Default: - no '$default' route configured
         :param description: The description of the API. Default: - none
+        :param disable_schema_validation: Avoid validating models when creating a deployment. Default: false
         :param disconnect_route_options: Options to configure a '$disconnect' route. Default: - no '$disconnect' route configured
         :param ip_address_type: The IP address types that can invoke the API. Default: undefined - AWS default is IPV4
         :param route_selection_expression: The route selection expression for the API. Default: '$request.body.action'
@@ -12102,25 +12116,8 @@ class WebSocketApiProps:
 
         Example::
 
-            from aws_cdk.aws_apigatewayv2_authorizers import WebSocketLambdaAuthorizer
-            from aws_cdk.aws_apigatewayv2_integrations import WebSocketLambdaIntegration
-            
-            # This function handles your auth logic
-            # auth_handler: lambda.Function
-            
-            # This function handles your WebSocket requests
-            # handler: lambda.Function
-            
-            
-            authorizer = WebSocketLambdaAuthorizer("Authorizer", auth_handler)
-            
-            integration = WebSocketLambdaIntegration("Integration", handler)
-            
-            apigwv2.WebSocketApi(self, "WebSocketApi",
-                connect_route_options=apigwv2.WebSocketRouteOptions(
-                    integration=integration,
-                    authorizer=authorizer
-                )
+            web_socket_api = apigwv2.WebSocketApi(self, "mywsapi",
+                api_key_selection_expression=apigwv2.WebSocketApiKeySelectionExpression.HEADER_X_API_KEY
             )
         '''
         if isinstance(connect_route_options, dict):
@@ -12136,6 +12133,7 @@ class WebSocketApiProps:
             check_type(argname="argument connect_route_options", value=connect_route_options, expected_type=type_hints["connect_route_options"])
             check_type(argname="argument default_route_options", value=default_route_options, expected_type=type_hints["default_route_options"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disable_schema_validation", value=disable_schema_validation, expected_type=type_hints["disable_schema_validation"])
             check_type(argname="argument disconnect_route_options", value=disconnect_route_options, expected_type=type_hints["disconnect_route_options"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
             check_type(argname="argument route_selection_expression", value=route_selection_expression, expected_type=type_hints["route_selection_expression"])
@@ -12150,6 +12148,8 @@ class WebSocketApiProps:
             self._values["default_route_options"] = default_route_options
         if description is not None:
             self._values["description"] = description
+        if disable_schema_validation is not None:
+            self._values["disable_schema_validation"] = disable_schema_validation
         if disconnect_route_options is not None:
             self._values["disconnect_route_options"] = disconnect_route_options
         if ip_address_type is not None:
@@ -12205,6 +12205,15 @@ class WebSocketApiProps:
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disable_schema_validation(self) -> typing.Optional[builtins.bool]:
+        '''Avoid validating models when creating a deployment.
+
+        :default: false
+        '''
+        result = self._values.get("disable_schema_validation")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def disconnect_route_options(self) -> typing.Optional["WebSocketRouteOptions"]:
@@ -24573,6 +24582,7 @@ def _typecheckingstub__8f37be20ee015faaaf9283fe203dc28d2dcc56800f6007ae9105e3ad4
     connect_route_options: typing.Optional[typing.Union[WebSocketRouteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     default_route_options: typing.Optional[typing.Union[WebSocketRouteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_schema_validation: typing.Optional[builtins.bool] = None,
     disconnect_route_options: typing.Optional[typing.Union[WebSocketRouteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     route_selection_expression: typing.Optional[builtins.str] = None,
@@ -24661,6 +24671,7 @@ def _typecheckingstub__c8895a8e636238eeb0c7336ab16a74480a8a8620f13eb92f05d4074fb
     connect_route_options: typing.Optional[typing.Union[WebSocketRouteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     default_route_options: typing.Optional[typing.Union[WebSocketRouteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     description: typing.Optional[builtins.str] = None,
+    disable_schema_validation: typing.Optional[builtins.bool] = None,
     disconnect_route_options: typing.Optional[typing.Union[WebSocketRouteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[IpAddressType] = None,
     route_selection_expression: typing.Optional[builtins.str] = None,

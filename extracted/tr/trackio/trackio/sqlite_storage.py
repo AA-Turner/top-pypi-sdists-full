@@ -1,16 +1,21 @@
-import fcntl
-import json
 import os
+import platform
 import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
 
+try:
+    import fcntl
+except ImportError:  # fcntl is not available on Windows
+    fcntl = None
+
 import huggingface_hub as hf
+import orjson
 import pandas as pd
 
-try:  # absolute imports when installed
+try:  # absolute imports when installed from PyPI
     from trackio.commit_scheduler import CommitScheduler
     from trackio.dummy_commit_scheduler import DummyCommitScheduler
     from trackio.utils import (
@@ -18,21 +23,24 @@ try:  # absolute imports when installed
         deserialize_values,
         serialize_values,
     )
-except Exception:  # relative imports for local execution on Spaces
+except ImportError:  # relative imports when installed from source on Spaces
     from commit_scheduler import CommitScheduler
     from dummy_commit_scheduler import DummyCommitScheduler
     from utils import TRACKIO_DIR, deserialize_values, serialize_values
 
 
 class ProcessLock:
-    """A simple file-based lock that works across processes."""
+    """A file-based lock that works across processes. Is a no-op on Windows."""
 
     def __init__(self, lockfile_path: Path):
         self.lockfile_path = lockfile_path
         self.lockfile = None
+        self.is_windows = platform.system() == "Windows"
 
     def __enter__(self):
         """Acquire the lock with retry logic."""
+        if self.is_windows:
+            return self
         self.lockfile_path.parent.mkdir(parents=True, exist_ok=True)
         self.lockfile = open(self.lockfile_path, "w")
 
@@ -49,6 +57,9 @@ class ProcessLock:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Release the lock."""
+        if self.is_windows:
+            return
+
         if self.lockfile:
             fcntl.flock(self.lockfile.fileno(), fcntl.LOCK_UN)
             self.lockfile.close()
@@ -130,6 +141,12 @@ class SQLiteStorage:
                     ON configs(run_name)
                     """
                 )
+                cursor.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_metrics_run_timestamp
+                    ON metrics(run_name, timestamp)
+                    """
+                )
                 conn.commit()
         return db_path
 
@@ -155,7 +172,7 @@ class SQLiteStorage:
                 metrics = df["metrics"].copy()
                 metrics = pd.DataFrame(
                     metrics.apply(
-                        lambda x: deserialize_values(json.loads(x))
+                        lambda x: deserialize_values(orjson.loads(x))
                     ).values.tolist(),
                     index=df.index,
                 )
@@ -185,9 +202,9 @@ class SQLiteStorage:
                     for col in other_cols:
                         del metrics[col]
                     # combine them all into a single metrics col
-                    metrics = json.loads(metrics.to_json(orient="records"))
+                    metrics = orjson.loads(metrics.to_json(orient="records"))
                     df["metrics"] = [
-                        json.dumps(serialize_values(row)) for row in metrics
+                        orjson.dumps(serialize_values(row)) for row in metrics
                     ]
                 df.to_sql("metrics", conn, if_exists="replace", index=False)
 
@@ -262,7 +279,7 @@ class SQLiteStorage:
                         current_timestamp,
                         run,
                         current_step,
-                        json.dumps(serialize_values(metrics)),
+                        orjson.dumps(serialize_values(metrics)),
                     ),
                 )
                 conn.commit()
@@ -324,7 +341,7 @@ class SQLiteStorage:
                             timestamps[i],
                             run,
                             steps[i],
-                            json.dumps(serialize_values(metrics)),
+                            orjson.dumps(serialize_values(metrics)),
                         )
                     )
 
@@ -345,7 +362,11 @@ class SQLiteStorage:
                         (run_name, config, created_at)
                         VALUES (?, ?, ?)
                         """,
-                        (run, json.dumps(serialize_values(config)), current_timestamp),
+                        (
+                            run,
+                            orjson.dumps(serialize_values(config)),
+                            current_timestamp,
+                        ),
                     )
 
                 conn.commit()
@@ -372,7 +393,7 @@ class SQLiteStorage:
             rows = cursor.fetchall()
             results = []
             for row in rows:
-                metrics = json.loads(row["metrics"])
+                metrics = orjson.loads(row["metrics"])
                 metrics = deserialize_values(metrics)
                 metrics["timestamp"] = row["timestamp"]
                 metrics["step"] = row["step"]
@@ -479,7 +500,7 @@ class SQLiteStorage:
                     (run_name, config, created_at)
                     VALUES (?, ?, ?)
                     """,
-                    (run, json.dumps(serialize_values(config)), current_timestamp),
+                    (run, orjson.dumps(serialize_values(config)), current_timestamp),
                 )
                 conn.commit()
 
@@ -502,7 +523,7 @@ class SQLiteStorage:
 
                 row = cursor.fetchone()
                 if row:
-                    config = json.loads(row["config"])
+                    config = orjson.loads(row["config"])
                     return deserialize_values(config)
                 return None
             except sqlite3.OperationalError as e:
@@ -546,7 +567,7 @@ class SQLiteStorage:
 
                 results = {}
                 for row in cursor.fetchall():
-                    config = json.loads(row["config"])
+                    config = orjson.loads(row["config"])
                     results[row["run_name"]] = deserialize_values(config)
                 return results
             except sqlite3.OperationalError as e:

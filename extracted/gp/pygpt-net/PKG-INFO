@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.55
+Version: 2.6.58
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, MCP, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -119,7 +119,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.55** | build: **2025-09-18** | Python: **>=3.10, <3.14**
+Release: **2.6.58** | build: **2025-09-22** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -2088,6 +2088,8 @@ PyGPT features several useful tools, including:
 - Transcribe audio/video files
 - Python Code Interpreter
 - HTML/JS Canvas (built-in HTML renderer)
+- Translator
+- Web Browser (Chromium)
 
 ![v2_tool_menu](https://github.com/szczyglis-dev/py-gpt/raw/master/docs/source/images/v2_tool_menu.png)
 
@@ -2156,6 +2158,14 @@ This tool allows you to run Python code directly from within the app. It is inte
 ## HTML/JS Canvas
 
 Allows to render HTML/JS code in HTML Canvas (built-in renderer based on Chromium). To use it, just ask the model to render the HTML/JS code in built-in browser (HTML Canvas). Tool is integrated with the `Code Interpreter` plugin.
+
+## Translator
+
+Enables translation between multiple languages using an AI model.
+
+## Web Browser
+
+A built-in web browser based on Chromium, allowing you to open webpages directly within the app. **SECURITY NOTICE:** For your protection, avoid using the built-in browser for sensitive or critical tasks. It is intended for basic use only.
 
 
 # Token usage calculation
@@ -2321,6 +2331,8 @@ Config -> Settings...
 
 - `OpenGL hardware acceleration`: enables hardware acceleration in `WebEngine / Chromium` renderer.  Default: False.
 
+- `Use proxy`: Enable this option to use a proxy for connections to APIs. Default: False.
+
 - `Proxy address`: Proxy address to be used for connection in API SDKs; supports HTTP/SOCKS, e.g. http://proxy.example.com or socks5://user:pass@host:port
 
 - `Application environment (os.environ)`: Additional environment vars to set on application start.
@@ -2444,6 +2456,8 @@ Config -> Settings...
 - `Show code interpreter output`: If enabled, output from the code interpreter in the Assistant API will be displayed in real-time (in stream mode), Default: True.
 
 - `Use extra context output`: If enabled, plain text output (if available) from command results will be displayed alongside the JSON output, Default: True.
+
+- `Open URLs in built-in browser`: Enable this option to open all URLs in the built-in browser (Chromium) instead of an external browser. Default: False.
 
 - `Convert lists to paragraphs`: If enabled, lists (ul, ol) will be converted to paragraphs (p), Default: True.
 
@@ -3645,6 +3659,22 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.58 (2025-09-22)**
+
+- Added: internal Web Browser tool.
+
+**2.6.57 (2025-09-22)**
+
+- Changed: The web search icon has been moved to the input area.
+- Improved: The local web search plugin has been enhanced to retrieve multiple URLs at once.
+- Added: Use proxy switch in Settings.
+
+**2.6.56 (2025-09-22)**
+
+- Optimized: Memory usage and performance in streaming and rendering large contexts.
+- Added: Copy to clipboard functionality in user messages.
+- Added: Manual scroll in plain-text mode.
 
 **2.6.55 (2025-09-18)**
 

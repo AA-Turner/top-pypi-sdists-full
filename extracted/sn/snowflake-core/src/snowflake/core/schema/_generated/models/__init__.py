@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Schema API
+Snowflake Schema API.
 
 The Snowflake Schema API is a REST API that you can use to access, update, and perform certain actions on a Snowflake schema.  # noqa: E501
 

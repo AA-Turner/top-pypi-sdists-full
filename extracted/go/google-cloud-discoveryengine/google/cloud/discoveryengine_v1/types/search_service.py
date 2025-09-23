@@ -64,11 +64,11 @@ class SearchRequest(proto.Message):
             Values above the maximum value are coerced to the maximum
             value.
 
-            -  Websites with basic indexing: Default ``10``, Maximum
-               ``25``.
-            -  Websites with advanced indexing: Default ``25``, Maximum
-               ``50``.
-            -  Other: Default ``50``, Maximum ``100``.
+            - Websites with basic indexing: Default ``10``, Maximum
+              ``25``.
+            - Websites with advanced indexing: Default ``25``, Maximum
+              ``50``.
+            - Other: Default ``50``, Maximum ``100``.
 
             If this field is negative, an ``INVALID_ARGUMENT`` is
             returned.
@@ -181,18 +181,18 @@ class SearchRequest(proto.Message):
 
             For public website search only, supported values are:
 
-            -  ``user_country_code``: string. Default empty. If set to
-               non-empty, results are restricted or boosted based on the
-               location provided. For example,
-               ``user_country_code: "au"``
+            - ``user_country_code``: string. Default empty. If set to
+              non-empty, results are restricted or boosted based on the
+              location provided. For example,
+              ``user_country_code: "au"``
 
-               For available codes see `Country
-               Codes <https://developers.google.com/custom-search/docs/json_api_reference#countryCodes>`__
+              For available codes see `Country
+              Codes <https://developers.google.com/custom-search/docs/json_api_reference#countryCodes>`__
 
-            -  ``search_type``: double. Default empty. Enables
-               non-webpage searching depending on the value. The only
-               valid non-default value is 1, which enables image
-               searching. For example, ``search_type: 1``
+            - ``search_type``: double. Default empty. Enables
+              non-webpage searching depending on the value. The only
+              valid non-default value is 1, which enables image
+              searching. For example, ``search_type: 1``
         query_expansion_spec (google.cloud.discoveryengine_v1.types.SearchRequest.QueryExpansionSpec):
             The query expansion specification that
             specifies the conditions under which query
@@ -229,20 +229,20 @@ class SearchRequest(proto.Message):
             The user labels applied to a resource must meet the
             following requirements:
 
-            -  Each resource can have multiple labels, up to a maximum
-               of 64.
-            -  Each label must be a key-value pair.
-            -  Keys have a minimum length of 1 character and a maximum
-               length of 63 characters and cannot be empty. Values can
-               be empty and have a maximum length of 63 characters.
-            -  Keys and values can contain only lowercase letters,
-               numeric characters, underscores, and dashes. All
-               characters must use UTF-8 encoding, and international
-               characters are allowed.
-            -  The key portion of a label must be unique. However, you
-               can use the same key with multiple resources.
-            -  Keys must start with a lowercase letter or international
-               character.
+            - Each resource can have multiple labels, up to a maximum of
+              64.
+            - Each label must be a key-value pair.
+            - Keys have a minimum length of 1 character and a maximum
+              length of 63 characters and cannot be empty. Values can be
+              empty and have a maximum length of 63 characters.
+            - Keys and values can contain only lowercase letters,
+              numeric characters, underscores, and dashes. All
+              characters must use UTF-8 encoding, and international
+              characters are allowed.
+            - The key portion of a label must be unique. However, you
+              can use the same key with multiple resources.
+            - Keys must start with a lowercase letter or international
+              character.
 
             See `Google Cloud
             Document <https://cloud.google.com/resource-manager/docs/creating-managing-labels#requirements>`__
@@ -301,6 +301,112 @@ class SearchRequest(proto.Message):
         relevance_score_spec (google.cloud.discoveryengine_v1.types.SearchRequest.RelevanceScoreSpec):
             Optional. The specification for returning the
             relevance score.
+        ranking_expression (str):
+            The ranking expression controls the customized ranking on
+            retrieval documents. This overrides
+            [ServingConfig.ranking_expression][google.cloud.discoveryengine.v1.ServingConfig.ranking_expression].
+            The syntax and supported features depend on the
+            ``ranking_expression_backend`` value. If
+            ``ranking_expression_backend`` is not provided, it defaults
+            to ``RANK_BY_EMBEDDING``.
+
+            If
+            [ranking_expression_backend][google.cloud.discoveryengine.v1.SearchRequest.ranking_expression_backend]
+            is not provided or set to ``RANK_BY_EMBEDDING``, it should
+            be a single function or multiple functions that are joined
+            by "+".
+
+            - ranking_expression = function, { " + ", function };
+
+            Supported functions:
+
+            - double \* relevance_score
+            - double \* dotProduct(embedding_field_path)
+
+            Function variables:
+
+            - ``relevance_score``: pre-defined keywords, used for
+              measure relevance between query and document.
+            - ``embedding_field_path``: the document embedding field
+              used with query embedding vector.
+            - ``dotProduct``: embedding function between
+              ``embedding_field_path`` and query embedding vector.
+
+            Example ranking expression:
+
+            ::
+
+               If document has an embedding field doc_embedding, the ranking expression
+               could be `0.5 * relevance_score + 0.3 * dotProduct(doc_embedding)`.
+
+            If
+            [ranking_expression_backend][google.cloud.discoveryengine.v1.SearchRequest.ranking_expression_backend]
+            is set to ``RANK_BY_FORMULA``, the following expression
+            types (and combinations of those chained using + or
+
+            - operators) are supported:
+
+              - ``double``
+              - ``signal``
+              - ``log(signal)``
+              - ``exp(signal)``
+              - ``rr(signal, double > 0)`` -- reciprocal rank
+                transformation with second argument being a denominator
+                constant.
+              - ``is_nan(signal)`` -- returns 0 if signal is NaN, 1
+                otherwise.
+              - ``fill_nan(signal1, signal2 | double)`` -- if signal1 is
+                NaN, returns signal2 \| double, else returns signal1.
+
+              Here are a few examples of ranking formulas that use the
+              supported ranking expression types:
+
+              - ``0.2 * semantic_similarity_score + 0.8 * log(keyword_similarity_score)``
+                -- mostly rank by the logarithm of
+                ``keyword_similarity_score`` with slight
+                ``semantic_smilarity_score`` adjustment.
+              - ``0.2 * exp(fill_nan(semantic_similarity_score, 0)) + 0.3 * is_nan(keyword_similarity_score)``
+                -- rank by the exponent of ``semantic_similarity_score``
+                filling the value with 0 if it's NaN, also add constant
+                0.3 adjustment to the final score if
+                ``semantic_similarity_score`` is NaN.
+              - ``0.2 * rr(semantic_similarity_score, 16) + 0.8 * rr(keyword_similarity_score, 16)``
+                -- mostly rank by the reciprocal rank of
+                ``keyword_similarity_score`` with slight adjustment of
+                reciprocal rank of ``semantic_smilarity_score``.
+
+            The following signals are supported:
+
+            - ``semantic_similarity_score``: semantic similarity
+              adjustment that is calculated using the embeddings
+              generated by a proprietary Google model. This score
+              determines how semantically similar a search query is to a
+              document.
+            - ``keyword_similarity_score``: keyword match adjustment
+              uses the Best Match 25 (BM25) ranking function. This score
+              is calculated using a probabilistic model to estimate the
+              probability that a document is relevant to a given query.
+            - ``relevance_score``: semantic relevance adjustment that
+              uses a proprietary Google model to determine the meaning
+              and intent behind a user's query in context with the
+              content in the documents.
+            - ``pctr_rank``: predicted conversion rate adjustment as a
+              rank use predicted Click-through rate (pCTR) to gauge the
+              relevance and attractiveness of a search result from a
+              user's perspective. A higher pCTR suggests that the result
+              is more likely to satisfy the user's query and intent,
+              making it a valuable signal for ranking.
+            - ``freshness_rank``: freshness adjustment as a rank
+            - ``document_age``: The time in hours elapsed since the
+              document was last updated, a floating-point number (e.g.,
+              0.25 means 15 minutes).
+            - ``topicality_rank``: topicality adjustment as a rank. Uses
+              proprietary Google model to determine the keyword-based
+              overlap between the query and the document.
+            - ``base_rank``: the default rank of the result
+        ranking_expression_backend (google.cloud.discoveryengine_v1.types.SearchRequest.RankingExpressionBackend):
+            The backend to use for the ranking expression
+            evaluation.
     """
 
     class RelevanceThreshold(proto.Enum):
@@ -326,6 +432,23 @@ class SearchRequest(proto.Message):
         LOW = 2
         MEDIUM = 3
         HIGH = 4
+
+    class RankingExpressionBackend(proto.Enum):
+        r"""The backend to use for the ranking expression evaluation.
+
+        Values:
+            RANKING_EXPRESSION_BACKEND_UNSPECIFIED (0):
+                Default option for unspecified/unknown
+                values.
+            RANK_BY_EMBEDDING (3):
+                Ranking by custom embedding model, the
+                default way to evaluate the ranking expression.
+            RANK_BY_FORMULA (4):
+                Ranking by custom formula.
+        """
+        RANKING_EXPRESSION_BACKEND_UNSPECIFIED = 0
+        RANK_BY_EMBEDDING = 3
+        RANK_BY_FORMULA = 4
 
     class ImageQuery(proto.Message):
         r"""Specifies the image query input.
@@ -458,11 +581,11 @@ class SearchRequest(proto.Message):
                 Another example, assuming you have the following facets in
                 the request:
 
-                -  "rating", enable_dynamic_position = true
+                - "rating", enable_dynamic_position = true
 
-                -  "price", enable_dynamic_position = false
+                - "price", enable_dynamic_position = false
 
-                -  "brands", enable_dynamic_position = false
+                - "brands", enable_dynamic_position = false
 
                 And also you have a dynamic facets enabled, which generates
                 a facet ``gender``. Then the final order of the facets in
@@ -521,13 +644,13 @@ class SearchRequest(proto.Message):
 
                     Allowed values are:
 
-                    -  "count desc", which means order by
-                       [SearchResponse.Facet.values.count][google.cloud.discoveryengine.v1.SearchResponse.Facet.FacetValue.count]
-                       descending.
+                    - "count desc", which means order by
+                      [SearchResponse.Facet.values.count][google.cloud.discoveryengine.v1.SearchResponse.Facet.FacetValue.count]
+                      descending.
 
-                    -  "value desc", which means order by
-                       [SearchResponse.Facet.values.value][google.cloud.discoveryengine.v1.SearchResponse.Facet.FacetValue.value]
-                       descending. Only applies to textual facets.
+                    - "value desc", which means order by
+                      [SearchResponse.Facet.values.value][google.cloud.discoveryengine.v1.SearchResponse.Facet.FacetValue.value]
+                      descending. Only applies to textual facets.
 
                     If not set, textual values are sorted in `natural
                     order <https://en.wikipedia.org/wiki/Natural_sort_order>`__;
@@ -609,9 +732,9 @@ class SearchRequest(proto.Message):
 
                     Examples:
 
-                    -  To boost documents with document ID "doc_1" or "doc_2",
-                       and color "Red" or "Blue":
-                       ``(document_id: ANY("doc_1", "doc_2")) AND (color: ANY("Red", "Blue"))``
+                    - To boost documents with document ID "doc_1" or "doc_2",
+                      and color "Red" or "Blue":
+                      ``(document_id: ANY("doc_1", "doc_2")) AND (color: ANY("Red", "Blue"))``
                 boost (float):
                     Strength of the condition boost, which should be in [-1, 1].
                     Negative boost means demotion. Default is 0.0.
@@ -1069,15 +1192,15 @@ class SearchRequest(proto.Message):
 
                         Supported values are:
 
-                        -  ``stable``: string. Default value when no value is
-                           specified. Uses a generally available, fine-tuned model.
-                           For more information, see `Answer generation model
-                           versions and
-                           lifecycle <https://cloud.google.com/generative-ai-app-builder/docs/answer-generation-models>`__.
-                        -  ``preview``: string. (Public preview) Uses a preview
-                           model. For more information, see `Answer generation model
-                           versions and
-                           lifecycle <https://cloud.google.com/generative-ai-app-builder/docs/answer-generation-models>`__.
+                        - ``stable``: string. Default value when no value is
+                          specified. Uses a generally available, fine-tuned model.
+                          For more information, see `Answer generation model
+                          versions and
+                          lifecycle <https://cloud.google.com/generative-ai-app-builder/docs/answer-generation-models>`__.
+                        - ``preview``: string. (Public preview) Uses a preview
+                          model. For more information, see `Answer generation model
+                          versions and
+                          lifecycle <https://cloud.google.com/generative-ai-app-builder/docs/answer-generation-models>`__.
                 """
 
                 version: str = proto.Field(
@@ -1540,6 +1663,15 @@ class SearchRequest(proto.Message):
         number=52,
         message=RelevanceScoreSpec,
     )
+    ranking_expression: str = proto.Field(
+        proto.STRING,
+        number=26,
+    )
+    ranking_expression_backend: RankingExpressionBackend = proto.Field(
+        proto.ENUM,
+        number=53,
+        enum=RankingExpressionBackend,
+    )
 
 
 class SearchResponse(proto.Message):
@@ -1620,7 +1752,118 @@ class SearchResponse(proto.Message):
             model_scores (MutableMapping[str, google.cloud.discoveryengine_v1.types.DoubleList]):
                 Output only. Google provided available
                 scores.
+            rank_signals (google.cloud.discoveryengine_v1.types.SearchResponse.SearchResult.RankSignals):
+                A set of ranking signals associated with the
+                result.
         """
+
+        class RankSignals(proto.Message):
+            r"""A set of ranking signals.
+
+            .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+            Attributes:
+                keyword_similarity_score (float):
+                    Keyword matching adjustment.
+
+                    This field is a member of `oneof`_ ``_keyword_similarity_score``.
+                relevance_score (float):
+                    Semantic relevance adjustment.
+
+                    This field is a member of `oneof`_ ``_relevance_score``.
+                semantic_similarity_score (float):
+                    Semantic similarity adjustment.
+
+                    This field is a member of `oneof`_ ``_semantic_similarity_score``.
+                pctr_rank (float):
+                    Predicted conversion rate adjustment as a
+                    rank.
+
+                    This field is a member of `oneof`_ ``_pctr_rank``.
+                topicality_rank (float):
+                    Topicality adjustment as a rank.
+
+                    This field is a member of `oneof`_ ``_topicality_rank``.
+                document_age (float):
+                    Age of the document in hours.
+
+                    This field is a member of `oneof`_ ``_document_age``.
+                boosting_factor (float):
+                    Combined custom boosts for a doc.
+
+                    This field is a member of `oneof`_ ``_boosting_factor``.
+                default_rank (float):
+                    The default rank of the result.
+                custom_signals (MutableSequence[google.cloud.discoveryengine_v1.types.SearchResponse.SearchResult.RankSignals.CustomSignal]):
+                    A list of custom clearbox signals.
+            """
+
+            class CustomSignal(proto.Message):
+                r"""Custom clearbox signal represented by name and value pair.
+
+                Attributes:
+                    name (str):
+                        Name of the signal.
+                    value (float):
+                        Float value representing the ranking signal
+                        (e.g. 1.25 for BM25).
+                """
+
+                name: str = proto.Field(
+                    proto.STRING,
+                    number=1,
+                )
+                value: float = proto.Field(
+                    proto.FLOAT,
+                    number=2,
+                )
+
+            keyword_similarity_score: float = proto.Field(
+                proto.FLOAT,
+                number=1,
+                optional=True,
+            )
+            relevance_score: float = proto.Field(
+                proto.FLOAT,
+                number=2,
+                optional=True,
+            )
+            semantic_similarity_score: float = proto.Field(
+                proto.FLOAT,
+                number=3,
+                optional=True,
+            )
+            pctr_rank: float = proto.Field(
+                proto.FLOAT,
+                number=4,
+                optional=True,
+            )
+            topicality_rank: float = proto.Field(
+                proto.FLOAT,
+                number=6,
+                optional=True,
+            )
+            document_age: float = proto.Field(
+                proto.FLOAT,
+                number=7,
+                optional=True,
+            )
+            boosting_factor: float = proto.Field(
+                proto.FLOAT,
+                number=8,
+                optional=True,
+            )
+            default_rank: float = proto.Field(
+                proto.FLOAT,
+                number=32,
+            )
+            custom_signals: MutableSequence[
+                "SearchResponse.SearchResult.RankSignals.CustomSignal"
+            ] = proto.RepeatedField(
+                proto.MESSAGE,
+                number=33,
+                message="SearchResponse.SearchResult.RankSignals.CustomSignal",
+            )
 
         id: str = proto.Field(
             proto.STRING,
@@ -1641,6 +1884,11 @@ class SearchResponse(proto.Message):
             proto.MESSAGE,
             number=4,
             message=common.DoubleList,
+        )
+        rank_signals: "SearchResponse.SearchResult.RankSignals" = proto.Field(
+            proto.MESSAGE,
+            number=7,
+            message="SearchResponse.SearchResult.RankSignals",
         )
 
     class Facet(proto.Message):

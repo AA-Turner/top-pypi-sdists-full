@@ -30,7 +30,7 @@ class Deploy(Command):
         state, args = self.apply_state(args, state)
 
         if state.in_repl:
-            log(lines_to_tabular([c.help(ReplState()) for c in Deploy.cmd_list()], separator=':'))
+            log(lines_to_tabular([c.help(ReplState()) for c in Deploy.cmd_list()], separator='\t'))
 
             return 'command-missing'
         else:
@@ -58,4 +58,4 @@ class DeployCommandHelper(click.Command):
         log()
         log('Sub-Commands:')
 
-        log(lines_to_tabular([c.help(ReplState()).replace(f'{Deploy.COMMAND} ', '  ', 1) for c in Deploy.cmd_list()], separator=':'))
+        log(lines_to_tabular([c.help(ReplState()).replace(f'{Deploy.COMMAND} ', '  ', 1) for c in Deploy.cmd_list()], separator='\t'))

@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Function API
+Snowflake Function API.
 
 The Snowflake Function API is a REST API that allows caller to create, execute and drop functions in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.function._generated.api.function_api import FunctionApi
-
-# import ApiClient
-from snowflake.core.function._generated.api_client import ApiClient
-from snowflake.core.function._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.function._generated.models.error_response import ErrorResponse

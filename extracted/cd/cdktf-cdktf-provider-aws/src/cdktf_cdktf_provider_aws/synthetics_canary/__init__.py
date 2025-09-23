@@ -1,7 +1,7 @@
 r'''
 # `aws_synthetics_canary`
 
-Refer to the Terraform Registry for docs: [`aws_synthetics_canary`](https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary).
+Refer to the Terraform Registry for docs: [`aws_synthetics_canary`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsCanary(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.syntheticsCanary.SyntheticsCanary",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary aws_synthetics_canary}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary aws_synthetics_canary}.'''
 
     def __init__(
         self,
@@ -80,31 +80,31 @@ class SyntheticsCanary(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary aws_synthetics_canary} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary aws_synthetics_canary} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param artifact_s3_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#artifact_s3_location SyntheticsCanary#artifact_s3_location}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#execution_role_arn SyntheticsCanary#execution_role_arn}.
-        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#handler SyntheticsCanary#handler}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#name SyntheticsCanary#name}.
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#runtime_version SyntheticsCanary#runtime_version}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#schedule SyntheticsCanary#schedule}
-        :param artifact_config: artifact_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#artifact_config SyntheticsCanary#artifact_config}
-        :param delete_lambda: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#delete_lambda SyntheticsCanary#delete_lambda}.
-        :param failure_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#failure_retention_period SyntheticsCanary#failure_retention_period}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#id SyntheticsCanary#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#region SyntheticsCanary#region}
-        :param run_config: run_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#run_config SyntheticsCanary#run_config}
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_bucket SyntheticsCanary#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_key SyntheticsCanary#s3_key}.
-        :param s3_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_version SyntheticsCanary#s3_version}.
-        :param start_canary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#start_canary SyntheticsCanary#start_canary}.
-        :param success_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#success_retention_period SyntheticsCanary#success_retention_period}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#tags SyntheticsCanary#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#tags_all SyntheticsCanary#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#vpc_config SyntheticsCanary#vpc_config}
-        :param zip_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#zip_file SyntheticsCanary#zip_file}.
+        :param artifact_s3_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#artifact_s3_location SyntheticsCanary#artifact_s3_location}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#execution_role_arn SyntheticsCanary#execution_role_arn}.
+        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#handler SyntheticsCanary#handler}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#name SyntheticsCanary#name}.
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#runtime_version SyntheticsCanary#runtime_version}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#schedule SyntheticsCanary#schedule}
+        :param artifact_config: artifact_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#artifact_config SyntheticsCanary#artifact_config}
+        :param delete_lambda: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#delete_lambda SyntheticsCanary#delete_lambda}.
+        :param failure_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#failure_retention_period SyntheticsCanary#failure_retention_period}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#id SyntheticsCanary#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#region SyntheticsCanary#region}
+        :param run_config: run_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#run_config SyntheticsCanary#run_config}
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_bucket SyntheticsCanary#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_key SyntheticsCanary#s3_key}.
+        :param s3_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_version SyntheticsCanary#s3_version}.
+        :param start_canary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#start_canary SyntheticsCanary#start_canary}.
+        :param success_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#success_retention_period SyntheticsCanary#success_retention_period}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#tags SyntheticsCanary#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#tags_all SyntheticsCanary#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#vpc_config SyntheticsCanary#vpc_config}
+        :param zip_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#zip_file SyntheticsCanary#zip_file}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -163,7 +163,7 @@ class SyntheticsCanary(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsCanary to import.
-        :param import_from_id: The id of the existing SyntheticsCanary that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsCanary that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsCanary to import is found.
         '''
         if __debug__:
@@ -181,7 +181,7 @@ class SyntheticsCanary(
         s3_encryption: typing.Optional[typing.Union["SyntheticsCanaryArtifactConfigS3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_encryption: s3_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_encryption SyntheticsCanary#s3_encryption}
+        :param s3_encryption: s3_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_encryption SyntheticsCanary#s3_encryption}
         '''
         value = SyntheticsCanaryArtifactConfig(s3_encryption=s3_encryption)
 
@@ -198,11 +198,11 @@ class SyntheticsCanary(
         timeout_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param active_tracing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#active_tracing SyntheticsCanary#active_tracing}.
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#environment_variables SyntheticsCanary#environment_variables}.
-        :param ephemeral_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#ephemeral_storage SyntheticsCanary#ephemeral_storage}.
-        :param memory_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#memory_in_mb SyntheticsCanary#memory_in_mb}.
-        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#timeout_in_seconds SyntheticsCanary#timeout_in_seconds}.
+        :param active_tracing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#active_tracing SyntheticsCanary#active_tracing}.
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#environment_variables SyntheticsCanary#environment_variables}.
+        :param ephemeral_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#ephemeral_storage SyntheticsCanary#ephemeral_storage}.
+        :param memory_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#memory_in_mb SyntheticsCanary#memory_in_mb}.
+        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#timeout_in_seconds SyntheticsCanary#timeout_in_seconds}.
         '''
         value = SyntheticsCanaryRunConfig(
             active_tracing=active_tracing,
@@ -223,9 +223,9 @@ class SyntheticsCanary(
         retry_config: typing.Optional[typing.Union["SyntheticsCanaryScheduleRetryConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#expression SyntheticsCanary#expression}.
-        :param duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#duration_in_seconds SyntheticsCanary#duration_in_seconds}.
-        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#retry_config SyntheticsCanary#retry_config}
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#expression SyntheticsCanary#expression}.
+        :param duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#duration_in_seconds SyntheticsCanary#duration_in_seconds}.
+        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#retry_config SyntheticsCanary#retry_config}
         '''
         value = SyntheticsCanarySchedule(
             expression=expression,
@@ -244,9 +244,9 @@ class SyntheticsCanary(
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#ipv6_allowed_for_dual_stack SyntheticsCanary#ipv6_allowed_for_dual_stack}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#security_group_ids SyntheticsCanary#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#subnet_ids SyntheticsCanary#subnet_ids}.
+        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#ipv6_allowed_for_dual_stack SyntheticsCanary#ipv6_allowed_for_dual_stack}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#security_group_ids SyntheticsCanary#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#subnet_ids SyntheticsCanary#subnet_ids}.
         '''
         value = SyntheticsCanaryVpcConfig(
             ipv6_allowed_for_dual_stack=ipv6_allowed_for_dual_stack,
@@ -710,7 +710,7 @@ class SyntheticsCanaryArtifactConfig:
         s3_encryption: typing.Optional[typing.Union["SyntheticsCanaryArtifactConfigS3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param s3_encryption: s3_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_encryption SyntheticsCanary#s3_encryption}
+        :param s3_encryption: s3_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_encryption SyntheticsCanary#s3_encryption}
         '''
         if isinstance(s3_encryption, dict):
             s3_encryption = SyntheticsCanaryArtifactConfigS3Encryption(**s3_encryption)
@@ -727,7 +727,7 @@ class SyntheticsCanaryArtifactConfig:
     ) -> typing.Optional["SyntheticsCanaryArtifactConfigS3Encryption"]:
         '''s3_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_encryption SyntheticsCanary#s3_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_encryption SyntheticsCanary#s3_encryption}
         '''
         result = self._values.get("s3_encryption")
         return typing.cast(typing.Optional["SyntheticsCanaryArtifactConfigS3Encryption"], result)
@@ -772,8 +772,8 @@ class SyntheticsCanaryArtifactConfigOutputReference(
         kms_key_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#encryption_mode SyntheticsCanary#encryption_mode}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#kms_key_arn SyntheticsCanary#kms_key_arn}.
+        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#encryption_mode SyntheticsCanary#encryption_mode}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#kms_key_arn SyntheticsCanary#kms_key_arn}.
         '''
         value = SyntheticsCanaryArtifactConfigS3Encryption(
             encryption_mode=encryption_mode, kms_key_arn=kms_key_arn
@@ -828,8 +828,8 @@ class SyntheticsCanaryArtifactConfigS3Encryption:
         kms_key_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#encryption_mode SyntheticsCanary#encryption_mode}.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#kms_key_arn SyntheticsCanary#kms_key_arn}.
+        :param encryption_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#encryption_mode SyntheticsCanary#encryption_mode}.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#kms_key_arn SyntheticsCanary#kms_key_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abafbdc683750d80b968de4683e901fce807aa7935d3b2d6e1e46a7c32f212a5)
@@ -843,13 +843,13 @@ class SyntheticsCanaryArtifactConfigS3Encryption:
 
     @builtins.property
     def encryption_mode(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#encryption_mode SyntheticsCanary#encryption_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#encryption_mode SyntheticsCanary#encryption_mode}.'''
         result = self._values.get("encryption_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#kms_key_arn SyntheticsCanary#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#kms_key_arn SyntheticsCanary#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1020,27 +1020,27 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param artifact_s3_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#artifact_s3_location SyntheticsCanary#artifact_s3_location}.
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#execution_role_arn SyntheticsCanary#execution_role_arn}.
-        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#handler SyntheticsCanary#handler}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#name SyntheticsCanary#name}.
-        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#runtime_version SyntheticsCanary#runtime_version}.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#schedule SyntheticsCanary#schedule}
-        :param artifact_config: artifact_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#artifact_config SyntheticsCanary#artifact_config}
-        :param delete_lambda: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#delete_lambda SyntheticsCanary#delete_lambda}.
-        :param failure_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#failure_retention_period SyntheticsCanary#failure_retention_period}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#id SyntheticsCanary#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#region SyntheticsCanary#region}
-        :param run_config: run_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#run_config SyntheticsCanary#run_config}
-        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_bucket SyntheticsCanary#s3_bucket}.
-        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_key SyntheticsCanary#s3_key}.
-        :param s3_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_version SyntheticsCanary#s3_version}.
-        :param start_canary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#start_canary SyntheticsCanary#start_canary}.
-        :param success_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#success_retention_period SyntheticsCanary#success_retention_period}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#tags SyntheticsCanary#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#tags_all SyntheticsCanary#tags_all}.
-        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#vpc_config SyntheticsCanary#vpc_config}
-        :param zip_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#zip_file SyntheticsCanary#zip_file}.
+        :param artifact_s3_location: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#artifact_s3_location SyntheticsCanary#artifact_s3_location}.
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#execution_role_arn SyntheticsCanary#execution_role_arn}.
+        :param handler: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#handler SyntheticsCanary#handler}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#name SyntheticsCanary#name}.
+        :param runtime_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#runtime_version SyntheticsCanary#runtime_version}.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#schedule SyntheticsCanary#schedule}
+        :param artifact_config: artifact_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#artifact_config SyntheticsCanary#artifact_config}
+        :param delete_lambda: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#delete_lambda SyntheticsCanary#delete_lambda}.
+        :param failure_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#failure_retention_period SyntheticsCanary#failure_retention_period}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#id SyntheticsCanary#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#region SyntheticsCanary#region}
+        :param run_config: run_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#run_config SyntheticsCanary#run_config}
+        :param s3_bucket: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_bucket SyntheticsCanary#s3_bucket}.
+        :param s3_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_key SyntheticsCanary#s3_key}.
+        :param s3_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_version SyntheticsCanary#s3_version}.
+        :param start_canary: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#start_canary SyntheticsCanary#start_canary}.
+        :param success_retention_period: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#success_retention_period SyntheticsCanary#success_retention_period}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#tags SyntheticsCanary#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#tags_all SyntheticsCanary#tags_all}.
+        :param vpc_config: vpc_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#vpc_config SyntheticsCanary#vpc_config}
+        :param zip_file: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#zip_file SyntheticsCanary#zip_file}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1201,35 +1201,35 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def artifact_s3_location(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#artifact_s3_location SyntheticsCanary#artifact_s3_location}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#artifact_s3_location SyntheticsCanary#artifact_s3_location}.'''
         result = self._values.get("artifact_s3_location")
         assert result is not None, "Required property 'artifact_s3_location' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#execution_role_arn SyntheticsCanary#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#execution_role_arn SyntheticsCanary#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def handler(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#handler SyntheticsCanary#handler}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#handler SyntheticsCanary#handler}.'''
         result = self._values.get("handler")
         assert result is not None, "Required property 'handler' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#name SyntheticsCanary#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#name SyntheticsCanary#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def runtime_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#runtime_version SyntheticsCanary#runtime_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#runtime_version SyntheticsCanary#runtime_version}.'''
         result = self._values.get("runtime_version")
         assert result is not None, "Required property 'runtime_version' is missing"
         return typing.cast(builtins.str, result)
@@ -1238,7 +1238,7 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schedule(self) -> "SyntheticsCanarySchedule":
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#schedule SyntheticsCanary#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#schedule SyntheticsCanary#schedule}
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
@@ -1248,7 +1248,7 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def artifact_config(self) -> typing.Optional[SyntheticsCanaryArtifactConfig]:
         '''artifact_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#artifact_config SyntheticsCanary#artifact_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#artifact_config SyntheticsCanary#artifact_config}
         '''
         result = self._values.get("artifact_config")
         return typing.cast(typing.Optional[SyntheticsCanaryArtifactConfig], result)
@@ -1257,19 +1257,19 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def delete_lambda(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#delete_lambda SyntheticsCanary#delete_lambda}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#delete_lambda SyntheticsCanary#delete_lambda}.'''
         result = self._values.get("delete_lambda")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def failure_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#failure_retention_period SyntheticsCanary#failure_retention_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#failure_retention_period SyntheticsCanary#failure_retention_period}.'''
         result = self._values.get("failure_retention_period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#id SyntheticsCanary#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#id SyntheticsCanary#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1281,7 +1281,7 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#region SyntheticsCanary#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#region SyntheticsCanary#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1290,26 +1290,26 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def run_config(self) -> typing.Optional["SyntheticsCanaryRunConfig"]:
         '''run_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#run_config SyntheticsCanary#run_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#run_config SyntheticsCanary#run_config}
         '''
         result = self._values.get("run_config")
         return typing.cast(typing.Optional["SyntheticsCanaryRunConfig"], result)
 
     @builtins.property
     def s3_bucket(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_bucket SyntheticsCanary#s3_bucket}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_bucket SyntheticsCanary#s3_bucket}.'''
         result = self._values.get("s3_bucket")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_key SyntheticsCanary#s3_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_key SyntheticsCanary#s3_key}.'''
         result = self._values.get("s3_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def s3_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#s3_version SyntheticsCanary#s3_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#s3_version SyntheticsCanary#s3_version}.'''
         result = self._values.get("s3_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1317,25 +1317,25 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def start_canary(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#start_canary SyntheticsCanary#start_canary}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#start_canary SyntheticsCanary#start_canary}.'''
         result = self._values.get("start_canary")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def success_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#success_retention_period SyntheticsCanary#success_retention_period}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#success_retention_period SyntheticsCanary#success_retention_period}.'''
         result = self._values.get("success_retention_period")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#tags SyntheticsCanary#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#tags SyntheticsCanary#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#tags_all SyntheticsCanary#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#tags_all SyntheticsCanary#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1343,14 +1343,14 @@ class SyntheticsCanaryConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_config(self) -> typing.Optional["SyntheticsCanaryVpcConfig"]:
         '''vpc_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#vpc_config SyntheticsCanary#vpc_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#vpc_config SyntheticsCanary#vpc_config}
         '''
         result = self._values.get("vpc_config")
         return typing.cast(typing.Optional["SyntheticsCanaryVpcConfig"], result)
 
     @builtins.property
     def zip_file(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#zip_file SyntheticsCanary#zip_file}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#zip_file SyntheticsCanary#zip_file}.'''
         result = self._values.get("zip_file")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1388,11 +1388,11 @@ class SyntheticsCanaryRunConfig:
         timeout_in_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param active_tracing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#active_tracing SyntheticsCanary#active_tracing}.
-        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#environment_variables SyntheticsCanary#environment_variables}.
-        :param ephemeral_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#ephemeral_storage SyntheticsCanary#ephemeral_storage}.
-        :param memory_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#memory_in_mb SyntheticsCanary#memory_in_mb}.
-        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#timeout_in_seconds SyntheticsCanary#timeout_in_seconds}.
+        :param active_tracing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#active_tracing SyntheticsCanary#active_tracing}.
+        :param environment_variables: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#environment_variables SyntheticsCanary#environment_variables}.
+        :param ephemeral_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#ephemeral_storage SyntheticsCanary#ephemeral_storage}.
+        :param memory_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#memory_in_mb SyntheticsCanary#memory_in_mb}.
+        :param timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#timeout_in_seconds SyntheticsCanary#timeout_in_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__461c054b8ceecb688c08e3cbb924f9bcbceb61713841c7cee9081a019cbb0f68)
@@ -1417,7 +1417,7 @@ class SyntheticsCanaryRunConfig:
     def active_tracing(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#active_tracing SyntheticsCanary#active_tracing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#active_tracing SyntheticsCanary#active_tracing}.'''
         result = self._values.get("active_tracing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1425,25 +1425,25 @@ class SyntheticsCanaryRunConfig:
     def environment_variables(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#environment_variables SyntheticsCanary#environment_variables}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#environment_variables SyntheticsCanary#environment_variables}.'''
         result = self._values.get("environment_variables")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def ephemeral_storage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#ephemeral_storage SyntheticsCanary#ephemeral_storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#ephemeral_storage SyntheticsCanary#ephemeral_storage}.'''
         result = self._values.get("ephemeral_storage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def memory_in_mb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#memory_in_mb SyntheticsCanary#memory_in_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#memory_in_mb SyntheticsCanary#memory_in_mb}.'''
         result = self._values.get("memory_in_mb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#timeout_in_seconds SyntheticsCanary#timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#timeout_in_seconds SyntheticsCanary#timeout_in_seconds}.'''
         result = self._values.get("timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1627,9 +1627,9 @@ class SyntheticsCanarySchedule:
         retry_config: typing.Optional[typing.Union["SyntheticsCanaryScheduleRetryConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#expression SyntheticsCanary#expression}.
-        :param duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#duration_in_seconds SyntheticsCanary#duration_in_seconds}.
-        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#retry_config SyntheticsCanary#retry_config}
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#expression SyntheticsCanary#expression}.
+        :param duration_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#duration_in_seconds SyntheticsCanary#duration_in_seconds}.
+        :param retry_config: retry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#retry_config SyntheticsCanary#retry_config}
         '''
         if isinstance(retry_config, dict):
             retry_config = SyntheticsCanaryScheduleRetryConfig(**retry_config)
@@ -1648,14 +1648,14 @@ class SyntheticsCanarySchedule:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#expression SyntheticsCanary#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#expression SyntheticsCanary#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def duration_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#duration_in_seconds SyntheticsCanary#duration_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#duration_in_seconds SyntheticsCanary#duration_in_seconds}.'''
         result = self._values.get("duration_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1663,7 +1663,7 @@ class SyntheticsCanarySchedule:
     def retry_config(self) -> typing.Optional["SyntheticsCanaryScheduleRetryConfig"]:
         '''retry_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#retry_config SyntheticsCanary#retry_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#retry_config SyntheticsCanary#retry_config}
         '''
         result = self._values.get("retry_config")
         return typing.cast(typing.Optional["SyntheticsCanaryScheduleRetryConfig"], result)
@@ -1703,7 +1703,7 @@ class SyntheticsCanaryScheduleOutputReference(
     @jsii.member(jsii_name="putRetryConfig")
     def put_retry_config(self, *, max_retries: jsii.Number) -> None:
         '''
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#max_retries SyntheticsCanary#max_retries}.
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#max_retries SyntheticsCanary#max_retries}.
         '''
         value = SyntheticsCanaryScheduleRetryConfig(max_retries=max_retries)
 
@@ -1784,7 +1784,7 @@ class SyntheticsCanaryScheduleOutputReference(
 class SyntheticsCanaryScheduleRetryConfig:
     def __init__(self, *, max_retries: jsii.Number) -> None:
         '''
-        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#max_retries SyntheticsCanary#max_retries}.
+        :param max_retries: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#max_retries SyntheticsCanary#max_retries}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb796073615988de1b8418afc1fde91691efddf4d731023528a540f548dd0cde)
@@ -1795,7 +1795,7 @@ class SyntheticsCanaryScheduleRetryConfig:
 
     @builtins.property
     def max_retries(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#max_retries SyntheticsCanary#max_retries}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#max_retries SyntheticsCanary#max_retries}.'''
         result = self._values.get("max_retries")
         assert result is not None, "Required property 'max_retries' is missing"
         return typing.cast(jsii.Number, result)
@@ -2036,9 +2036,9 @@ class SyntheticsCanaryVpcConfig:
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#ipv6_allowed_for_dual_stack SyntheticsCanary#ipv6_allowed_for_dual_stack}.
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#security_group_ids SyntheticsCanary#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#subnet_ids SyntheticsCanary#subnet_ids}.
+        :param ipv6_allowed_for_dual_stack: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#ipv6_allowed_for_dual_stack SyntheticsCanary#ipv6_allowed_for_dual_stack}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#security_group_ids SyntheticsCanary#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#subnet_ids SyntheticsCanary#subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca0ffe3f9c673197738325ef1f2cad28ab062af84d024c9b5cdc4ea6f92cfb2e)
@@ -2057,19 +2057,19 @@ class SyntheticsCanaryVpcConfig:
     def ipv6_allowed_for_dual_stack(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#ipv6_allowed_for_dual_stack SyntheticsCanary#ipv6_allowed_for_dual_stack}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#ipv6_allowed_for_dual_stack SyntheticsCanary#ipv6_allowed_for_dual_stack}.'''
         result = self._values.get("ipv6_allowed_for_dual_stack")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#security_group_ids SyntheticsCanary#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#security_group_ids SyntheticsCanary#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/resources/synthetics_canary#subnet_ids SyntheticsCanary#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/synthetics_canary#subnet_ids SyntheticsCanary#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

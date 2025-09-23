@@ -3,7 +3,7 @@ name: Publish
 on:
   release:
     types:
-      - created
+      - released
   workflow_dispatch:
     inputs:
       debug_enabled:
@@ -27,4 +27,4 @@ jobs:
       - name: Build distribution
         run: python -m build
       - name: Publish
-        uses: pypa/gh-action-pypi-publish@v1.12.3
+        uses: pypa/gh-action-pypi-publish@v1.12.4

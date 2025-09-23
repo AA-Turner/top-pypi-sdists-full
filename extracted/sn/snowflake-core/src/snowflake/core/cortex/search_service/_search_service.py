@@ -2,10 +2,10 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import SchemaObjectCollectionParent, SchemaObjectReferenceMixin
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperations
 from snowflake.core.cortex.search_service._generated.api import CortexSearchServiceApi
-from snowflake.core.cortex.search_service._generated.api_client import StoredProcApiClient
 from snowflake.core.cortex.search_service._generated.models import QueryRequest, QueryResponse
 
 

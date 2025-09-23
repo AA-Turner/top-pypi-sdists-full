@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: typedload
-Version: 2.37
+Version: 2.38
 Summary: Load and dump data from json-like format into typed data structures
 Home-page: https://ltworf.codeberg.page/typedload/
 Author: Salvo 'LtWorf' Tomaselli
@@ -863,14 +863,17 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Typing :: Typed
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
 
 typedload
 =========
@@ -922,10 +925,10 @@ Can be treated more easily if loaded into this type:
 class User:
     username: str
     shell: str = 'bash'
-    sessions: List[str] = dataclasses.field(default_factory=list)
+    sessions: list[str] = dataclasses.field(default_factory=list)
 
 class Logins(NamedTuple):
-    users: List[User]
+    users: list[User]
 ```
 
 And the data can be loaded into the structure with this:
@@ -951,11 +954,11 @@ The following things are supported:
  * NamedTuple
  * Enum
  * Optional[SomeType]
- * List[SomeType]
- * Dict[TypeA, TypeB]
- * Tuple[TypeA, TypeB, TypeC] and Tuple[SomeType, ...]
- * Set[SomeType]
- * Union[TypeA, TypeB]
+ * list[SomeType]
+ * dict[TypeA, TypeB]
+ * tuple[TypeA, TypeB, TypeC] and tuple[SomeType, ...]
+ * set[SomeType]
+ * TypeA | TypeB
  * dataclass
  * attr.s
  * ForwardRef (Refer to the type in its own definition)
@@ -983,14 +986,14 @@ Mypy and similar tools work without requiring any plugins.
 # This is treated as Any, no checks done.
 data = json.load(f)
 
-# This is treated as Dict[str, int]
+# This is treated as dict[str, int]
 # but there will be runtime errors if the data does not
 # match the expected format
-data = json.load(f)  # type: Dict[str, int]
+data = json.load(f)  # type: dict[str, int]
 
-# This is treated as Dict[str, int] and an exception is
-# raised if the actual data is not Dict[str, int]
-data = typedload.load(json.load(f), Dict[str, int])
+# This is treated as dict[str, int] and an exception is
+# raised if the actual data is not dict[str, int]
+data = typedload.load(json.load(f), dict[str, int])
 ```
 
 So when using Mypy, it makes sense to make sure that the type is correct,
@@ -1024,6 +1027,7 @@ Used by
 
 As dependency, typedload is used by those entities. Feel free to add to the list.
 
+* The USA armed forces (regrettably) (via [Appgate](https://www.appgate.com/federal-division))
 * [Lyft](https://eng.lyft.com/python-upgrade-playbook-1479145d52f4)
 * Several universities around the world (via [Relational](https://ltworf.codeberg.page/relational/))
 * People who love IRC (via [localslackirc](https://github.com/ltworf/localslackirc))

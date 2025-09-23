@@ -1,6 +1,5 @@
-
 """
-Snowflake Stream API
+Snowflake Stream API.
 
 The Snowflake Stream API is a REST API that you can use to access, update, and perform certain actions on Stream resource in a Snowflake database.  # noqa: E501
 
@@ -36,7 +35,6 @@ class Stream(BaseModel):
     name : str
         Name of the stream
     stream_source : StreamSource
-
 
     created_on : datetime, optional
         Date and time when the stream was created.
@@ -169,14 +167,14 @@ class Stream(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Stream:
-        """Create an instance of Stream from a JSON string"""
+        """Create an instance of Stream from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

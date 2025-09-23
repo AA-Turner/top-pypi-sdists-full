@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-include-variants
-Version: 0.0.4
+Version: 0.0.5
 Summary: Markdown extension to expand directives to include source example files to also include their variants. Only useful to tiangolo's projets. Don't use it. 😅
 Project-URL: Homepage, https://github.com/tiangolo/markdown-include-variants
 Project-URL: Repository, https://github.com/tiangolo/markdown-include-variants

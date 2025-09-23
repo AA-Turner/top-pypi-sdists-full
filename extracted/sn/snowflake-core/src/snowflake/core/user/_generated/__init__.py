@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake User API
+Snowflake User API.
 
 The Snowflake User API is a REST API that you can use to access, update, and perform certain action on Users in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.user._generated.api.user_api import UserApi
-
-# import ApiClient
-from snowflake.core.user._generated.api_client import ApiClient
-from snowflake.core.user._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.user._generated.models.containing_scope import ContainingScope

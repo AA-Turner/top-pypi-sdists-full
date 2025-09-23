@@ -236,14 +236,29 @@ class Pods:
     def wait_for_running(namespace: str, pod_name: str, msg: str=None, label_selector: str = None):
         msged = False
 
-        while (Pods.get_with_selector(namespace, label_selector) if label_selector else Pods.get(namespace, pod_name)).status.phase != 'Running':
-            if not msged:
-                if not msg:
-                    msg = f'Waiting for the {pod_name} pod to start up...'
-                log2(msg, nl=False)
-                msged = True
-            time.sleep(5)
-        log2(' OK')
+        cnt = 2
+        while (cnt < 302 and Pods.get_with_selector(namespace, label_selector) if label_selector else Pods.get(namespace, pod_name)).status.phase != 'Running':
+            if not msg:
+                msg = f'Waiting for the {pod_name} pod to start up.'
+
+            max_len = len(msg) + 3
+            mod = cnt % 3
+            padded = ''
+            if mod == 0:
+                padded = f'\r{msg}'.ljust(max_len)
+            elif mod == 1:
+                padded = f'\r{msg}.'.ljust(max_len)
+            else:
+                padded = f'\r{msg}..'.ljust(max_len)
+            log2(padded, nl=False)
+            cnt += 1
+            time.sleep(1)
+
+        log2(f'\r{msg}..'.ljust(max_len), nl=False)
+        if cnt < 300:
+            log2(' OK')
+        else:
+            log2(' Timed Out')
 
     def completed(namespace: str, pod_name: str):
         return Pods.get(namespace, pod_name).status.phase in ['Succeeded', 'Failed']

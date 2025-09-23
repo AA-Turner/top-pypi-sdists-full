@@ -9531,6 +9531,18 @@ class Messages(System.Object):
             ...
 
         @staticmethod
+        def unsupported_market_on_open_order_time(window_start: System.TimeOnly, window_end: System.TimeOnly) -> str:
+            """
+            Builds a descriptive error message when a OrderType.MarketOnOpen
+            order is submitted outside the valid submission window.
+            
+            :param window_start: The start of the valid submission window (typically evening of the prior day).
+            :param window_end: The end of the valid submission window (typically morning of the next day).
+            :returns: A formatted string describing why the order is not valid at the current time, including the allowed submission window and suggested fixes.
+            """
+            ...
+
+        @staticmethod
         def unsupported_order_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order: QuantConnect.Orders.Order, supported_order_types: typing.List[QuantConnect.Orders.OrderType]) -> str:
             """
             Returns a string message saying the type of the given order is unsupported by the given brokerage model. It also

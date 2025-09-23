@@ -39,7 +39,8 @@ class JobQueuesQuery(object):
         'project_id': 'str',
         'cloud_id': 'str',
         'paging': 'PageQuery',
-        'sorting_directives': 'list[JobQueueSortDirective]'
+        'sorting_directives': 'list[JobQueueSortDirective]',
+        'tags_filter': 'dict(str, list[str])'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class JobQueuesQuery(object):
         'project_id': 'project_id',
         'cloud_id': 'cloud_id',
         'paging': 'paging',
-        'sorting_directives': 'sorting_directives'
+        'sorting_directives': 'sorting_directives',
+        'tags_filter': 'tags_filter'
     }
 
-    def __init__(self, name=None, creator_id=None, cluster_status=None, project_id=None, cloud_id=None, paging=None, sorting_directives=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, creator_id=None, cluster_status=None, project_id=None, cloud_id=None, paging=None, sorting_directives=None, tags_filter=None, local_vars_configuration=None):  # noqa: E501
         """JobQueuesQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class JobQueuesQuery(object):
         self._cloud_id = None
         self._paging = None
         self._sorting_directives = None
+        self._tags_filter = None
         self.discriminator = None
 
         if name is not None:
@@ -81,6 +84,8 @@ class JobQueuesQuery(object):
             self.paging = paging
         if sorting_directives is not None:
             self.sorting_directives = sorting_directives
+        if tags_filter is not None:
+            self.tags_filter = tags_filter
 
     @property
     def name(self):
@@ -242,6 +247,29 @@ class JobQueuesQuery(object):
         """
 
         self._sorting_directives = sorting_directives
+
+    @property
+    def tags_filter(self):
+        """Gets the tags_filter of this JobQueuesQuery.  # noqa: E501
+
+        Filter by tags, keys are ANDed, values are ORed  # noqa: E501
+
+        :return: The tags_filter of this JobQueuesQuery.  # noqa: E501
+        :rtype: dict(str, list[str])
+        """
+        return self._tags_filter
+
+    @tags_filter.setter
+    def tags_filter(self, tags_filter):
+        """Sets the tags_filter of this JobQueuesQuery.
+
+        Filter by tags, keys are ANDed, values are ORed  # noqa: E501
+
+        :param tags_filter: The tags_filter of this JobQueuesQuery.  # noqa: E501
+        :type: dict(str, list[str])
+        """
+
+        self._tags_filter = tags_filter
 
     def to_dict(self):
         """Returns the model properties as a dict"""

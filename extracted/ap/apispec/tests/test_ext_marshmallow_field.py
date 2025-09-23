@@ -1,12 +1,16 @@
 import datetime as dt
+import importlib.metadata
 import re
 from enum import Enum
 
 import pytest
 from marshmallow import Schema, fields, validate
+from packaging.version import Version
 
 from .schemas import CategorySchema, CustomIntegerField, CustomList, CustomStringField
 from .utils import build_ref, get_schemas
+
+MA_VERSION = Version(importlib.metadata.version("marshmallow"))
 
 
 def test_field2choices_preserving_order(openapi):
@@ -28,7 +32,7 @@ def test_field2choices_preserving_order(openapi):
         (fields.DateTime, "string"),
         (fields.Date, "string"),
         (fields.Time, "string"),
-        (fields.TimeDelta, "integer"),
+        (fields.TimeDelta, "number" if MA_VERSION.major >= 4 else "integer"),
         (fields.Email, "string"),
         (fields.URL, "string"),
         (fields.IP, "string"),
@@ -43,6 +47,26 @@ def test_field2property_type(FieldClass, jsontype, spec_fixture):
     field = FieldClass()
     res = spec_fixture.openapi.field2property(field)
     assert res["type"] == jsontype
+
+
+@pytest.mark.skipif(
+    MA_VERSION.major >= 4, reason="Marshmallow 4 removed serialization_type attribute"
+)
+@pytest.mark.parametrize(
+    ("serialization_type", "expected_type"),
+    [
+        (int, "integer"),
+        (float, "number"),
+    ],
+)
+def test_field2property_type_for_timedelta_marshmallow_3(
+    spec_fixture,
+    serialization_type,
+    expected_type,
+):
+    field = fields.TimeDelta(serialization_type=serialization_type)
+    res = spec_fixture.openapi.field2property(field)
+    assert res["type"] == expected_type
 
 
 def test_field2property_no_type(spec_fixture):

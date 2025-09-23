@@ -37,22 +37,20 @@ class ComponentRef:
         """
         Resolves the component reference into a Node object
         """
-        current_node: Optional[Node] = assignee_node
+        current_node = assignee_node
         # Traverse up from assignee until ref_root is reached
         while True:
-            if current_node is None:
-                raise RuntimeError("Upwards traverse to ref_root failed")
             if current_node.inst.original_def is self.ref_root:
                 break
+            if current_node.parent is None:
+                raise RuntimeError("Upwards traverse to ref_root failed")
             current_node = current_node.parent
-
-        # Above loop can only exit if not None
-        assert current_node is not None
 
         for inst_name, idx_list, name_src_ref in self.ref_elements:
             # find instance
-            current_node = current_node.get_child_by_name(inst_name)
-            assert current_node is not None
+            node = current_node.get_child_by_name(inst_name)
+            assert node is not None # Guaranteed to be found
+            current_node = node
 
             # Check if indexes are valid
             if idx_list:
@@ -121,6 +119,8 @@ class PropertyReference:
         #: property is being referenced.
         self.node: Node
 
+        self._name = self.get_name()
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__qualname__} {self.node.get_path()}->{self.name} at {id(self):#x}>"
 
@@ -141,7 +141,7 @@ class PropertyReference:
         """
         Name of the property being referenced
         """
-        return self.get_name()
+        return self._name
 
     @classmethod
     def get_name(cls) -> str:

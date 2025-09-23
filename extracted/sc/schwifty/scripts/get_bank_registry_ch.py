@@ -7,11 +7,11 @@ import requests
 URL = "https://api.six-group.com/api/epcd/bankmaster/v3/bankmaster.json"
 
 
-def fetch() -> dict[str, Any]:
+def fetch() -> list[dict[str, Any]]:
     return requests.get(URL).json()["entries"]
 
 
-def process(records: dict[str, Any]) -> dict[str, Any]:
+def process(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     registry: list[dict[str, Any]] = []
 
     for record in records:

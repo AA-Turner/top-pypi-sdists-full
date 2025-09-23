@@ -1,6 +1,5 @@
-
 """
-Cortex Search REST API
+Cortex Search REST API.
 
 OpenAPI 3.0 specification for the Cortex Search REST API  # noqa: E501
 
@@ -45,7 +44,6 @@ class CortexSearchService(BaseModel):
         Specifies the attribute columns, which can be referenced in filters in search queries to the cortex search service.
     target_lag : TargetLag, optional
 
-
     warehouse : str, optional
         Specifies the name of the warehouse that provides the compute resources for refreshing the cortex search service
     definition : str, optional
@@ -64,9 +62,7 @@ class CortexSearchService(BaseModel):
         Date and time as of which data existent in base tables is now serving.
     indexing_state : SchedulingState, optional
 
-
     serving_state : SchedulingState, optional
-
 
     indexing_error : str, optional
         Error encountered during the latest indexing pipeline of the cortex search service, if any.
@@ -142,14 +138,14 @@ class CortexSearchService(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> CortexSearchService:
-        """Create an instance of CortexSearchService from a JSON string"""
+        """Create an instance of CortexSearchService from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

@@ -1,6 +1,5 @@
-
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 
@@ -36,8 +35,6 @@ class TextContent(BaseModel):
     text : str
         The actual text content of the message.
     cache_control : CacheControl, optional
-
-
     """
 
     type: StrictStr
@@ -68,14 +65,14 @@ class TextContent(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> TextContent:
-        """Create an instance of TextContent from a JSON string"""
+        """Create an instance of TextContent from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -138,7 +135,6 @@ class TextContentModel:
         text : str
             The actual text content of the message.
         cache_control : CacheControl, optional
-
         """
         self.type = type
         self.text = text

@@ -49,4 +49,4 @@ class DeployFrontend(Command):
         return super().completion(state)
 
     def help(self, _: ReplState):
-        return f'{DeployFrontend.COMMAND}\t deploy frontend'
+        return f'{DeployFrontend.COMMAND}\t deploy Web frontend'

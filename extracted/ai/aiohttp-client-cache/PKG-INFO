@@ -1,11 +1,12 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: aiohttp-client-cache
-Version: 0.13.0
+Version: 0.14.0
 Summary: Persistent cache for aiohttp requests
 License: MIT
+License-File: LICENSE
 Keywords: aiohttp,async,asyncio,cache,cache-backends,client,http,persistence,requests,sqlite,redis,mongodb,dynamodb,dragonflydb
 Author: Jordan Cook
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: aiohttp
@@ -17,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Provides-Extra: all

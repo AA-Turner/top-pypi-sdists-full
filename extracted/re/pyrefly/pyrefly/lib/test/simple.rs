@@ -1775,3 +1775,12 @@ testcase!(
 import foo
     "#,
 );
+
+testcase!(
+    test_functional_type_creation,
+    r#"
+from typing import assert_type
+X = type("X", (object,), {"foo": "bar"})
+assert_type(X, type)
+    "#,
+);

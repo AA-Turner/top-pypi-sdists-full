@@ -13,7 +13,7 @@ def test_fetch_with_ua(fake_root, db):
     fake_root.root_config.get_user_agents = mock.MagicMock(return_value="customized_ua snowFlake/412.123.432a")
     fake_root.root_config.has_user_agents = mock.MagicMock(return_value=True)
     with suppress(Exception):
-        with mock.patch("snowflake.core.database._generated.api_client.ApiClient.request") as mocked_request:
+        with mock.patch("snowflake.core._generated.api_client.ApiClient.request") as mocked_request:
             db.fetch()
     try:
         mocked_request.assert_called_once_with(
@@ -36,7 +36,7 @@ def test_fetch_with_ua(fake_root, db):
 
 
 def test_create_from_share(fake_root, dbs):
-    with mock.patch("snowflake.core.database._generated.api_client.ApiClient.request") as mocked_request:
+    with mock.patch("snowflake.core._generated.api_client.ApiClient.request") as mocked_request:
         dbs.create(database=Database(name="name"), from_share="share")
     mocked_request.assert_called_once_with(
         fake_root,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cvxpy
-Version: 1.7.2
+Version: 1.7.3
 Summary: A domain-specific language for modeling convex optimization problems in Python.
 Author-email: Steven Diamond <stevend2@stanford.edu>, akshayka@cs.stanford.edu, Eric Chu <echu508@stanford.edu>, Stephen Boyd <boyd@stanford.edu>
 License: Apache License, Version 2.0
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://github.com/cvxpy/cvxpy
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: osqp>=0.6.2
+Requires-Dist: osqp>=1.0.0
 Requires-Dist: clarabel>=0.5.0
 Requires-Dist: scs>=3.2.4.post1
 Requires-Dist: numpy>=1.22.4
@@ -192,7 +192,7 @@ Here are some simple ways to start contributing immediately:
 * Enhance the [website documentation](https://github.com/cvxpy/cvxpy/tree/master/doc)
 * Browse the [issue tracker](https://github.com/cvxpy/cvxpy/issues), and look for issues tagged as "help wanted"
 * Polish the [example library](https://github.com/cvxpy/cvxpy/tree/master/examples)
-* Add a [benchmark](https://github.com/cvxpy/cvxpy/tree/master/cvxpy/tests/test_benchmarks.py)
+* Add a [benchmark](https://github.com/cvxpy/benchmarks)
 
 If you'd like to add a new example to our library, or implement a new feature,
 please get in touch with us first to make sure that your priorities align with

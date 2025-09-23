@@ -1,11 +1,11 @@
-from copy import deepcopy
-from typing import TYPE_CHECKING, Optional, Any, Dict
+from typing import TYPE_CHECKING, Optional, Any
 
 
 if TYPE_CHECKING:
     from ..compiler import RDLEnvironment
     from ..source_ref import SourceRefBase
     from ..rdltypes.typing import PreElabRDLType
+    from ..node import Node
 
     OptionalSourceRef = Optional[SourceRefBase]
 
@@ -17,21 +17,6 @@ class ASTNode:
         # Source Ref to use for error context
         self.src_ref = src_ref
 
-    def __deepcopy__(self, memo: Dict[int, Any]) -> 'ASTNode':
-        """
-        Deepcopy all members except for ones that should be copied by reference
-        """
-        copy_by_ref = ["env", "msg"]
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            if k in copy_by_ref:
-                setattr(result, k, v)
-            else:
-                setattr(result, k, deepcopy(v, memo))
-        return result
-
     def predict_type(self) -> 'PreElabRDLType':
         """
         Returns the expected type of the result of the expression
@@ -41,7 +26,7 @@ class ASTNode:
         """
         raise NotImplementedError
 
-    def get_min_eval_width(self) -> int:
+    def get_min_eval_width(self, assignee_node: Optional['Node']) -> int:
         """
         Returns the expressions resulting integer width based on the
         self-determined expression bit-width rules
@@ -49,7 +34,7 @@ class ASTNode:
         """
         raise RuntimeError
 
-    def get_value(self, eval_width: Optional[int]=None) -> Any:
+    def get_value(self, eval_width: Optional[int]=None, assignee_node: Optional['Node']=None) -> Any:
         """
         Compute the value of the result of the expression
 
@@ -66,5 +51,9 @@ class ASTNode:
             Query the relevant operands to determine the context's eval_width
         - If eval_width is set to a value:
             Parent expression is propagating the eval_width
+
+        The assignee_node arg is required in order to resolve any parameter
+        references within the AST. In situations where the AST is guaranteed to
+        not contain any parameter references, it is OK to omit this.
         """
         raise NotImplementedError

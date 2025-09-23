@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastexcel
-Version: 0.15.1
+Version: 0.16.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -34,7 +34,9 @@ Project-URL: Issues, https://github.com/ToucanToco/fastexcel
 
 A fast excel file reader for Python and Rust.
 
-Docs available [here](https://fastexcel.toucantoco.dev/).
+Docs:
+ * [Python](https://fastexcel.toucantoco.dev/).
+ * [Rust](https://docs.rs/fastexcel).
 
 ## Stability
 

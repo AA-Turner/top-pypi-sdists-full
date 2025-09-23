@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: systemrdl-compiler
-Version: 1.29.3
+Version: 1.30.0
 Summary: Parse and elaborate front-end for SystemRDL 2.0
 Author: Alex Mykyta
 License: MIT
@@ -12,12 +12,6 @@ Keywords: SystemRDL,CSR,compiler,tool,registers,generator,register abstraction l
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -33,6 +27,7 @@ Requires-Dist: antlr4-python3-runtime<4.14,>=4.11
 Requires-Dist: colorama
 Requires-Dist: markdown
 Requires-Dist: typing_extensions
+Dynamic: license-file
 
 [![Documentation Status](https://readthedocs.org/projects/systemrdl-compiler/badge/?version=latest)](http://systemrdl-compiler.readthedocs.io)
 [![build](https://github.com/SystemRDL/systemrdl-compiler/workflows/build/badge.svg)](https://github.com/SystemRDL/systemrdl-compiler/actions?query=workflow%3Abuild+branch%3Amain)

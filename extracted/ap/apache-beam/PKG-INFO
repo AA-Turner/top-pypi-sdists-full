@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-beam
-Version: 2.67.0
+Version: 2.68.0
 Summary: Apache Beam SDK for Python
 Home-page: https://beam.apache.org
 Download-URL: https://pypi.python.org/pypi/apache-beam
@@ -47,7 +47,7 @@ Requires-Dist: sortedcontainers>=2.4.0
 Requires-Dist: typing-extensions>=3.7.0
 Requires-Dist: zstandard<1,>=0.18.0
 Requires-Dist: pyyaml<7.0.0,>=3.12
-Requires-Dist: pymilvus<3.0.0,>=2.5.10
+Requires-Dist: beartype<0.22.0,>=0.21.0
 Requires-Dist: pyarrow<19.0.0,>=3.0.0
 Requires-Dist: pyarrow-hotfix<1
 Provides-Extra: docs
@@ -82,14 +82,16 @@ Requires-Dist: testcontainers[kafka,milvus,mysql]<5.0.0,>=4.0.0; extra == "test"
 Requires-Dist: cryptography>=41.0.2; extra == "test"
 Requires-Dist: hypothesis<7.0.0,>5.0.0; extra == "test"
 Requires-Dist: virtualenv-clone<1.0,>=0.5; extra == "test"
-Requires-Dist: mysql-connector-python>=9.3.0; extra == "test"
 Requires-Dist: python-tds>=1.16.1; extra == "test"
 Requires-Dist: sqlalchemy-pytds>=1.0.2; extra == "test"
+Requires-Dist: pg8000>=1.31.1; extra == "test"
+Requires-Dist: PyMySQL>=1.1.0; extra == "test"
 Requires-Dist: oracledb>=3.1.1; extra == "test"
+Requires-Dist: pymilvus<3.0.0,>=2.5.10; extra == "test"
 Provides-Extra: gcp
 Requires-Dist: cachetools<7,>=3.1.0; extra == "gcp"
 Requires-Dist: google-api-core<3,>=2.0.0; extra == "gcp"
-Requires-Dist: google-apitools<0.5.32,>=0.5.31; python_version <= "3.12" and extra == "gcp"
+Requires-Dist: google-apitools<0.5.32,>=0.5.31; python_version < "3.13" and extra == "gcp"
 Requires-Dist: google-apitools<0.5.33,>=0.5.32; python_version >= "3.13" and extra == "gcp"
 Requires-Dist: google-auth<3,>=1.18.0; extra == "gcp"
 Requires-Dist: google-auth-httplib2<0.3.0,>=0.1.0; extra == "gcp"
@@ -108,6 +110,10 @@ Requires-Dist: google-cloud-videointelligence<3,>=2.0; extra == "gcp"
 Requires-Dist: google-cloud-vision<4,>=2; extra == "gcp"
 Requires-Dist: google-cloud-recommendations-ai<0.11.0,>=0.1.0; extra == "gcp"
 Requires-Dist: google-cloud-aiplatform<2.0,>=1.26.0; extra == "gcp"
+Requires-Dist: cloud-sql-python-connector<2.0.0,>=1.18.2; extra == "gcp"
+Requires-Dist: python-tds>=1.16.1; extra == "gcp"
+Requires-Dist: pg8000>=1.31.1; extra == "gcp"
+Requires-Dist: PyMySQL>=1.1.0; extra == "gcp"
 Requires-Dist: keyrings.google-artifactregistry-auth; extra == "gcp"
 Provides-Extra: interactive
 Requires-Dist: facets-overview<2,>=1.1.0; extra == "interactive"
@@ -176,7 +182,7 @@ Requires-Dist: torch<2.8.0,>=1.9.0; extra == "torch"
 Provides-Extra: tensorflow
 Requires-Dist: tensorflow<2.17,>=2.12rc1; extra == "tensorflow"
 Provides-Extra: transformers
-Requires-Dist: transformers<4.49.0,>=4.28.0; extra == "transformers"
+Requires-Dist: transformers<4.56.0,>=4.28.0; extra == "transformers"
 Requires-Dist: tensorflow>=2.12.0; extra == "transformers"
 Requires-Dist: torch>=1.9.0; extra == "transformers"
 Provides-Extra: tft
@@ -193,6 +199,8 @@ Requires-Dist: xgboost<2.1.3,>=1.6.0; extra == "xgboost"
 Requires-Dist: datatable==1.0.0; extra == "xgboost"
 Provides-Extra: tensorflow-hub
 Requires-Dist: tensorflow-hub<0.16.0,>=0.14.0; extra == "tensorflow-hub"
+Provides-Extra: milvus
+Requires-Dist: pymilvus<3.0.0,>=2.5.10; extra == "milvus"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

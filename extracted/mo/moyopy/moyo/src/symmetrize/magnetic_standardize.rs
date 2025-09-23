@@ -6,10 +6,10 @@ use crate::base::{
     MagneticCell, MagneticMoment, MoyoError, Operations, Permutation, RotationMagneticMomentAction,
     Transformation, UnimodularTransformation,
 };
-use crate::data::{get_magnetic_space_group_type, ConstructType};
+use crate::data::{ConstructType, get_magnetic_space_group_type};
 use crate::identify::{
-    family_space_group_from_magnetic_space_group,
-    primitive_maximal_space_subgroup_from_magnetic_space_group, MagneticSpaceGroup,
+    MagneticSpaceGroup, family_space_group_from_magnetic_space_group,
+    primitive_maximal_space_subgroup_from_magnetic_space_group,
 };
 use crate::search::{PrimitiveMagneticCell, PrimitiveMagneticSymmetrySearch};
 
@@ -107,10 +107,10 @@ impl<M: MagneticMoment> StandardizedMagneticCell<M> {
     ) -> Result<Self, MoyoError> {
         // Symmetrize magnetic moments by magnetic space group
         let prim_std_magnetic_moments = Self::symmetrize_magnetic_moments(
-            &prim_std_magnetic_moments_tmp,
-            &cart_rotations,
-            &time_reversals,
-            &permutations,
+            prim_std_magnetic_moments_tmp,
+            cart_rotations,
+            time_reversals,
+            permutations,
             action,
         );
         let prim_std_mag_cell =
@@ -193,7 +193,7 @@ impl<M: MagneticMoment> StandardizedMagneticCell<M> {
                     time_reversals.iter()
                 ) {
                     let magmom = magnetic_moments[inv_perm.apply(i)].act_magnetic_operation(
-                        &cart_rotation,
+                        cart_rotation,
                         *time_reversal,
                         action,
                     );

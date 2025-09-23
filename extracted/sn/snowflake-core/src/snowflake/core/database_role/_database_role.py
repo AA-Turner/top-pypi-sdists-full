@@ -5,10 +5,10 @@ from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import CreateMode, DatabaseObjectCollectionParent, DatabaseObjectReferenceMixin, DeleteMode
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperations
 from snowflake.core.database_role._generated.api import DatabaseRoleApi
-from snowflake.core.database_role._generated.api_client import StoredProcApiClient
 from snowflake.core.database_role._generated.models import DatabaseRole, DatabaseRoleClone
 from snowflake.core.database_role._generated.models.containing_scope import ContainingScope
 from snowflake.core.database_role._generated.models.grant import Grant

@@ -65,6 +65,51 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageResponse.FromString,
         )
+        self.CreateBindingClusterGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterGatewayResponse.FromString,
+        )
+        self.GetBindingClusterGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterGatewayResponse.FromString,
+        )
+        self.DeleteBindingClusterGateway = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.FromString,
+        )
+        self.CreateBindingClusterBackgroundPersistenceDeployment = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterBackgroundPersistenceDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterBackgroundPersistenceDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterBackgroundPersistenceDeploymentResponse.FromString,
+        )
+        self.GetBindingClusterBackgroundPersistenceDeployment = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterBackgroundPersistenceDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterBackgroundPersistenceDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterBackgroundPersistenceDeploymentResponse.FromString,
+        )
+        self.DeleteBindingClusterBackgroundPersistenceDeployment = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterBackgroundPersistenceDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterBackgroundPersistenceDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterBackgroundPersistenceDeploymentResponse.FromString,
+        )
+        self.CreateBindingClusterTelemetryDeployment = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterTelemetryDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterTelemetryDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterTelemetryDeploymentResponse.FromString,
+        )
+        self.GetBindingClusterTelemetryDeployment = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterTelemetryDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterTelemetryDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterTelemetryDeploymentResponse.FromString,
+        )
+        self.DeleteBindingClusterTelemetryDeployment = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterTelemetryDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterTelemetryDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterTelemetryDeploymentResponse.FromString,
+        )
 
 
 class CloudComponentsServiceServicer(object):
@@ -130,6 +175,60 @@ class CloudComponentsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateBindingClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateBindingClusterBackgroundPersistenceDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingClusterBackgroundPersistenceDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingClusterBackgroundPersistenceDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateBindingClusterTelemetryDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingClusterTelemetryDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingClusterTelemetryDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_CloudComponentsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -182,6 +281,51 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             servicer.DeleteCloudComponentStorage,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageResponse.SerializeToString,
+        ),
+        "CreateBindingClusterGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingClusterGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterGatewayResponse.SerializeToString,
+        ),
+        "GetBindingClusterGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingClusterGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterGatewayResponse.SerializeToString,
+        ),
+        "DeleteBindingClusterGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingClusterGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.SerializeToString,
+        ),
+        "CreateBindingClusterBackgroundPersistenceDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingClusterBackgroundPersistenceDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterBackgroundPersistenceDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterBackgroundPersistenceDeploymentResponse.SerializeToString,
+        ),
+        "GetBindingClusterBackgroundPersistenceDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingClusterBackgroundPersistenceDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterBackgroundPersistenceDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterBackgroundPersistenceDeploymentResponse.SerializeToString,
+        ),
+        "DeleteBindingClusterBackgroundPersistenceDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingClusterBackgroundPersistenceDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterBackgroundPersistenceDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterBackgroundPersistenceDeploymentResponse.SerializeToString,
+        ),
+        "CreateBindingClusterTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingClusterTelemetryDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterTelemetryDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterTelemetryDeploymentResponse.SerializeToString,
+        ),
+        "GetBindingClusterTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingClusterTelemetryDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterTelemetryDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterTelemetryDeploymentResponse.SerializeToString,
+        ),
+        "DeleteBindingClusterTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingClusterTelemetryDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterTelemetryDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterTelemetryDeploymentResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -474,6 +618,267 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentStorage",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingClusterGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingClusterGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingClusterGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterGateway",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingClusterBackgroundPersistenceDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterBackgroundPersistenceDeployment",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterBackgroundPersistenceDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterBackgroundPersistenceDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingClusterBackgroundPersistenceDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterBackgroundPersistenceDeployment",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterBackgroundPersistenceDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterBackgroundPersistenceDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingClusterBackgroundPersistenceDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterBackgroundPersistenceDeployment",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterBackgroundPersistenceDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterBackgroundPersistenceDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingClusterTelemetryDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterTelemetryDeployment",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterTelemetryDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterTelemetryDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingClusterTelemetryDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterTelemetryDeployment",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterTelemetryDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterTelemetryDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingClusterTelemetryDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterTelemetryDeployment",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterTelemetryDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterTelemetryDeploymentResponse.FromString,
             options,
             channel_credentials,
             insecure,

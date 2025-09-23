@@ -1,6 +1,5 @@
-
 """
-Snowflake Dynamic Table API
+Snowflake Dynamic Table API.
 
 The Snowflake Dynamic Table API is a REST API that you can use to access, update, and perform certain actions on Dynamic Tables resource in a Snowflake database.  # noqa: E501
 
@@ -36,12 +35,9 @@ class DynamicTableClone(BaseModel):
         Specifies the name for the dynamic table, must be unique for the schema in which the dynamic table is created
     target_lag : TargetLag, optional
 
-
     warehouse : str, optional
         Specifies the name of the warehouse that provides the compute resources for refreshing the dynamic table
     point_of_time : PointOfTime, optional
-
-
     """
 
     name: StrictStr
@@ -68,14 +64,14 @@ class DynamicTableClone(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> DynamicTableClone:
-        """Create an instance of DynamicTableClone from a JSON string"""
+        """Create an instance of DynamicTableClone from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -142,7 +138,6 @@ class DynamicTableCloneModel:
         warehouse : str, optional
             Specifies the name of the warehouse that provides the compute resources for refreshing the dynamic table
         point_of_time : PointOfTime, optional
-
         """
         self.name = name
         self.target_lag = target_lag

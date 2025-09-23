@@ -3,6 +3,7 @@
 from ._generated.models import (
     NotificationEmail,
     NotificationHook,
+    NotificationIntegration,
     NotificationQueueAwsSnsOutbound,
     NotificationQueueAzureEventGridInbound,
     NotificationQueueAzureEventGridOutbound,
@@ -12,7 +13,6 @@ from ._generated.models import (
     WebhookSecret,
 )
 from ._notification_integration import (
-    NotificationIntegration,
     NotificationIntegrationCollection,
     NotificationIntegrationResource,
 )

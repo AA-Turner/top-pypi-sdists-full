@@ -17,7 +17,7 @@ from chalk._gen.chalk.arrow.v1 import arrow_pb2 as chalk_dot_arrow_dot_v1_dot_ar
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n$chalk/models/v1/model_artifact.proto\x12\x0f\x63halk.models.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto"S\n\nTensorSpec\x12/\n\x05\x64type\x18\x01 \x01(\x0b\x32\x19.chalk.arrow.v1.ArrowTypeR\x05\x64type\x12\x14\n\x05shape\x18\x02 \x03(\x03R\x05shape"R\n\x0bTabularSpec\x12/\n\x05\x64type\x18\x01 \x01(\x0b\x32\x19.chalk.arrow.v1.ArrowTypeR\x05\x64type\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"E\n\x0cTensorSchema\x12\x35\n\x07tensors\x18\x01 \x03(\x0b\x32\x1b.chalk.models.v1.TensorSpecR\x07tensors"G\n\rTabularSchema\x12\x36\n\x07\x63olumns\x18\x01 \x03(\x0b\x32\x1c.chalk.models.v1.TabularSpecR\x07\x63olumns"\x91\x01\n\x0bModelSchema\x12\x37\n\x06tensor\x18\x01 \x01(\x0b\x32\x1d.chalk.models.v1.TensorSchemaH\x00R\x06tensor\x12:\n\x07tabular\x18\x02 \x01(\x0b\x32\x1e.chalk.models.v1.TabularSchemaH\x00R\x07tabularB\r\n\x0bschema_type"~\n\x0eModelSignature\x12\x34\n\x06inputs\x18\x01 \x01(\x0b\x32\x1c.chalk.models.v1.ModelSchemaR\x06inputs\x12\x36\n\x07outputs\x18\x02 \x01(\x0b\x32\x1c.chalk.models.v1.ModelSchemaR\x07outputs"\xef\x01\n\x11ModelArtifactSpec\x12\x1f\n\x0bmodel_files\x18\x01 \x03(\tR\nmodelFiles\x12)\n\x10\x61\x64\x64itional_files\x18\x02 \x03(\tR\x0f\x61\x64\x64itionalFiles\x12\x1d\n\nmodel_type\x18\x03 \x01(\tR\tmodelType\x12%\n\x0emodel_encoding\x18\x04 \x01(\tR\rmodelEncoding\x12H\n\x0fmodel_signature\x18\x05 \x01(\x0b\x32\x1f.chalk.models.v1.ModelSignatureR\x0emodelSignatureB\x87\x01\n\x13\x63om.chalk.models.v1B\x12ModelArtifactProtoP\x01\xa2\x02\x03\x43MX\xaa\x02\x0f\x43halk.Models.V1\xca\x02\x0f\x43halk\\Models\\V1\xe2\x02\x1b\x43halk\\Models\\V1\\GPBMetadata\xea\x02\x11\x43halk::Models::V1b\x06proto3'
+    b'\n$chalk/models/v1/model_artifact.proto\x12\x0f\x63halk.models.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto"S\n\nTensorSpec\x12/\n\x05\x64type\x18\x01 \x01(\x0b\x32\x19.chalk.arrow.v1.ArrowTypeR\x05\x64type\x12\x14\n\x05shape\x18\x02 \x03(\x03R\x05shape"R\n\x0bTabularSpec\x12/\n\x05\x64type\x18\x01 \x01(\x0b\x32\x19.chalk.arrow.v1.ArrowTypeR\x05\x64type\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name"E\n\x0cTensorSchema\x12\x35\n\x07tensors\x18\x01 \x03(\x0b\x32\x1b.chalk.models.v1.TensorSpecR\x07tensors"G\n\rTabularSchema\x12\x36\n\x07\x63olumns\x18\x01 \x03(\x0b\x32\x1c.chalk.models.v1.TabularSpecR\x07\x63olumns"\x91\x01\n\x0bModelSchema\x12\x37\n\x06tensor\x18\x01 \x01(\x0b\x32\x1d.chalk.models.v1.TensorSchemaH\x00R\x06tensor\x12:\n\x07tabular\x18\x02 \x01(\x0b\x32\x1e.chalk.models.v1.TabularSchemaH\x00R\x07tabularB\r\n\x0bschema_type"~\n\x0eModelSignature\x12\x34\n\x06inputs\x18\x01 \x01(\x0b\x32\x1c.chalk.models.v1.ModelSchemaR\x06inputs\x12\x36\n\x07outputs\x18\x02 \x01(\x0b\x32\x1c.chalk.models.v1.ModelSchemaR\x07outputs"U\n\tModelFile\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x17\n\x07size_kb\x18\x02 \x01(\x03R\x06sizeKb\x12\x1b\n\tfile_hash\x18\x03 \x01(\x0cR\x08\x66ileHash"\xb3\x03\n\x11ModelArtifactSpec\x12;\n\x0bmodel_files\x18\x01 \x03(\x0b\x32\x1a.chalk.models.v1.ModelFileR\nmodelFiles\x12\x45\n\x10\x61\x64\x64itional_files\x18\x02 \x03(\x0b\x32\x1a.chalk.models.v1.ModelFileR\x0f\x61\x64\x64itionalFiles\x12\x39\n\nmodel_type\x18\x03 \x01(\x0e\x32\x1a.chalk.models.v1.ModelTypeR\tmodelType\x12\x45\n\x0emodel_encoding\x18\x04 \x01(\x0e\x32\x1e.chalk.models.v1.ModelEncodingR\rmodelEncoding\x12H\n\x0fmodel_signature\x18\x05 \x01(\x0b\x32\x1f.chalk.models.v1.ModelSignatureR\x0emodelSignature\x12%\n\x0einput_features\x18\x06 \x03(\tR\rinputFeatures\x12\'\n\x0foutput_features\x18\x07 \x03(\tR\x0eoutputFeatures*\xd1\x01\n\tModelType\x12\x1a\n\x16MODEL_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12MODEL_TYPE_PYTORCH\x10\x01\x12\x16\n\x12MODEL_TYPE_SKLEARN\x10\x02\x12\x19\n\x15MODEL_TYPE_TENSORFLOW\x10\x03\x12\x16\n\x12MODEL_TYPE_XGBOOST\x10\x04\x12\x17\n\x13MODEL_TYPE_LIGHTGBM\x10\x05\x12\x17\n\x13MODEL_TYPE_CATBOOST\x10\x06\x12\x13\n\x0fMODEL_TYPE_ONNX\x10\x07*\x85\x02\n\rModelEncoding\x12\x1e\n\x1aMODEL_ENCODING_UNSPECIFIED\x10\x00\x12\x19\n\x15MODEL_ENCODING_PICKLE\x10\x01\x12\x19\n\x15MODEL_ENCODING_JOBLIB\x10\x02\x12\x17\n\x13MODEL_ENCODING_JSON\x10\x03\x12\x17\n\x13MODEL_ENCODING_TEXT\x10\x04\x12\x17\n\x13MODEL_ENCODING_HDF5\x10\x05\x12\x1b\n\x17MODEL_ENCODING_PROTOBUF\x10\x06\x12\x16\n\x12MODEL_ENCODING_CBM\x10\x07\x12\x1e\n\x1aMODEL_ENCODING_SAFETENSORS\x10\x08\x42\x87\x01\n\x13\x63om.chalk.models.v1B\x12ModelArtifactProtoP\x01\xa2\x02\x03\x43MX\xaa\x02\x0f\x43halk.Models.V1\xca\x02\x0f\x43halk\\Models\\V1\xe2\x02\x1b\x43halk\\Models\\V1\\GPBMetadata\xea\x02\x11\x43halk::Models::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -28,6 +28,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.models.v1B\022ModelArtifactProtoP\001\242\002\003CMX\252\002\017Chalk.Models.V1\312\002\017Chalk\\Models\\V1\342\002\033Chalk\\Models\\V1\\GPBMetadata\352\002\021Chalk::Models::V1"
+    _globals["_MODELTYPE"]._serialized_start = 1200
+    _globals["_MODELTYPE"]._serialized_end = 1409
+    _globals["_MODELENCODING"]._serialized_start = 1412
+    _globals["_MODELENCODING"]._serialized_end = 1673
     _globals["_TENSORSPEC"]._serialized_start = 85
     _globals["_TENSORSPEC"]._serialized_end = 168
     _globals["_TABULARSPEC"]._serialized_start = 170
@@ -40,6 +44,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_MODELSCHEMA"]._serialized_end = 544
     _globals["_MODELSIGNATURE"]._serialized_start = 546
     _globals["_MODELSIGNATURE"]._serialized_end = 672
-    _globals["_MODELARTIFACTSPEC"]._serialized_start = 675
-    _globals["_MODELARTIFACTSPEC"]._serialized_end = 914
+    _globals["_MODELFILE"]._serialized_start = 674
+    _globals["_MODELFILE"]._serialized_end = 759
+    _globals["_MODELARTIFACTSPEC"]._serialized_start = 762
+    _globals["_MODELARTIFACTSPEC"]._serialized_end = 1197
 # @@protoc_insertion_point(module_scope)

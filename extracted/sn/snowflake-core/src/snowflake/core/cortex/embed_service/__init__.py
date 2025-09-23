@@ -1,8 +1,7 @@
 from ._embed_service import CortexEmbedService, EmbedRequest
-from ._generated import ApiClient, CortexEmbedApi
+from ._generated import CortexEmbedApi
 
 
 CortexEmbedServiceApi = CortexEmbedApi
-CortexEmbedServiceApiClient = ApiClient
 
-__all__ = ["CortexEmbedService", "EmbedRequest", "CortexEmbedServiceApi", "CortexEmbedServiceApiClient"]
+__all__ = ["CortexEmbedService", "EmbedRequest", "CortexEmbedServiceApi"]

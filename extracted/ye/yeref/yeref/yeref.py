@@ -14,6 +14,7 @@ import math
 import mimetypes
 import os
 import random
+import regex
 import re
 import csv
 import subprocess
@@ -246,32 +247,26 @@ UB_CSENDCNT_ = 1
 UB_VARS_ = '{"UB_PROMO": "#911", "UB_CHANNEL": 0, "UB_CHANNELTID": 0, "UB_GROUP": 0, "UB_GROUPTID": 0, "USER_COMMENT": "","UB_TZ": "+00:00", "UB_DT": "", "UB_LZ": "en", "UB_LC": "en"}'
 UB_LSTS_ = '{}'
 
-GROUPP_CONFIG_ = '☑☑☑☐☐☐☐'
 GROUPP_CCHECK_ = '☑☐☐☐☐'
 GROUPP_CBAN_ = '☐☐☑☐☐'
-GROUPP_CCHANNEL_ = '☑☐'
-GROUPP_CNEURO_ = '☐☐☐☐☐☐☐☐'
-GROUPP_CLINK_ = '☑☑☑'
-GROUPP_CSYMBOL_ = '☐☐'
-GROUPP_CMEDIA_ = '☑☑☑☑☑☑☑☑☑☐☐'
-GROUPP_CFLOOD_ = 0
 GROUPP_CDIALOG_ = '☑☑☑'
-GROUPP_CLEN_ = 0
+
+GROUPP_CSYSTEM_ = '☑'
+GROUPP_CCHANNEL_ = '☑☑'
+GROUPP_CLINKS_ = '☑☑☑☑'
+GROUPP_CSYMBOLS_ = '☑☑☑'
+GROUPP_CWORDS_ = '☐☐'
+
+GROUPP_CPAY_ = '☐☐☐'
+GROUPP_CVOTE_ = '☑☑'
+GROUPP_CUSER_ = '☑☐☑'
+GROUPP_CADMIN_ = '☑☑'
+
+GROUPP_CFLOOD_ = 0
 GROUPP_CTIMER_ = 0
 GROUPP_CWORK_ = ''
 GROUPP_CINVITECNT_ = 1
 GROUPP_CUSERDELAY_ = 1
-GROUPP_CUSER_ = '☑☐☑☐'
-GROUPP_CADMIN_ = '☑☐'
-GROUPP_CPAY_ = '☐☐☐'
-GROUPP_CCOMMENT_ = '☑☑'
-GROUPP_CDIALOG_ = '☑☐☐'
-GROUPP_CSYSTEM_ = '☑'
-GROUPP_CCHANNEL_ = '☑☑'
-GROUPP_CLINK_ = '☑☑☑'
-GROUPP_CSYMBOLS_ = '☑☑☑'
-GROUPP_CWORDS_ = '☐☐'
-GROUPP_CVOTE_ = '☑☑'
 
 CHANNEL_CONFIG_ = '☑☑☑☐☐☐☐'
 CHANNEL_CCHECK_ = '☑☐☐☐☐'
@@ -2209,6 +2204,17 @@ text_privacy_terms = (
     "\t\"privacy_policy\": \"https://telegram.org/privacy-tpa\"\n"
     "}</blockquote>"
 )
+PAT = regex.compile(
+    r'[\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}'
+    r'\p{Arabic}\p{Hebrew}\p{Ethiopic}'
+    r'\p{Devanagari}\p{Bengali}\p{Gurmukhi}\p{Tamil}\p{Telugu}'
+    r'\p{Kannada}\p{Malayalam}\p{Thai}'
+    r'\p{Khmer}\p{Tibetan}\p{Myanmar}]'
+)
+PAT_ZALGO = regex.compile(
+    r'[\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]{2,}'
+)
+
 commands_ru = [types.BotCommand(command="start", description="⚙️ Перезагрузка"),
                types.BotCommand(command="lang", description="🇫🇷 Язык"),
                types.BotCommand(command="happy", description="🐈 Счастье")]
@@ -13726,6 +13732,16 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
 
 
 # region fun
+def has_non_european_glyph(text):
+    if text.isascii(): return False
+    return bool(PAT.search(text))
+
+
+def has_zalgo(text):
+    if text.isascii(): return False
+    return bool(PAT_ZALGO.search(text))
+
+
 async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJECT_TYPE, BASE_P):
     try:
         ENT_JSONTGPH = None

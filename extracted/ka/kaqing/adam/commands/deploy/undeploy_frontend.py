@@ -38,4 +38,4 @@ class UndeployFrontend(Command):
         return super().completion(state)
 
     def help(self, _: ReplState):
-        return f'{UndeployFrontend.COMMAND}\t undeploy frontend'
+        return f'{UndeployFrontend.COMMAND}\t undeploy Web frontend'

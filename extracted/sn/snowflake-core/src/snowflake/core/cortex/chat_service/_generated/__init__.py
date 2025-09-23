@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Cortex Chat API
+Cortex Chat API.
 
 OpenAPI 3.0 specification for the Cortex Chat API  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.cortex.chat_service._generated.api.cortex_chat_api import CortexChatApi
-
-# import ApiClient
-from snowflake.core.cortex.chat_service._generated.api_client import ApiClient
-from snowflake.core.cortex.chat_service._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.cortex.chat_service._generated.models.chat_request import ChatRequest

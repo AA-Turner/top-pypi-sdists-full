@@ -35,4 +35,4 @@ class DeployPgAgent(Command):
         return super().completion(state)
 
     def help(self, _: ReplState):
-        return f'{DeployPgAgent.COMMAND}\t deploy postgres agent'
+        return f'{DeployPgAgent.COMMAND}\t deploy Postgres agent'

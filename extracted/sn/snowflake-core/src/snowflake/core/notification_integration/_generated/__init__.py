@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Notification Integration API
+Snowflake Notification Integration API.
 
 The Snowflake Notification Integration API is a REST API that you can use to access, update, and perform certain actions on Notification Integration resource in a Snowflake database.  # noqa: E501
 
@@ -22,10 +22,6 @@ __version__ = "1.0.0"
 from snowflake.core.notification_integration._generated.api.notification_integration_api import (
     NotificationIntegrationApi,
 )
-
-# import ApiClient
-from snowflake.core.notification_integration._generated.api_client import ApiClient
-from snowflake.core.notification_integration._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.notification_integration._generated.models.error_response import ErrorResponse

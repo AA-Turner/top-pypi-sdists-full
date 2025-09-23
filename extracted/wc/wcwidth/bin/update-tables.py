@@ -21,7 +21,7 @@ import unicodedata
 from pathlib import Path
 from dataclasses import field, fields, dataclass
 
-from typing import Any, Mapping, Iterable, Iterator, Sequence, Container, Collection
+from typing import Any, Mapping, Iterable, Iterator, Sequence, Collection
 
 try:
     from typing import Self
@@ -90,7 +90,7 @@ def _bisearch(ucs, table):
 
 @dataclass(order=True, frozen=True)
 class UnicodeVersion:
-    """A class for camparable unicode version."""
+    """A class for comparable unicode version."""
     major: int
     minor: int
     micro: int | None
@@ -372,6 +372,21 @@ def fetch_table_zero_data() -> UnicodeTableRenderCtx:
 
         # Add Hangul Jamo Vowels and Hangul Trailing Consonants
         table[version].values.update(HANGUL_JAMO_ZEROWIDTH)
+
+        # Remove u+00AD categoryCode=Cf name="SOFT HYPHEN",
+        # > https://www.unicode.org/faq/casemap_charprop.html
+        #
+        # > Q: Unicode now treats the SOFT HYPHEN as format control (Cf)
+        # > character when formerly it was a punctuation character (Pd).
+        # > Doesn't this break ISO 8859-1 compatibility?
+        #
+        # > [..] In a terminal emulation environment, particularly in
+        # > ISO-8859-1 contexts, one could display the SOFT HYPHEN as a hyphen
+        # > in all circumstances.
+        #
+        # This value was wrongly measured as a width of '0' in this wcwidth
+        # versions 0.2.9 - 0.2.13. Fixed in 0.2.14
+        table[version].values.discard(0x00AD)  # SOFT HYPHEN
     return UnicodeTableRenderCtx('ZERO_WIDTH', table)
 
 
@@ -393,7 +408,6 @@ def fetch_table_vs16_data() -> UnicodeTableRenderCtx:
 
     For that reason, and that these values are not expected to change,
     only this single shared table is exported.
-
 
     One example, where v3.2 became v1.1 ("-" 12.0, "+" 15.1)::
 
@@ -497,7 +511,7 @@ def parse_unicode_table(file: Iterable[str]) -> Iterator[TableEntry]:
 
 
 def parse_vs16_table(fp: Iterable[str]) -> Iterator[TableEntry]:
-    """Parse emoji-variation-sequences.txt for codepoints that preceed 0xFE0F."""
+    """Parse emoji-variation-sequences.txt for codepoints that precede 0xFE0F."""
     hex_str_vs16 = 'FE0F'
     for line in fp:
         data, _, comment = line.partition('#')
@@ -511,7 +525,7 @@ def parse_vs16_table(fp: Iterable[str]) -> Iterator[TableEntry]:
             continue
         code_points = code_points_str.split()
         if len(code_points) == 2 and code_points[1] == hex_str_vs16:
-            # yeild a single "code range" entry for a single value that preceeds FE0F
+            # yield a single "code range" entry for a single value that precedes FE0F
             yield TableEntry((int(code_points[0], 16), int(code_points[0], 16)), tuple(properties), comment)
 
 

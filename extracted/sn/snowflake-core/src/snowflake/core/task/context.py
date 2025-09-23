@@ -123,7 +123,7 @@ class TaskContext:
         """Return the graph config of the task."""
         config = self._session.call("SYSTEM$GET_TASK_GRAPH_CONFIG")
         if config:
-            return json.loads(config)
+            return json.loads(config)  # type: ignore
         return None
 
     def get_task_graph_config_property(self, property_name: str) -> Optional[Any]:

@@ -1,6 +1,5 @@
-
 """
-Snowflake Warehouse API
+Snowflake Warehouse API.
 
 The Snowflake Warehouse API is a REST API that you can use to access, customize and manage virtual warehouse in a Snowflake account.  # noqa: E501
 
@@ -100,7 +99,6 @@ class Warehouse(BaseModel):
     budget : str, optional
         Comment representing budget for warehouse.
     kind : str, optional
-
 
     owner_role_type : str, optional
         The type of role that owns the object.
@@ -287,14 +285,14 @@ class Warehouse(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Warehouse:
-        """Create an instance of Warehouse from a JSON string"""
+        """Create an instance of Warehouse from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

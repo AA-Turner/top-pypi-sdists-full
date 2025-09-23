@@ -8,7 +8,7 @@ from snowflake.core.managed_account import ManagedAccount, ManagedAccountCollect
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.managed_account._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 MANAGED_ACCOUNT = ManagedAccount(name="my_acc", admin_name="admin", admin_password="test")
 
 

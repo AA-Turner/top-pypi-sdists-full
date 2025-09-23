@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: MAPIE
-Version: 1.0.1
+Version: 1.1.0
 Summary: A scikit-learn-compatible module for estimating prediction intervals.
 Maintainer-email: Valentin Laurent <valentin.laurent@capgemini.com>, Thibault Cordier <thibault.a.cordier@capgemini.com>, Louis Lacombe <louis.lacombe@capgemini.com>, Vincent Blot <vincent.blot@capgemini.com>
 License-Expression: BSD-3-Clause
@@ -21,7 +21,9 @@ Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: <3.12,>=3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: scikit-learn>=1.4
@@ -69,7 +71,7 @@ Dynamic: license-file
 MAPIE - Model Agnostic Prediction Interval Estimator
 ====================================================
 
- 🎉 MAPIE v1.0.0 is live!  🎉 You're seeing the documentation of this new version, which introduces major changes to the API. Extensive release notes are available `here <https://mapie.readthedocs.io/en/latest/v1_migration_guide.html>`_. You can switch to the documentation of previous versions using the button on the bottom right of ReadTheDoc pages.
+ 🎉 MAPIE v1.0.0 is live!  🎉 You're seeing the documentation of this new version, which introduces major changes to the API. Extensive release notes are available `here <https://mapie.readthedocs.io/en/stable/v1_release_notes.html>`_. You can switch to the documentation of previous versions using the button on the bottom right of ReadTheDoc pages.
 
 **MAPIE** is an open-source Python library for quantifying uncertainties and controlling the risks of machine learning models.
 
@@ -91,7 +93,7 @@ MAPIE relies notably on the fields of Conformal Prediction and Distribution-Free
 
 MAPIE runs on:
 
-- Python >=3.9, <3.12
+- Python >=3.9
 - NumPy >=1.23
 - scikit-learn >=1.4
 
@@ -109,9 +111,9 @@ MAPIE can be installed in different ways:
 
 Below are two simple examples from `our documentation <https://mapie.readthedocs.io/en/latest/>`_ that show how MAPIE is used in a regression setting and a classification setting:
 
-- `Uncertainty quantification for a regression problem <https://mapie.readthedocs.io/en/latest/examples_regression/1-quickstart/plot_toy_model.html>`_
+- `Uncertainty quantification for a regression task <https://mapie.readthedocs.io/en/latest/examples_regression/1-quickstart/plot_toy_model.html>`_
 
-- `Uncertainty quantification for a classification problem <https://mapie.readthedocs.io/en/latest/examples_classification/1-quickstart/plot_quickstart_classification.html>`_
+- `Uncertainty quantification for a classification task <https://mapie.readthedocs.io/en/latest/examples_classification/1-quickstart/plot_quickstart_classification.html>`_
 
 📝 Contributing
 ===============

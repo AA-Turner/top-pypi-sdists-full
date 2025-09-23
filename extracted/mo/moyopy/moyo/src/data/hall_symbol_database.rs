@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use super::arithmetic_crystal_class::ArithmeticNumber;
 use super::centering::Centering;
 
@@ -6,7 +8,7 @@ pub type Number = i32;
 /// Number for Hall symbols (1 - 530)
 pub type HallNumber = i32;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 /// An entry containing space-group information for a specified hall_number.
 pub struct HallSymbolEntry {
     /// Number for Hall symbols (1 - 530)
@@ -58,7 +60,7 @@ pub fn hall_symbol_entry(hall_number: HallNumber) -> Option<HallSymbolEntry> {
         .cloned()
 }
 
-const HALL_SYMBOL_DATABASE: [HallSymbolEntry; 530] = [
+static HALL_SYMBOL_DATABASE: [HallSymbolEntry; 530] = [
     HallSymbolEntry::new(1, 1, 1, "", "P 1", "P 1", "P 1", Centering::P),
     HallSymbolEntry::new(2, 2, 2, "", "-P 1", "P -1", "P -1", Centering::P),
     HallSymbolEntry::new(3, 3, 3, "b", "P 2y", "P 2", "P 1 2 1", Centering::P),
@@ -4346,7 +4348,7 @@ const HALL_SYMBOL_DATABASE: [HallSymbolEntry; 530] = [
 
 #[cfg(test)]
 mod tests {
-    use super::{HallSymbolEntry, HALL_SYMBOL_DATABASE};
+    use super::{HALL_SYMBOL_DATABASE, HallSymbolEntry};
     use crate::data::hall_symbol::HallSymbol;
 
     fn iter_hall_symbol_entry() -> impl Iterator<Item = &'static HallSymbolEntry> {

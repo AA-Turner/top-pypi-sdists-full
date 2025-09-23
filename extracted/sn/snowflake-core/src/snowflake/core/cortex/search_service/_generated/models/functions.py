@@ -1,6 +1,5 @@
-
 """
-Cortex Search REST API
+Cortex Search REST API.
 
 OpenAPI 3.0 specification for the Cortex Search REST API  # noqa: E501
 
@@ -40,19 +39,13 @@ class Functions(BaseModel):
     __________
     numeric_boosts : list[NumericBoost], optional
 
-
     time_decays : list[TimeDecay], optional
-
 
     text_boosts : list[TextBoost], optional
 
-
     vector_boosts : list[VectorBoost], optional
 
-
     query_similarity_boosts : list[QuerySimilarityBoost], optional
-
-
     """
 
     numeric_boosts: Optional[List[NumericBoost]] = None
@@ -81,14 +74,14 @@ class Functions(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Functions:
-        """Create an instance of Functions from a JSON string"""
+        """Create an instance of Functions from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -200,7 +193,6 @@ class FunctionsModel:
         vector_boosts : list[VectorBoost], optional
 
         query_similarity_boosts : list[QuerySimilarityBoost], optional
-
         """
         self.numeric_boosts = numeric_boosts
         self.time_decays = time_decays

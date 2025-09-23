@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Task API
+Snowflake Task API.
 
 The Snowflake Task API is a REST API that you can use to access, update, and perform certain actions on task resources in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.task._generated.api.task_api import TaskApi
-
-# import ApiClient
-from snowflake.core.task._generated.api_client import ApiClient
-from snowflake.core.task._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.task._generated.models.cron_schedule import CronSchedule

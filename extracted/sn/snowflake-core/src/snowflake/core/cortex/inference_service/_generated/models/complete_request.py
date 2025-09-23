@@ -1,6 +1,5 @@
-
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 
@@ -57,12 +56,9 @@ class CompleteRequest(BaseModel):
         The model name. See documentation for possible values.
     messages : list[CompleteRequestMessagesInner]
 
-
     anthropic : CompleteRequestAnthropic, optional
 
-
     openai : CompleteRequestOpenai, optional
-
 
     temperature : float, optional
         Temperature controls the amount of randomness used in response generation. A higher temperature corresponds to more randomness.
@@ -74,14 +70,11 @@ class CompleteRequest(BaseModel):
         Deprecated in favor of "max_tokens", which has identical behavior.
     response_format : CompleteRequestResponseFormat, optional
 
-
     guardrails : GuardrailsConfig, optional
-
 
     tools : list[Tool], optional
         List of tools to be used during tool calling
     tool_choice : ToolChoice, optional
-
 
     provisioned_throughput_id : str, optional
         The provisioned throughput ID to be used with the request.
@@ -171,14 +164,14 @@ class CompleteRequest(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> CompleteRequest:
-        """Create an instance of CompleteRequest from a JSON string"""
+        """Create an instance of CompleteRequest from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

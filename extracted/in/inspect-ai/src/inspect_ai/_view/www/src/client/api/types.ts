@@ -8,6 +8,7 @@ import {
   EvalPlan,
   EvalResults,
   EvalSample,
+  EvalSet,
   EvalSpec,
   EvalStats,
   InfoEvent,
@@ -147,6 +148,7 @@ export interface Capabilities {
 
 export interface LogViewAPI {
   client_events: () => Promise<any[]>;
+  eval_set: (dir?: string) => Promise<EvalSet | undefined>;
   eval_logs: () => Promise<LogFiles | undefined>;
   eval_log: (
     log_file: string,
@@ -164,7 +166,7 @@ export interface LogViewAPI {
   log_message: (log_file: string, message: string) => Promise<void>;
   download_file: (
     filename: string,
-    filecontents: string | Blob | ArrayBuffer | ArrayBufferView,
+    filecontents: string | Blob | ArrayBuffer | ArrayBufferView<ArrayBuffer>,
   ) => Promise<void>;
   open_log_file: (logFile: string, log_dir: string) => Promise<void>;
   eval_pending_samples?: (
@@ -183,6 +185,7 @@ export interface LogViewAPI {
 export interface ClientAPI {
   client_events: () => Promise<string[]>;
   get_log_paths: () => Promise<LogFiles>;
+  get_eval_set_info: (dir?: string) => Promise<EvalSet | undefined>;
   get_log_overviews: (log_files: string[]) => Promise<LogOverview[]>;
   get_log_summary: (log_file: string) => Promise<EvalSummary>;
   get_log_sample: (
@@ -193,7 +196,7 @@ export interface ClientAPI {
   log_message?: (log_file: string, message: string) => Promise<void>;
   download_file: (
     file_name: string,
-    file_contents: string | Blob | ArrayBuffer | ArrayBufferView,
+    file_contents: string | Blob | ArrayBuffer | ArrayBufferView<ArrayBuffer>,
   ) => Promise<void>;
   open_log_file: (log_file: string, log_dir: string) => Promise<void>;
 

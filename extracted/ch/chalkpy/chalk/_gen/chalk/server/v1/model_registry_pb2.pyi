@@ -19,21 +19,21 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ModelArtifact(_message.Message):
-    __slots__ = ("id", "uri", "spec", "created_by", "created_at")
+    __slots__ = ("id", "path", "spec", "created_by", "created_at")
     ID_FIELD_NUMBER: _ClassVar[int]
-    URI_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
-    uri: str
+    path: str
     spec: _model_artifact_pb2.ModelArtifactSpec
     created_by: str
     created_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
-        uri: _Optional[str] = ...,
+        path: _Optional[str] = ...,
         spec: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
         created_by: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -283,7 +283,7 @@ class GetModelVersionResponse(_message.Message):
     def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
 
 class CreateModelVersionRequest(_message.Message):
-    __slots__ = ("model_name", "model_artifact", "aliases", "metadata")
+    __slots__ = ("model_name", "model_artifact_id", "model_artifact", "aliases", "metadata")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -295,16 +295,19 @@ class CreateModelVersionRequest(_message.Message):
         ) -> None: ...
 
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
     ALIASES_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     model_name: str
+    model_artifact_id: str
     model_artifact: _model_artifact_pb2.ModelArtifactSpec
     aliases: _containers.RepeatedScalarFieldContainer[str]
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
         self,
         model_name: _Optional[str] = ...,
+        model_artifact_id: _Optional[str] = ...,
         model_artifact: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
         aliases: _Optional[_Iterable[str]] = ...,
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
@@ -372,7 +375,7 @@ class GetModelArtifactUploadUrlsRequest(_message.Message):
     def __init__(self, file_names: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class GetModelArtifactUploadUrlsResponse(_message.Message):
-    __slots__ = ("upload_urls",)
+    __slots__ = ("upload_urls", "model_artifact_id")
     class UploadUrlsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -382,8 +385,12 @@ class GetModelArtifactUploadUrlsResponse(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
     UPLOAD_URLS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
     upload_urls: _containers.ScalarMap[str, str]
-    def __init__(self, upload_urls: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    model_artifact_id: str
+    def __init__(
+        self, upload_urls: _Optional[_Mapping[str, str]] = ..., model_artifact_id: _Optional[str] = ...
+    ) -> None: ...
 
 class DownloadModelArtifactRequest(_message.Message):
     __slots__ = ("model_version_key",)

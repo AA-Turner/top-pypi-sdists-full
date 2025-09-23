@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Network Policy API
+Snowflake Network Policy API.
 
 The Snowflake Network Policy API is a REST API that you can use to access, update, and perform certain actions on Network Policy resource in a Snowflake database.  # noqa: E501
 

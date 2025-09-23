@@ -5,10 +5,10 @@ from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import AccountObjectCollectionParent, ObjectReferenceMixin
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperations
 from snowflake.core.managed_account._generated.api import ManagedAccountApi
-from snowflake.core.managed_account._generated.api_client import StoredProcApiClient
 from snowflake.core.managed_account._generated.models.managed_account import ManagedAccountModel as ManagedAccount
 
 

@@ -8,7 +8,7 @@ from snowflake.core.network_policy import NetworkPolicy, NetworkPolicyCollection
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.network_policy._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 @pytest.fixture
@@ -22,8 +22,8 @@ def network_policy(network_policies):
 
 
 def test_create_network_policy(fake_root, network_policies):
-    args = (fake_root, "POST", BASE_URL + "/network-policies?createMode=errorIfExists")
-    kwargs = extra_params(query_params=[("createMode", "errorIfExists")], body={"name": "my_policy"})
+    args = (fake_root, "POST", BASE_URL + "/network-policies")
+    kwargs = extra_params(query_params=[], body={"name": "my_policy"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         np_res = network_policies.create(NetworkPolicy(name="my_policy"))

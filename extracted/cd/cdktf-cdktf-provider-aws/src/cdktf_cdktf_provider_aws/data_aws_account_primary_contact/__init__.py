@@ -1,7 +1,7 @@
 r'''
 # `data_aws_account_primary_contact`
 
-Refer to the Terraform Registry for docs: [`data_aws_account_primary_contact`](https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/account_primary_contact).
+Refer to the Terraform Registry for docs: [`data_aws_account_primary_contact`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/account_primary_contact).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataAwsAccountPrimaryContact(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dataAwsAccountPrimaryContact.DataAwsAccountPrimaryContact",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/account_primary_contact aws_account_primary_contact}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/account_primary_contact aws_account_primary_contact}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class DataAwsAccountPrimaryContact(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/account_primary_contact aws_account_primary_contact} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/account_primary_contact aws_account_primary_contact} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/account_primary_contact#account_id DataAwsAccountPrimaryContact#account_id}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/account_primary_contact#account_id DataAwsAccountPrimaryContact#account_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class DataAwsAccountPrimaryContact(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataAwsAccountPrimaryContact to import.
-        :param import_from_id: The id of the existing DataAwsAccountPrimaryContact that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/account_primary_contact#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataAwsAccountPrimaryContact that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/account_primary_contact#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataAwsAccountPrimaryContact to import is found.
         '''
         if __debug__:
@@ -244,7 +244,7 @@ class DataAwsAccountPrimaryContactConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/account_primary_contact#account_id DataAwsAccountPrimaryContact#account_id}.
+        :param account_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/account_primary_contact#account_id DataAwsAccountPrimaryContact#account_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -342,7 +342,7 @@ class DataAwsAccountPrimaryContactConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.0/docs/data-sources/account_primary_contact#account_id DataAwsAccountPrimaryContact#account_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/data-sources/account_primary_contact#account_id DataAwsAccountPrimaryContact#account_id}.'''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
 

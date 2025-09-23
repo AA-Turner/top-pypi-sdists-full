@@ -8,7 +8,7 @@ from snowflake.core.stage import Stage, StageResource
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.stage._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 
 
 @pytest.fixture
@@ -22,10 +22,8 @@ def stage(stages):
 
 
 def test_create_stage(fake_root, stages):
-    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/stages?createMode=errorIfExists")
-    kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")], body={"name": "my_stage", "kind": "PERMANENT"}
-    )
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/stages")
+    kwargs = extra_params(query_params=[], body={"name": "my_stage", "kind": "PERMANENT"})
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         stage_res = stages.create(Stage(name="my_stage"))

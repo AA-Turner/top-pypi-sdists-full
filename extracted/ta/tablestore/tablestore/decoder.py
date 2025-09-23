@@ -452,6 +452,10 @@ class OTSProtoBufferDecoder(object):
             field_type = FieldType.GEOPOINT
         elif proto == search_pb.DATE:
             field_type = FieldType.DATE
+        elif proto == search_pb.VECTOR:
+            field_type = FieldType.VECTOR
+        elif proto == search_pb.JSON:
+            field_type = FieldType.JSON
 
         return field_type
 
@@ -487,10 +491,19 @@ class OTSProtoBufferDecoder(object):
             enable_sort_and_agg=proto.enable_sort_and_agg,
             analyzer=proto.analyzer, sub_field_schemas=sub_field_schemas,
             analyzer_parameter=analyzer_parameter, date_formats=date_formats,
-            is_virtual_field=is_virtual_field, source_fields=source_fields, vector_options=vector_options
+            is_virtual_field=is_virtual_field, source_fields=source_fields, vector_options=vector_options,
+            json_type=self._parse_json_type(proto.json_type)
         )
 
         return field_schema
+
+    def _parse_json_type(self, proto_json_type):
+        json_type = None
+        if proto_json_type == search_pb.OBJECT_JSON:
+            json_type = JsonType.OBJECT_JSON
+        elif proto_json_type == search_pb.NESTED_JSON:
+            json_type = JsonType.NESTED_JSON
+        return json_type
 
     def _parse_vector_options(self, proto_vector_options):
         if proto_vector_options is None:

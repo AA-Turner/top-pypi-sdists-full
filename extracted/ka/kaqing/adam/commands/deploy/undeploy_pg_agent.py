@@ -38,4 +38,4 @@ class UndeployPgAgent(Command):
         return super().completion(state)
 
     def help(self, _: ReplState):
-        return f'{UndeployPgAgent.COMMAND}\t undeploy postgres agent'
+        return f'{UndeployPgAgent.COMMAND}\t undeploy Postgres agent'

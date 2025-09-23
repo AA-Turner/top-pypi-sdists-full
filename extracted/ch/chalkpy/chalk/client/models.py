@@ -1735,8 +1735,8 @@ class PingResponse(BaseModel):
 
 
 class ModelUploadUrlResponse(BaseModel):
+    model_artifact_id: str
     upload_urls: Mapping[str, str]
-    success: bool
 
 
 class RegisterModelResponse(BaseModel):

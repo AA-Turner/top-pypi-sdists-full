@@ -19,7 +19,7 @@ from typing import MutableMapping, MutableSequence
 
 import proto  # type: ignore
 
-from google.cloud.dataplex_v1.types import processing
+from google.cloud.dataplex_v1.types import datascans_common, processing
 
 __protobuf__ = proto.module(
     package="google.cloud.dataplex.v1",
@@ -47,10 +47,10 @@ class DataQualitySpec(proto.Message):
             Optional. The percentage of the records to be selected from
             the dataset for DataScan.
 
-            -  Value can range between 0.0 and 100.0 with up to 3
-               significant decimal digits.
-            -  Sampling is not applied if ``sampling_percent`` is not
-               specified, 0 or
+            - Value can range between 0.0 and 100.0 with up to 3
+              significant decimal digits.
+            - Sampling is not applied if ``sampling_percent`` is not
+              specified, 0 or
 
             100.
         row_filter (str):
@@ -63,6 +63,10 @@ class DataQualitySpec(proto.Message):
         post_scan_actions (google.cloud.dataplex_v1.types.DataQualitySpec.PostScanActions):
             Optional. Actions to take upon job
             completion.
+        catalog_publishing_enabled (bool):
+            Optional. If set, the latest DataScan job
+            result will be published as Dataplex Universal
+            Catalog metadata.
     """
 
     class PostScanActions(proto.Message):
@@ -208,6 +212,10 @@ class DataQualitySpec(proto.Message):
         number=6,
         message=PostScanActions,
     )
+    catalog_publishing_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=8,
+    )
 
 
 class DataQualityResult(proto.Message):
@@ -248,6 +256,10 @@ class DataQualityResult(proto.Message):
             result.
         post_scan_actions_result (google.cloud.dataplex_v1.types.DataQualityResult.PostScanActionsResult):
             Output only. The result of post scan actions.
+        catalog_publishing_status (google.cloud.dataplex_v1.types.DataScanCatalogPublishingStatus):
+            Output only. The status of publishing the
+            data scan as Dataplex Universal Catalog
+            metadata.
     """
 
     class PostScanActionsResult(proto.Message):
@@ -346,6 +358,13 @@ class DataQualityResult(proto.Message):
         number=8,
         message=PostScanActionsResult,
     )
+    catalog_publishing_status: datascans_common.DataScanCatalogPublishingStatus = (
+        proto.Field(
+            proto.MESSAGE,
+            number=11,
+            message=datascans_common.DataScanCatalogPublishingStatus,
+        )
+    )
 
 
 class DataQualityRuleResult(proto.Message):
@@ -367,10 +386,10 @@ class DataQualityRuleResult(proto.Message):
 
             Evaluated count can be configured to either
 
-            -  include all rows (default) - with ``null`` rows
-               automatically failing rule evaluation, or
-            -  exclude ``null`` rows from the ``evaluated_count``, by
-               setting ``ignore_nulls = true``.
+            - include all rows (default) - with ``null`` rows
+              automatically failing rule evaluation, or
+            - exclude ``null`` rows from the ``evaluated_count``, by
+              setting ``ignore_nulls = true``.
 
             This field is not set for rule SqlAssertion.
         passed_count (int):
@@ -482,10 +501,10 @@ class DataQualityDimension(proto.Message):
 
     Attributes:
         name (str):
-            Optional. The dimension name a rule belongs
-            to. Custom dimension name is supported with all
-            uppercase letters and maximum length of 30
-            characters.
+            Output only. The dimension name a rule
+            belongs to. Custom dimension name is supported
+            with all uppercase letters and maximum length of
+            30 characters.
     """
 
     name: str = proto.Field(
@@ -562,15 +581,16 @@ class DataQualityRule(proto.Message):
 
             This field is only valid for the following type of rules:
 
-            -  RangeExpectation
-            -  RegexExpectation
-            -  SetExpectation
-            -  UniquenessExpectation
+            - RangeExpectation
+            - RegexExpectation
+            - SetExpectation
+            - UniquenessExpectation
         dimension (str):
-            Required. The dimension a rule belongs to. Results are also
-            aggregated at the dimension level. Supported dimensions are
-            **["COMPLETENESS", "ACCURACY", "CONSISTENCY", "VALIDITY",
-            "UNIQUENESS", "FRESHNESS", "VOLUME"]**
+            Required. The dimension a rule belongs to.
+            Results are also aggregated at the dimension
+            level. Custom dimension name is supported with
+            all uppercase letters and maximum length of 30
+            characters.
         threshold (float):
             Optional. The minimum ratio of **passing_rows / total_rows**
             required to pass this rule, with a range of [0.0, 1.0].
@@ -581,15 +601,15 @@ class DataQualityRule(proto.Message):
         name (str):
             Optional. A mutable name for the rule.
 
-            -  The name must contain only letters (a-z, A-Z), numbers
-               (0-9), or hyphens (-).
-            -  The maximum length is 63 characters.
-            -  Must start with a letter.
-            -  Must end with a number or a letter.
+            - The name must contain only letters (a-z, A-Z), numbers
+              (0-9), or hyphens (-).
+            - The maximum length is 63 characters.
+            - Must start with a letter.
+            - Must end with a number or a letter.
         description (str):
             Optional. Description of the rule.
 
-            -  The maximum length is 1,024 characters.
+            - The maximum length is 1,024 characters.
         suspended (bool):
             Optional. Whether the Rule is active or
             suspended. Default is false.
@@ -919,6 +939,12 @@ class DataQualityColumnResult(proto.Message):
             points).
 
             This field is a member of `oneof`_ ``_score``.
+        passed (bool):
+            Output only. Whether the column passed or
+            failed.
+        dimensions (MutableSequence[google.cloud.dataplex_v1.types.DataQualityDimensionResult]):
+            Output only. The dimension-level results for
+            this column.
     """
 
     column: str = proto.Field(
@@ -929,6 +955,15 @@ class DataQualityColumnResult(proto.Message):
         proto.FLOAT,
         number=2,
         optional=True,
+    )
+    passed: bool = proto.Field(
+        proto.BOOL,
+        number=3,
+    )
+    dimensions: MutableSequence["DataQualityDimensionResult"] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=4,
+        message="DataQualityDimensionResult",
     )
 
 

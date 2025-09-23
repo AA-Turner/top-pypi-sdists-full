@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: razorpay
-Version: 1.4.2
+Version: 2.0.0
 Summary: Razorpay Python Client
 Home-page: https://github.com/razorpay/razorpay-python
 Author: Team Razorpay
@@ -18,10 +18,20 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # Razorpay Python Client
 
-[![PyPI Version](https://img.shields.io/pypi/v/razorpay.svg)](https://pypi.python.org/pypi/razorpay) [![Coverage Status](https://coveralls.io/repos/github/razorpay/razorpay-python/badge.svg?branch=master)](https://coveralls.io/github/razorpay/razorpay-python?branch=master) [![PyPI](https://img.shields.io/badge/python-3%20%7C%203.4%20%7C%203.5%20%7C%203.6-blue.svg)]() [![License](https://img.shields.io/:license-mit-blue.svg)](https://opensource.org/licenses/MIT)
+[![PyPI Version](https://img.shields.io/pypi/v/razorpay.svg)](https://pypi.python.org/pypi/razorpay) [![Coverage Status](https://coveralls.io/repos/github/razorpay/razorpay-python/badge.svg?branch=master)](https://coveralls.io/github/razorpay/razorpay-python?branch=master) [![PyPI](https://img.shields.io/badge/python-3.5%2B-blue.svg)]() [![License](https://img.shields.io/:license-mit-blue.svg)](https://opensource.org/licenses/MIT)
 
 Python bindings for interacting with the Razorpay API
 
@@ -41,6 +51,8 @@ You can find your API keys at <https://dashboard.razorpay.com/#/app/keys>.
 ```py
 import razorpay
 client = razorpay.Client(auth=("<YOUR_API_KEY>", "<YOUR_API_SECRET>"))
+
+client.enable_retry(True)  # Enable retry mechanism for failed API calls
 ```
 
 ## App Details
@@ -63,6 +75,10 @@ that both app title and version are strings.
 - [Item](documents/items.md)
 
 - [Customer](documents/customer.md)
+
+- [Device Activity](documents/deviceActivity.md)
+
+- [POS Gateway Integration](documents/posGateway.md)
 
 - [Token](documents/token.md)
 

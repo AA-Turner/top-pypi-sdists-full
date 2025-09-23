@@ -2,6 +2,7 @@ use std::ops::Mul;
 
 use itertools::iproduct;
 use nalgebra::base::{Matrix3, Vector3};
+use serde::Serialize;
 
 use super::cell::Cell;
 use super::lattice::Lattice;
@@ -15,7 +16,7 @@ pub type Linear = Matrix3<i32>;
 pub type OriginShift = Vector3<f64>;
 
 /// Represent change of origin and basis for an affine space
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UnimodularTransformation {
     pub linear: UnimodularLinear,
     pub origin_shift: OriginShift,
@@ -112,12 +113,9 @@ impl UnimodularTransformation {
         Cell::new(new_lattice, new_positions, cell.numbers.clone())
     }
 
-    pub fn transform_magnetic_moments<M: MagneticMoment>(
-        &self,
-        magnetic_moments: &Vec<M>,
-    ) -> Vec<M> {
+    pub fn transform_magnetic_moments<M: MagneticMoment>(&self, magnetic_moments: &[M]) -> Vec<M> {
         // Magnetic moments are not transformed
-        magnetic_moments.clone()
+        magnetic_moments.to_owned()
     }
 
     pub fn transform_magnetic_cell<M: MagneticMoment>(

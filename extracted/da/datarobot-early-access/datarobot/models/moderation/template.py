@@ -154,6 +154,7 @@ class ModerationTemplate(APIObject):
         is_agentic: Optional[bool] = None,
         for_playground: Optional[bool] = None,
         for_production: Optional[bool] = None,
+        name: Optional[str] = None,
     ) -> List[ModerationTemplate]:
         """List Templates.
 
@@ -185,6 +186,8 @@ class ModerationTemplate(APIObject):
             params["forPlayground"] = for_playground
         if for_production:
             params["forProduction"] = for_production
+        if name:
+            params["name"] = name
 
         data = unpaginate(
             cls._path,
@@ -216,8 +219,10 @@ class ModerationTemplate(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        templates = cls.list(include_agentic=True)
-        return next((template for template in templates if template.name == name), None)
+        templates = cls.list(name=name, include_agentic=True)
+        if len(templates):
+            return templates[0]
+        return None
 
     @classmethod
     def create(

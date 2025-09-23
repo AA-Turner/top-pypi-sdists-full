@@ -1,6 +1,5 @@
-
 """
-Cortex Chat API
+Cortex Chat API.
 
 OpenAPI 3.0 specification for the Cortex Chat API  # noqa: E501
 
@@ -71,14 +70,14 @@ class ChatRequestSearchServicesInner(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> ChatRequestSearchServicesInner:
-        """Create an instance of ChatRequestSearchServicesInner from a JSON string"""
+        """Create an instance of ChatRequestSearchServicesInner from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

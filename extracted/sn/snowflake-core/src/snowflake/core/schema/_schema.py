@@ -7,10 +7,10 @@ from pydantic import StrictStr
 
 from snowflake.connector import SnowflakeConnection
 from snowflake.core import PollingOperation
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._operation import PollingOperations
 from snowflake.core.pipe import PipeCollection
 from snowflake.core.schema._generated import SuccessResponse
-from snowflake.core.schema._generated.api_client import StoredProcApiClient
 
 from .._common import Clone, CreateMode, DatabaseObjectCollectionParent, DatabaseObjectReferenceMixin, PointOfTime
 from .._internal.telemetry import api_telemetry

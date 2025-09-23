@@ -9,7 +9,7 @@ from snowflake.core.service._generated import FetchServiceLogs200Response, Fetch
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.service._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 SERVICE = Service(name="my_service", compute_pool="my_compute_pool", spec=ServiceSpecInlineText(spec_text=""))
 JOB_SERVICE = JobService(name="my_service", compute_pool="my_compute_pool", spec=ServiceSpecInlineText(spec_text=""))
 

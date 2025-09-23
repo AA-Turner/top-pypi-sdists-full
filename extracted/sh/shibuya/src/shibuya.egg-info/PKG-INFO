@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shibuya
-Version: 2025.8.16
+Version: 2025.9.23
 Summary: A clean, responsive, and customizable Sphinx documentation theme with light/dark mode.
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause
@@ -26,6 +26,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Sphinx
+Requires-Dist: pygments-styles
 Dynamic: license-file
 
 <div align="center">

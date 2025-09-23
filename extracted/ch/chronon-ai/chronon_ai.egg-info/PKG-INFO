@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chronon-ai
-Version: 0.0.106
+Version: 0.0.107
 Summary: Chronon python API library
 Classifier: Programming Language :: Python :: 3.7
 Requires-Python: >=3.7

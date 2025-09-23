@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Grant API
+Snowflake Grant API.
 
 The Snowflake Grant API is a REST API that you can use to show or manage privileges that have been provided to users and roles in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.grant._generated.api.grant_api import GrantApi
-
-# import ApiClient
-from snowflake.core.grant._generated.api_client import ApiClient
-from snowflake.core.grant._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.grant._generated.models.error_response import ErrorResponse

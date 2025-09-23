@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Tuple, List, Optional, Any, cast, Type, Union
+from typing import TYPE_CHECKING, Dict, Tuple, List, Optional, Any, cast, Type, Union, Set
 from collections import OrderedDict
 
 from ..parser.SystemRDLParser import SystemRDLParser
@@ -28,15 +28,11 @@ class ComponentVisitor(BaseVisitor):
     comp_type = comp.Component
     component: comp.Component
 
-    def __init__(self, compiler: 'RDLCompiler', def_name: Optional[str]=None, param_defs: Optional[List[Parameter]]=None):
+    def __init__(self, compiler: 'RDLCompiler', comp_def: comp.Component, def_name: Optional[str]=None):
         super().__init__(compiler)
 
-        self.component = self.comp_type() #pylint: disable=not-callable
+        self.component = comp_def
         self.component.type_name = def_name
-        if param_defs is None:
-            self.component.parameters = []
-        else:
-            self.component.parameters = param_defs
 
         # Scratchpad of local property assignments encountered in body of component
         # format is:
@@ -48,11 +44,15 @@ class ComponentVisitor(BaseVisitor):
         # Scratchpad of dynamic property assignments encountered in body of component
         # format is:
         #   {
-        #       target_inst : {
-        #           prop_name : (prop_src_ref, prop_rhs)
-        #       }
+        #       target_path : (
+        #           {prop_name, ...},
+        #           {mutex_bin: prop_name, ...},
+        #       )
         #   }
-        self.dynamic_property_dict: Dict[comp.Component, Dict[str, Tuple[SourceRefBase, Any]]] = OrderedDict()
+        self.assigned_properties_dynamic: Dict[str, Tuple[Set[str], Dict[str, str]]] = {}
+
+        self.dpa_children_list_copied: Set[str] = set()
+        self.dpa_children_copied: Set[str] = set()
 
         # Scratchpad to pass stuff down between visitor functions
         self._tmp_comp_def: comp.Component
@@ -69,15 +69,19 @@ class ComponentVisitor(BaseVisitor):
         self.component.def_src_ref = src_ref_from_antlr(ctx)
 
         # Re-Load any parameters into the local scope
-        for param in self.component.parameters:
-            self.compiler.namespace.register_element(param.name, param, None, None)
+        for param in self.component.parameters_dict.values():
+            self.compiler.namespace.register_element(
+                param.name,
+                param,
+                self.component,
+                None
+            )
 
         # Visit all component elements.
         # Their visitors will apply changes to the current component
         self.visitChildren(ctx)
 
         self.apply_local_properties()
-        self.apply_dynamic_properties()
 
         self.compiler.namespace.exit_scope()
         return self.component
@@ -118,19 +122,19 @@ class ComponentVisitor(BaseVisitor):
 
     def visitComponent_named_def(self, ctx: SystemRDLParser.Component_named_defContext) -> comp.Component:
         type_token = self.visit(ctx.component_type())
-
         self.check_comp_def_allowed(type_token)
+        comp_def = self.create_new_component(type_token)
 
         def_name = get_ID_text(ctx.ID())
-        # Get any parameters for the component
+
+        # Process any parameters for the component
         if ctx.param_def() is not None:
-            param_defs = self.visit(ctx.param_def())
-        else:
-            param_defs = []
+            self._tmp_comp_def = comp_def
+            self.visit(ctx.param_def())
 
         # Recurse into the component definition body
         body = ctx.component_body()
-        comp_def = self.define_component(body, type_token, def_name, param_defs)
+        self.process_component_body(comp_def, body, type_token, def_name)
 
         # Since the definition is named, register it with the namespace
         self.compiler.namespace.register_type(def_name, comp_def, src_ref_from_antlr(ctx.ID()))
@@ -143,26 +147,34 @@ class ComponentVisitor(BaseVisitor):
 
     def visitComponent_anon_def(self, ctx: SystemRDLParser.Component_anon_defContext) -> comp.Component:
         type_token = self.visit(ctx.component_type())
-
         self.check_comp_def_allowed(type_token)
+        comp_def = self.create_new_component(type_token)
 
         body = ctx.component_body()
-        comp_def = self.define_component(body, type_token, None, [])
+        self.process_component_body(comp_def, body, type_token, None)
 
         return comp_def
 
     def check_comp_def_allowed(self, type_token: 'CommonToken') -> None:
         pass
 
-
-    def define_component(self, body: SystemRDLParser.Component_bodyContext, type_token: 'CommonToken', def_name: Optional[str], param_defs: List[Parameter]) -> comp.Component:
+    def create_new_component(self, type_token: 'CommonToken') -> comp.Component:
         """
-        Given component definition, recurse to another ComponentVisitor
-        to define a new component
+        Given the component type keyword token (eg, ADDRMAP_kw), create an
+        instance of the corresponding component class.
+        """
+        comp_cls = KW_TO_COMPONENT_MAP[type_token.type]
+        return comp_cls()
+
+
+    def process_component_body(self, comp_def: comp.Component, body: SystemRDLParser.Component_bodyContext, type_token: 'CommonToken', def_name: Optional[str]) -> None:
+        """
+        Given initial component definition info, recurse to another visitor to
+        process the body of the component definition
         """
         visitor_cls = KW_TO_VISITOR_MAP[type_token.type]
-        visitor = visitor_cls(self.compiler, def_name, param_defs)
-        return visitor.visit(body)
+        visitor = visitor_cls(self.compiler, comp_def, def_name)
+        visitor.visit(body)
 
     #---------------------------------------------------------------------------
     # Component Instantiation
@@ -260,10 +272,8 @@ class ComponentVisitor(BaseVisitor):
     def assign_inst_parameters(self, comp_inst: comp.Component, param_assigns: Dict[str, Tuple[ast.ASTNode, SourceRefBase]]) -> None:
         for param_name, (assign_expr, src_ref) in param_assigns.items():
             # Lookup corresponding parameter in component
-            for comp_param in comp_inst.parameters:
-                if comp_param.name == param_name:
-                    param = comp_param
-                    break
+            if param_name in comp_inst.parameters_dict:
+                param = comp_inst.parameters_dict[param_name]
             else:
                 self.msg.fatal(
                     "Parameter '%s' not found in definition for component '%s'"
@@ -276,7 +286,7 @@ class ComponentVisitor(BaseVisitor):
                 self.compiler.env,
                 src_ref,
                 assign_expr,
-                param.param_type
+                param.param_type #pylint: disable=possibly-used-before-assignment
             )
             assign_expr.predict_type()
             param.expr = assign_expr
@@ -482,24 +492,20 @@ class ComponentVisitor(BaseVisitor):
     #---------------------------------------------------------------------------
     # Parameters
     #---------------------------------------------------------------------------
-    def visitParam_def(self, ctx: SystemRDLParser.Param_defContext) -> List[Parameter]:
+    def visitParam_def(self, ctx: SystemRDLParser.Param_defContext) -> None:
         """
         Parameter Definition block
         """
         self.compiler.namespace.enter_scope()
-
-        param_defs = []
         for elem in ctx.getTypedRuleContexts(SystemRDLParser.Param_def_elemContext):
-            param_def = self.visit(elem)
-            param_defs.append(param_def)
-
+            self.visit(elem)
         self.compiler.namespace.exit_scope()
-        return param_defs
 
-    def visitParam_def_elem(self, ctx: SystemRDLParser.Param_def_elemContext) -> Parameter:
+    def visitParam_def_elem(self, ctx: SystemRDLParser.Param_def_elemContext) -> None:
         """
         Individual parameter definition elements
         """
+        comp_def = self._tmp_comp_def # component definition of incoming component
 
         # Construct parameter type
         data_type_token = self.visit(ctx.data_type())
@@ -533,9 +539,15 @@ class ComponentVisitor(BaseVisitor):
         param = Parameter(param_type, param_name, default_expr)
 
         # Register it in the parameter def namespace scope
-        self.compiler.namespace.register_element(param_name, param, None, src_ref_from_antlr(ctx.ID()))
+        self.compiler.namespace.register_element(
+            param_name,
+            param,
+            comp_def,
+            src_ref_from_antlr(ctx.ID())
+        )
 
-        return param
+        # Add it to the new component's definition
+        comp_def.parameters_dict[param_name] = param
 
     def visitParam_inst(self, ctx: SystemRDLParser.Param_instContext) -> Dict[str, Tuple[ast.ASTNode, Optional[SourceRefBase]]]:
         param_assigns = {}
@@ -573,26 +585,24 @@ class ComponentVisitor(BaseVisitor):
         elif ctx.encode_prop_assign() is not None:
             prop_src_ref, prop_name, rhs = self.visit(ctx.encode_prop_assign())
         elif ctx.prop_mod_assign() is not None:
-            prop_mod_src_ref, prop_mod = self.visit(ctx.prop_mod_assign())
+            prop_src_ref, prop_mod = self.visit(ctx.prop_mod_assign())
 
             # Implies assignment to intr=true
             # Do not check for multiple assignments to intr
             if default:
                 self.compiler.namespace.register_default_property(
-                    "intr", True, prop_mod_src_ref,
+                    "intr", True, prop_src_ref,
                     overwrite_ok=True
                 )
             else:
-                self.property_dict["intr"] = (prop_mod_src_ref, True)
+                self.property_dict["intr"] = (prop_src_ref, True)
 
             if prop_mod == "nonsticky":
                 # Implies assignment stickybit = false;
-                prop_src_ref = prop_mod_src_ref
                 prop_name = "stickybit"
                 rhs = False
             else:
                 # Assign interrupt type modifier
-                prop_src_ref = prop_mod_src_ref
                 prop_name = "intr type"
                 rhs = rdltypes.InterruptType[prop_mod]
 
@@ -610,8 +620,8 @@ class ComponentVisitor(BaseVisitor):
                     "Property '%s' was already assigned in this scope" % prop_name,
                     prop_src_ref
                 )
-            else:
-                self.property_dict[prop_name] = (prop_src_ref, rhs)
+
+            self.property_dict[prop_name] = (prop_src_ref, rhs)
 
     def visitDynamic_property_assignment(self, ctx: SystemRDLParser.Dynamic_property_assignmentContext) -> None:
 
@@ -626,41 +636,86 @@ class ComponentVisitor(BaseVisitor):
             raise RuntimeError
 
         # Lookup component instance being assigned
-        target_inst = self.component
+        current_component = self.component
+        is_first_lvl = True
+        target_path: str = ""
         for name_token in name_tokens:
             inst_name = get_ID_text(name_token)
-
-            if target_inst is not self.component:
-                # target_inst is an intermediate component in the hier path
-                # mark the child that is being modified
-                target_inst._dyn_assigned_children.append(inst_name)
-
-            # Traverse to next child in token list
-            next_target_inst = target_inst.get_child_by_name(inst_name)
-            if next_target_inst is None:
+            target_path += "." + inst_name # yes this result in a leading '.', i don't care
+            child_idx = get_child_comp_index(current_component, inst_name)
+            if child_idx is None:
                 # Not found!
                 self.msg.fatal(
                     "Could not resolve hierarchical reference to '%s'" % inst_name,
                     src_ref_from_antlr(name_token)
                 )
-            else:
-                target_inst = next_target_inst
 
-        # Add assignment to dynamic_property_dict
-        target_inst_dict = self.dynamic_property_dict.get(target_inst, OrderedDict())
-        if prop_name in target_inst_dict:
+            if not is_first_lvl:
+                # Is not the first iteration of this loop
+
+                # Traversing deeper "through" an intermediate component.
+                # Mark the prior one, denoting that this happened
+                current_component._dyn_assigned_children.add(inst_name)
+
+                # DPA is going to modify one of the children. Make a copy of the child,
+                # as well as the list that contains it to ensure this lineage is
+                # distinct from others.
+                # This is not necessary for the first level (immediate children
+                # of self.component) since these were just recently instantiated,
+                # and therefore were already copied once for this scope.
+                # Also, it is possible to skip copies if they were already performed in this scope
+                if target_path not in self.dpa_children_list_copied:
+                    current_component.children = current_component.children.copy()
+                    self.dpa_children_list_copied.add(target_path)
+                if target_path not in self.dpa_children_copied:
+                    current_component.children[child_idx] = current_component.children[child_idx]._copy_for_inst({})
+                    self.dpa_children_copied.add(target_path)
+
+            # Advance to next level
+            current_component = current_component.children[child_idx]
+            is_first_lvl = False
+
+        # Path traversal is done. current_component is the assignment target
+        rule = self.compiler.env.property_rules.lookup_property(prop_name)
+        if rule is None:
+            self.msg.fatal(
+                "Unrecognized property '%s'" % prop_name,
+                prop_src_ref
+            )
+
+        # Is dynamic assignment allowed?
+        if not rule.dyn_assign_allowed:
+            self.msg.fatal(
+                "Dynamic assignment to property '%s' is not allowed" % prop_name,
+                prop_src_ref
+            )
+
+        assigned_props, assigned_mutex_bins = self.assigned_properties_dynamic.get(target_path, (set(), {}))
+
+        # Check for mutex collisions
+        if rule.mutex_group is not None and rule.mutex_group in assigned_mutex_bins:
+            # Already saw something in this mutex group
+            self.msg.fatal(
+                "Properties '%s' and '%s' cannot be assigned in the same component"
+                % (prop_name, assigned_mutex_bins[rule.mutex_group]),
+                prop_src_ref
+            )
+
+        # Check if property already assigned from this scope
+        if prop_name in assigned_props:
             self.msg.fatal(
                 "Property '%s' was already assigned to component '%s' from within this scope"
                 % (prop_name, get_ID_text(name_tokens[-1])),
                 prop_src_ref
             )
-        else:
-            target_inst_dict[prop_name] = (prop_src_ref, rhs)
-        self.dynamic_property_dict[target_inst] = target_inst_dict
 
-        # Mark the property as dynamically assigned
-        target_inst._dyn_assigned_props.append(prop_name)
-
+        # Apply property
+        rule.assign_value(current_component, rhs, prop_src_ref)
+        assigned_props.add(prop_name)
+        if rule.mutex_group is not None:
+            assigned_mutex_bins[rule.mutex_group] = prop_name
+        current_component._dyn_assigned_props.add(prop_name)
+        self.assigned_properties_dynamic[target_path] = (assigned_props, assigned_mutex_bins)
 
     def visitInstance_ref(self, ctx: SystemRDLParser.Instance_refContext) -> List['CommonToken']:
         name_tokens = []
@@ -791,44 +846,6 @@ class ComponentVisitor(BaseVisitor):
         # Clear out pending assignments now that they have been resolved
         self.property_dict = {}
 
-    def apply_dynamic_properties(self) -> None:
-
-        for target_inst, target_inst_dict in self.dynamic_property_dict.items():
-            mutex_bins: Dict[str, str] = {}
-            for prop_name, (prop_src_ref, prop_rhs) in target_inst_dict.items():
-                rule = self.compiler.env.property_rules.lookup_property(prop_name)
-                if rule is None:
-                    self.msg.fatal(
-                        "Unrecognized property '%s'" % prop_name,
-                        prop_src_ref
-                    )
-
-                # Is dynamic assignment allowed?
-                if not rule.dyn_assign_allowed:
-                    self.msg.fatal(
-                        "Dynamic assignment to property '%s' is not allowed" % prop_name,
-                        prop_src_ref
-                    )
-
-                # Check for mutex collisions
-                if rule.mutex_group is not None:
-                    # Is mutually exclusive with other props. Check for collision
-                    if rule.mutex_group in mutex_bins:
-                        # Already saw something in this mutex group
-                        self.msg.fatal(
-                            "Properties '%s' and '%s' cannot be assigned in the same component"
-                            % (prop_name, mutex_bins[rule.mutex_group]),
-                            prop_src_ref
-                        )
-                    else:
-                        mutex_bins[rule.mutex_group] = prop_name
-
-                # Apply property
-                rule.assign_value(target_inst, prop_rhs, prop_src_ref)
-
-        # Clear out pending assignments now that they have been resolved
-        self.dynamic_property_dict = {}
-
     #---------------------------------------------------------------------------
     # Array and Range suffixes
     #---------------------------------------------------------------------------
@@ -903,7 +920,6 @@ class RootVisitor(ComponentVisitor):
 
     def visitRoot(self, ctx: SystemRDLParser.RootContext) -> None:
         self.visitChildren(ctx)
-        self.apply_dynamic_properties()
 
     def visitLocal_property_assignment(self, ctx: SystemRDLParser.Local_property_assignmentContext) -> None:
         # The only local assignments allowed in Root are default assignments
@@ -915,13 +931,11 @@ class RootVisitor(ComponentVisitor):
         super().visitLocal_property_assignment(ctx)
 
 
-    def define_component(self, body: SystemRDLParser.Component_bodyContext, type_token: 'CommonToken', def_name: Optional[str], param_defs: List[Parameter]) -> comp.Component:
-        comp_def = super().define_component(body, type_token, def_name, param_defs)
+    def process_component_body(self, comp_def: comp.Component, body: SystemRDLParser.Component_bodyContext, type_token: 'CommonToken', def_name: Optional[str]) -> None:
+        super().process_component_body(comp_def, body, type_token, def_name)
 
         if def_name is not None:
             self.component.comp_defs[def_name] = comp_def
-
-        return comp_def
 
     def visitComponent_anon_def(self, ctx: SystemRDLParser.Component_anon_defContext) -> comp.Component:
         type_token = self.visit(ctx.component_type())
@@ -1127,3 +1141,9 @@ KW_TO_VISITOR_MAP: Dict[int, Type[ComponentVisitor]] = {
     SystemRDLParser.SIGNAL_kw   : SignalComponentVisitor,
     SystemRDLParser.MEM_kw      : MemComponentVisitor,
 }
+
+def get_child_comp_index(parent: comp.Component, inst_name: str) -> Optional[int]:
+    for i, child in enumerate(parent.children):
+        if child.inst_name == inst_name:
+            return i
+    return None

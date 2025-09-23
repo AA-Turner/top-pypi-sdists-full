@@ -15,12 +15,19 @@ from . import logger
 from .magic import MagicMatcher, Match as MagicMatch, MatchContext, TestResult
 
 if sys.version_info >= (3, 10):
-    from importlib.metadata import version
-    __version__: str = version("polyfile_weave")
-    del version
+    from importlib.metadata import version, PackageNotFoundError
+    try:
+        __version__: str = version("polyfile_weave")
+    except PackageNotFoundError:
+        # Fallback for local, editable, or source-only usage without installed metadata
+        __version__ = "0.0.0-dev"
+    del version, PackageNotFoundError
 else:
     import pkg_resources
-    __version__ = pkg_resources.require("polyfile_weave")[0].version
+    try:
+        __version__ = pkg_resources.require("polyfile_weave")[0].version
+    except Exception:
+        __version__ = "0.0.0-dev"
     del pkg_resources
 mod_year = localtime(Path(__file__).stat().st_mtime).tm_year
 __copyright__: str = f"Copyright ©{mod_year} Trail of Bits"

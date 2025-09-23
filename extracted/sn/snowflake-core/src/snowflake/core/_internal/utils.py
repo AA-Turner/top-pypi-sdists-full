@@ -171,6 +171,7 @@ class TelemetryField(enum.Enum):
     KEY_API_CALLS = "api_calls"
     KEY_SFQIDS = "sfqids"
     KEY_SUBCALLS = "subcalls"
+    KEY_CI_ENVIRONMENT_TYPE = "ci_environment_type"
     # function categories
     FUNC_CAT_ACTION = "action"
     FUNC_CAT_USAGE = "usage"

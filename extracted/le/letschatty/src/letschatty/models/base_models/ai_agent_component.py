@@ -21,10 +21,11 @@ class AiAgentComponentPreview(ChattyAssetPreview):
     type: AiAgentComponentType = Field(description="The type of the component")
     filter_criteria: List[StrObjectId] = Field(default_factory=list, description="The assets that are related to the component")
     icon: Optional[str] = Field(default=None, description="The icon of the component")
+    is_draft : bool = Field(default=False, description="Whether the component is a draft")
 
     @classmethod
     def get_projection(cls) -> dict[str, Any]:
-        return super().get_projection() | {"type": 1, "start_time": 1, "end_time": 1, "is_essential": 1, "type": 1, "icon": 1, "filter_criteria": 1}
+        return super().get_projection() | {"type": 1, "start_time": 1, "end_time": 1, "is_essential": 1, "type": 1, "icon": 1, "filter_criteria": 1, "is_draft": 1}
 
     @classmethod
     def from_asset(cls, asset: 'AiAgentComponent') -> 'ChattyAssetPreview':
@@ -39,7 +40,8 @@ class AiAgentComponentPreview(ChattyAssetPreview):
             filter_criteria=asset.filter_criteria,
             start_time=asset.start_time,
             end_time=asset.end_time,
-            is_essential=asset.is_essential
+            is_essential=asset.is_essential,
+            is_draft=asset.is_draft
         )
 
 
@@ -52,6 +54,7 @@ class AiAgentComponent(CompanyAssetModel):
     end_time: Optional[datetime] = Field(default=None, description="The end time of the component")
     is_essential: Optional[bool] = Field(default=False, description="Whether the component is essential for the ai agent to work")
     icon: Optional[str] = Field(default=None, description="The icon of the component")
+    is_draft: bool = Field(default=False, description="Whether the component is a draft")
 
     def has_conditional_filters(self) -> bool:
         """Check if the model has assets restrictions"""

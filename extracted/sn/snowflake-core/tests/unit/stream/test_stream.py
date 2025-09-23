@@ -8,7 +8,7 @@ from snowflake.core.stream import Stream, StreamResource, StreamSourceTable
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.stream._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 STREAM = Stream(name="my_stream", stream_source=StreamSourceTable(name="my_tab"))
 
 
@@ -93,6 +93,56 @@ def test_iter_stream(fake_root, streams):
         it = op.result()
         assert list(it) == []
     mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_iter_show_limit_deprecation_warning(fake_root, streams):
+    """Test that show_limit parameter triggers deprecation warning."""
+    args = (
+        fake_root,
+        "GET",
+        BASE_URL + "/databases/my_db/schemas/my_schema/streams?showLimit=10",
+    )
+    kwargs = extra_params(query_params=[("showLimit", 10)])
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        with pytest.warns(DeprecationWarning, match="'show_limit' is deprecated, use 'limit' instead"):
+            list(streams.iter(show_limit=10))
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        with pytest.warns(DeprecationWarning, match="'show_limit' is deprecated, use 'limit' instead"):
+            streams.iter_async(show_limit=10).result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_iter_show_limit(fake_root, streams):
+    args = (
+        fake_root,
+        "GET",
+        BASE_URL + "/databases/my_db/schemas/my_schema/streams?showLimit=10",
+    )
+    kwargs = extra_params(query_params=[("showLimit", 10)])
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        list(streams.iter(limit=10))
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+    with mock.patch(API_CLIENT_REQUEST) as mocked_request:
+        mocked_request.return_value = mock_http_response()
+        streams.iter_async(limit=10).result()
+    mocked_request.assert_called_once_with(*args, **kwargs)
+
+
+def test_iter_limit_and_show_limit_conflict(streams):
+    """Test that providing both limit and show_limit raises ValueError."""
+    with pytest.raises(ValueError, match="Cannot specify both 'limit' and 'show_limit'"):
+        list(streams.iter(limit=10, show_limit=5))
+
+    with pytest.raises(ValueError, match="Cannot specify both 'limit' and 'show_limit'"):
+        streams.iter_async(limit=10, show_limit=5).result()
 
 
 def test_fetch_stream(fake_root, stream):

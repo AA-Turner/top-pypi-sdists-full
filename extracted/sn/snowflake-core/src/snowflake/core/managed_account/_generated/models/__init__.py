@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Managed Account API
+Snowflake Managed Account API.
 
 The Snowflake Managed Account API is a REST API that you can use to access, update, and perform certain actions on Managed Account resource in Snowflake.  # noqa: E501
 

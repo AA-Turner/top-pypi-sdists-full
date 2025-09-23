@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-apprunner-alpha",
-    "2.215.0-alpha.0",
+    "2.216.0-alpha.0",
     __name__[0:-6],
-    "aws-apprunner-alpha@2.215.0-alpha.0.jsii.tgz",
+    "aws-apprunner-alpha@2.216.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

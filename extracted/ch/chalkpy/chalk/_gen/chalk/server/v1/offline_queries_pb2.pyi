@@ -229,6 +229,8 @@ class ListOfflineQueriesRequest(_message.Message):
         "status_filter",
         "aggregation_backfill_id_filter",
         "evaluation_run_id_filter",
+        "query_name",
+        "query_name_version",
     )
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -241,6 +243,8 @@ class ListOfflineQueriesRequest(_message.Message):
     STATUS_FILTER_FIELD_NUMBER: _ClassVar[int]
     AGGREGATION_BACKFILL_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
     EVALUATION_RUN_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     start_date: str
@@ -252,6 +256,8 @@ class ListOfflineQueriesRequest(_message.Message):
     status_filter: OfflineQueryStatus
     aggregation_backfill_id_filter: str
     evaluation_run_id_filter: str
+    query_name: str
+    query_name_version: str
     def __init__(
         self,
         cursor: _Optional[str] = ...,
@@ -265,6 +271,8 @@ class ListOfflineQueriesRequest(_message.Message):
         status_filter: _Optional[_Union[OfflineQueryStatus, str]] = ...,
         aggregation_backfill_id_filter: _Optional[str] = ...,
         evaluation_run_id_filter: _Optional[str] = ...,
+        query_name: _Optional[str] = ...,
+        query_name_version: _Optional[str] = ...,
     ) -> None: ...
 
 class ListOfflineQueriesResponse(_message.Message):

@@ -3856,6 +3856,10 @@ class TagMutability(enum.Enum):
     '''allow image tags to be overwritten.'''
     IMMUTABLE = "IMMUTABLE"
     '''all image tags within the repository will be immutable which will prevent them from being overwritten.'''
+    IMMUTABLE_WITH_EXCLUSION = "IMMUTABLE_WITH_EXCLUSION"
+    '''all image tags within the repository will be immutable, while allowing you to define some filters for tags that can be changed.'''
+    MUTABLE_WITH_EXCLUSION = "MUTABLE_WITH_EXCLUSION"
+    '''allow image tags to be overwritten while allowing you to define some filters for tags that should remain unchanged.'''
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_ecr.TagStatus")

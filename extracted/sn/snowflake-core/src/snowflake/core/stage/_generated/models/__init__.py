@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Stage API
+Snowflake Stage API.
 
 The Snowflake Stage API is a REST API that you can use to access, update, and perform certain actions on stage resources in a Snowflake database.  # noqa: E501
 

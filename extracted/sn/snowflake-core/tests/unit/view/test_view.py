@@ -8,7 +8,7 @@ from snowflake.core.view import View, ViewColumn, ViewResource
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.view._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 VIEW = View(name="my_view", columns=[ViewColumn(name="col1")], query="select col1 from my_tab")
 
 
@@ -26,10 +26,10 @@ def test_create_view(fake_root, views):
     args = (
         fake_root,
         "POST",
-        BASE_URL + "/databases/my_db/schemas/my_schema/views?createMode=errorIfExists&copyGrants=False",
+        BASE_URL + "/databases/my_db/schemas/my_schema/views",
     )
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists"), ("copyGrants", False)],
+        query_params=[],
         body={"name": "my_view", "columns": [{"name": "col1"}], "query": "select col1 from my_tab"},
     )
 

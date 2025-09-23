@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.16 22:00:00                  #
+# Updated Date: 2025.09.22 19:00:00                  #
 # ================================================== #
 
 import os
@@ -16,30 +16,32 @@ import platform
 
 import pygpt_net.icons_rc
 
+from pygpt_net.utils import set_env
+
+# app env
+set_env("PYGPT_APP_ENV", "prod", allow_overwrite=True) # dev | prod
+
+# debug
+# set_env("QTWEBENGINE_REMOTE_DEBUGGING", 9222)
+# set_env("QT_LOGGING_RULES", "*.debug=true")
+# set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--enable-logging=stderr", True)
+# set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--v=1", True)
+# set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--renderer-process-limit=1", True)
+# set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--process-per-site", "", True)
+# set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--enable-precise-memory-info", "", True)
+# set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--js-flags=--expose-gc", "", True)
+
+# by default, optimize for low-end devices
+set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--enable-low-end-device-mode", True)
+set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--enable-gpu-rasterization", True)
+# set_env("QTWEBENGINE_CHROMIUM_FLAGS", "--ignore-gpu-blocklist", True)
+
 # disable warnings
-os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
-os.environ["QT_LOGGING_RULES"] = "qt.multimedia.ffmpeg=false;qt.qpa.fonts=false"
+set_env("TRANSFORMERS_NO_ADVISORY_WARNINGS", 1)
+set_env("QT_LOGGING_RULES", "qt.multimedia.ffmpeg=false;qt.qpa.fonts=false", allow_overwrite=True)
 
 if platform.system() == 'Windows':
-    # fix ffmpeg bug: [SWR] Output channel layout "" is invalid or unsupported.
-    os.environ['QT_MEDIA_BACKEND'] = 'windows'
-
-# enable debug logging
-# os.environ["QT_LOGGING_RULES"] = "*.debug=true"
-# os.environ["QTWEBENGINE_REMOTE_DEBUGGING"] = "9222"
-"""
-os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
-    "--renderer-process-limit=1 "
-    "--process-per-site "
-    "--enable-precise-memory-info "
-    "--js-flags=--expose-gc"
-)
-"""
-# by default, optimize for low-end devices
-os.environ.setdefault(
-    "QTWEBENGINE_CHROMIUM_FLAGS",
-    "--enable-low-end-device-mode"
-)
+    set_env("QT_MEDIA_BACKEND", "windows")
 
 _original_open = builtins.open
 
@@ -201,12 +203,14 @@ from pygpt_net.tools.media_player import MediaPlayer as MediaPlayerTool
 from pygpt_net.tools.text_editor import TextEditor as TextEditorTool
 from pygpt_net.tools.html_canvas import HtmlCanvas as HtmlCanvasTool
 from pygpt_net.tools.translator import Translator as TranslatorTool
+from pygpt_net.tools.web_browser import WebBrowser as WebBrowserTool
+# from pygpt_net.tools.agent_builder import AgentBuilder as AgentBuilderTool
 
 def run(**kwargs):
     """
-    PyGPT launcher.
+    PyGPT Launcher
 
-    :param kwargs: keyword arguments for launcher
+    :param kwargs: Keyword arguments for the launcher.
 
     PyGPT can be extended with:
 
@@ -220,46 +224,48 @@ def run(**kwargs):
     - Custom tools
     - Custom agents
 
-    - You can pass custom plugin instances, LLM wrappers, vector store providers and more to the launcher.
-    - This is useful if you want to extend PyGPT with your own plugins, vector storage, LLMs, or other data providers.
+    You can provide custom plugin instances, LLM wrappers, vector store providers, and more to the launcher.
+    This is useful for extending PyGPT with your own plugins, vector storage, LLMs, or other data providers.
 
-    First, create a custom launcher file, for example, "custom_launcher.py," and register your extensions in it.
+    --- HOW TO REGISTER CUSTOM EXTENSIONS ---
 
-    To register a custom plugin - create the custom launcher, e.g. "custom_launcher.py" and:
+    1. First, create a custom launcher file, such as "custom_launcher.py," and register your extensions in it.
 
-    - Pass a list with the plugin instances as the 'plugins' keyword argument.
+    To register a custom plugin, create the custom launcher (e.g., "custom_launcher.py") and:
+
+    - Pass a list containing the plugin instances as the `plugins` keyword argument.
 
     To register a custom LLM wrapper:
 
-    - Pass a list with the LLM wrapper instances as the 'llms' keyword argument.
+    - Pass a list containing the LLM wrapper instances as the `llms` keyword argument.
 
     To register a custom vector store provider:
 
-    - Pass a list with the vector store provider instances as the 'vector_stores' keyword argument.
+    - Pass a list containing the vector store provider instances as the `vector_stores` keyword argument.
 
     To register a custom data loader:
 
-    - Pass a list with the data loader instances as the 'loaders' keyword argument.
+    - Pass a list containing the data loader instances as the `loaders` keyword argument.
 
     To register a custom audio input provider:
 
-    - Pass a list with the audio input provider instances as the 'audio_input' keyword argument.
+    - Pass a list containing the audio input provider instances as the `audio_input` keyword argument.
 
     To register a custom audio output provider:
 
-    - Pass a list with the audio output provider instances as the 'audio_output' keyword argument.
+    - Pass a list containing the audio output provider instances as the `audio_output` keyword argument.
 
     To register a custom web provider:
 
-    - Pass a list with the web provider instances as the 'web' keyword argument.
+    - Pass a list containing the web provider instances as the `web` keyword argument.
 
     To register a custom agent:
 
-    - Pass a list with the agent instances as the 'agents' keyword argument.
+    - Pass a list containing the agent instances as the `agents` keyword argument.
 
     To register a custom tool:
 
-    - Pass a list with the tool instances as the 'tools' keyword argument.
+    - Pass a list containing the tool instances as the `tools` keyword argument.
 
     Example:
     --------
@@ -268,15 +274,16 @@ def run(**kwargs):
         # custom_launcher.py
 
         from pygpt_net.app import run
-        from plugins import CustomPlugin, OtherCustomPlugin
-        from llms import CustomLLM
-        from vector_stores import CustomVectorStore
-        from loaders import CustomLoader
-        from audio_input import CustomAudioInput
-        from audio_output import CustomAudioOutput
-        from web import CustomWebSearch
-        from tools import CustomTool
-        from agents import CustomAgent
+
+        from .my_plugins import CustomPlugin, OtherCustomPlugin
+        from .my_llms import CustomLLM
+        from .my_vector_stores import CustomVectorStore
+        from .my_loaders import CustomLoader
+        from .my_audio_input import CustomAudioInput
+        from .my_audio_output import CustomAudioOutput
+        from .my_web import CustomWebSearch
+        from .my_tools import CustomTool
+        from .my_agents import CustomAgent
 
         plugins = [
             CustomPlugin(),
@@ -508,6 +515,8 @@ def run(**kwargs):
     launcher.add_tool(CodeInterpreterTool())
     launcher.add_tool(HtmlCanvasTool())
     launcher.add_tool(TranslatorTool())
+    launcher.add_tool(WebBrowserTool())
+    # launcher.add_tool(AgentBuilderTool())
 
     # register custom tools
     tools = kwargs.get('tools', None)

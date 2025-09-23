@@ -463,3 +463,115 @@ class DeleteCloudComponentStorageRequest(_message.Message):
 class DeleteCloudComponentStorageResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class CreateBindingClusterGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id", "cluster_gateway_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    cluster_gateway_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., cluster_gateway_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingClusterGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteBindingClusterGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingClusterGatewayResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingClusterGatewayRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingClusterGatewayResponse(_message.Message):
+    __slots__ = ("cluster_id", "cluster_gateway_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    cluster_gateway_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., cluster_gateway_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingClusterBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id", "background_persistence_deployment_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    BACKGROUND_PERSISTENCE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    background_persistence_deployment_id: str
+    def __init__(
+        self, cluster_id: _Optional[str] = ..., background_persistence_deployment_id: _Optional[str] = ...
+    ) -> None: ...
+
+class CreateBindingClusterBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteBindingClusterBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingClusterBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingClusterBackgroundPersistenceDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingClusterBackgroundPersistenceDeploymentResponse(_message.Message):
+    __slots__ = ("cluster_id", "background_persistence_deployment_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    BACKGROUND_PERSISTENCE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    background_persistence_deployment_id: str
+    def __init__(
+        self, cluster_id: _Optional[str] = ..., background_persistence_deployment_id: _Optional[str] = ...
+    ) -> None: ...
+
+class CreateBindingClusterTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id", "telemetry_deployment_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    telemetry_deployment_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., telemetry_deployment_id: _Optional[str] = ...) -> None: ...
+
+class CreateBindingClusterTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteBindingClusterTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class DeleteBindingClusterTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetBindingClusterTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetBindingClusterTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ("cluster_id", "telemetry_deployment_id")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    telemetry_deployment_id: str
+    def __init__(self, cluster_id: _Optional[str] = ..., telemetry_deployment_id: _Optional[str] = ...) -> None: ...

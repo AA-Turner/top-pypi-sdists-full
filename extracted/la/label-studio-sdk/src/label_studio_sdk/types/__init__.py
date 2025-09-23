@@ -43,13 +43,14 @@ from .child_filter import ChildFilter
 from .comment import Comment
 from .comment_request import CommentRequest
 from .comment_serializer_with_expanded_user import CommentSerializerWithExpandedUser
+from .configurable_permission_option import ConfigurablePermissionOption
+from .configurable_permission_option_default import ConfigurablePermissionOptionDefault
 from .converted_format import ConvertedFormat
 from .converted_format_request import ConvertedFormatRequest
 from .count_limit import CountLimit
 from .custom_scripts_editable_by_enum import CustomScriptsEditableByEnum
 from .default_role import DefaultRole
 from .default_role_custom_scripts_editable_by import DefaultRoleCustomScriptsEditableBy
-from .default_role_enum import DefaultRoleEnum
 from .edition_enum import EditionEnum
 from .export import Export
 from .file_upload import FileUpload
@@ -82,6 +83,7 @@ from .lse_organization import LseOrganization
 from .lse_organization_custom_scripts_editable_by import LseOrganizationCustomScriptsEditableBy
 from .lse_organization_member_list import LseOrganizationMemberList
 from .lse_project import LseProject
+from .lse_project_counts import LseProjectCounts
 from .lse_project_create import LseProjectCreate
 from .lse_project_create_sampling import LseProjectCreateSampling
 from .lse_project_create_skip_queue import LseProjectCreateSkipQueue
@@ -138,9 +140,12 @@ from .organization_id import OrganizationId
 from .organization_invite import OrganizationInvite
 from .organization_member import OrganizationMember
 from .organization_membership import OrganizationMembership
+from .organization_permission import OrganizationPermission
+from .organization_permission_request import OrganizationPermissionRequest
 from .paginated_all_roles_project_list_list import PaginatedAllRolesProjectListList
 from .paginated_annotation_history_list import PaginatedAnnotationHistoryList
 from .paginated_lse_organization_member_list_list import PaginatedLseOrganizationMemberListList
+from .paginated_lse_project_counts_list import PaginatedLseProjectCountsList
 from .paginated_lse_user_list import PaginatedLseUserList
 from .paginated_paginated_project_member_list import PaginatedPaginatedProjectMemberList
 from .paginated_project_member import PaginatedProjectMember
@@ -263,13 +268,14 @@ __all__ = [
     "Comment",
     "CommentRequest",
     "CommentSerializerWithExpandedUser",
+    "ConfigurablePermissionOption",
+    "ConfigurablePermissionOptionDefault",
     "ConvertedFormat",
     "ConvertedFormatRequest",
     "CountLimit",
     "CustomScriptsEditableByEnum",
     "DefaultRole",
     "DefaultRoleCustomScriptsEditableBy",
-    "DefaultRoleEnum",
     "EditionEnum",
     "Export",
     "FileUpload",
@@ -302,6 +308,7 @@ __all__ = [
     "LseOrganizationCustomScriptsEditableBy",
     "LseOrganizationMemberList",
     "LseProject",
+    "LseProjectCounts",
     "LseProjectCreate",
     "LseProjectCreateSampling",
     "LseProjectCreateSkipQueue",
@@ -358,9 +365,12 @@ __all__ = [
     "OrganizationInvite",
     "OrganizationMember",
     "OrganizationMembership",
+    "OrganizationPermission",
+    "OrganizationPermissionRequest",
     "PaginatedAllRolesProjectListList",
     "PaginatedAnnotationHistoryList",
     "PaginatedLseOrganizationMemberListList",
+    "PaginatedLseProjectCountsList",
     "PaginatedLseUserList",
     "PaginatedPaginatedProjectMemberList",
     "PaginatedProjectMember",

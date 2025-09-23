@@ -40,8 +40,8 @@ use crate::binding::binding::LinkedKey;
 use crate::binding::binding::SuperStyle;
 use crate::binding::bindings::BindingsBuilder;
 use crate::binding::bindings::LegacyTParamBuilder;
-use crate::binding::bindings::LookupError;
-use crate::binding::bindings::LookupKind;
+use crate::binding::bindings::LegacyTParamId;
+use crate::binding::bindings::NameLookupResult;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Flow;
@@ -229,9 +229,47 @@ impl<'a> BindingsBuilder<'a> {
     pub fn ensure_name(
         &mut self,
         name: &Identifier,
-        lookup_kind: LookupKind,
         usage: &mut Usage,
         tparams_builder: &mut Option<LegacyTParamBuilder>,
+    ) -> Idx<Key> {
+        self.ensure_name_impl(
+            name,
+            usage,
+            tparams_builder
+                .as_mut()
+                .map(|tparams_builder| (tparams_builder, LegacyTParamId::Name(name.clone()))),
+        )
+    }
+
+    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
+        let name = Ast::expr_name_identifier(x.clone());
+        self.ensure_name(&name, usage, &mut None)
+    }
+
+    fn ensure_simple_attr(
+        &mut self,
+        value: &Identifier,
+        attr: &Identifier,
+        usage: &mut Usage,
+        tparams_builder: &mut Option<LegacyTParamBuilder>,
+    ) -> Idx<Key> {
+        self.ensure_name_impl(
+            value,
+            usage,
+            tparams_builder.as_mut().map(|tparams_builder| {
+                (
+                    tparams_builder,
+                    LegacyTParamId::Attr(value.clone(), attr.clone()),
+                )
+            }),
+        )
+    }
+
+    fn ensure_name_impl(
+        &mut self,
+        name: &Identifier,
+        usage: &mut Usage,
+        tparams_lookup: Option<(&mut LegacyTParamBuilder, LegacyTParamId)>,
     ) -> Idx<Key> {
         let key = Key::BoundName(ShortIdentifier::new(name));
         if name.is_empty() {
@@ -246,21 +284,23 @@ impl<'a> BindingsBuilder<'a> {
             return self.insert_binding_overwrite(key, Binding::Type(Type::any_error()));
         }
         let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
-        let value = if used_in_static_type && let Some(tparams_builder) = tparams_builder {
-            tparams_builder
-                .intercept_lookup(self, name)
-                .ok_or(LookupError::NotFound)
-        } else {
-            self.lookup_name(Hashed::new(&name.id), lookup_kind, usage)
-                .map(Binding::Forward)
-        };
-        match value {
-            Ok(value) => {
+        let lookup_result =
+            if used_in_static_type && let Some((tparams_builder, tparam_id)) = tparams_lookup {
+                tparams_builder.intercept_lookup(self, tparam_id)
+            } else {
+                self.lookup_name(Hashed::new(&name.id), usage)
+                    .map_found(Binding::Forward)
+            };
+        match lookup_result {
+            NameLookupResult::Found {
+                value,
+                is_initialized,
+            } => {
                 // Uninitialized local errors are only reported when we are neither in a stub
                 // nor a static type context.
                 if !used_in_static_type
                     && !self.module_info.path().is_interface()
-                    && let Some(error_message) = self.scopes.uninitialized_error_message(&name.id)
+                    && let Some(error_message) = is_initialized.as_error_message(&name.id)
                 {
                     self.error(
                         name.range,
@@ -270,21 +310,16 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 self.insert_binding(key, value)
             }
-            Err(error) => {
+            NameLookupResult::NotFound => {
                 // Record a type error and fall back to `Any`.
                 self.error(
                     name.range,
                     ErrorInfo::Kind(ErrorKind::UnknownName),
-                    error.message(name),
+                    format!("Could not find name `{name}`"),
                 );
                 self.insert_binding(key, Binding::Type(Type::any_error()))
             }
         }
-    }
-
-    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
-        let name = Ast::expr_name_identifier(x.clone());
-        self.ensure_name(&name, LookupKind::Mutable, usage, &mut None)
     }
 
     fn bind_comprehensions(
@@ -662,7 +697,7 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
-                self.ensure_name(&name, LookupKind::Regular, usage, &mut None);
+                self.ensure_name(&name, usage, &mut None);
             }
             Expr::Yield(x) => {
                 self.record_yield(x.clone());
@@ -710,12 +745,7 @@ impl<'a> BindingsBuilder<'a> {
         match x {
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
-                self.ensure_name(
-                    &name,
-                    LookupKind::Regular,
-                    static_type_usage,
-                    tparams_builder,
-                );
+                self.ensure_name(&name, static_type_usage, tparams_builder);
             }
             Expr::Subscript(ExprSubscript { value, .. })
                 if self.as_special_export(value) == Some(SpecialExport::Literal) =>
@@ -759,6 +789,19 @@ impl<'a> BindingsBuilder<'a> {
             // test::class_super::test_super_in_base_classes for an example of a SuperInstance
             // binding that we crash looking for if we don't do this.
             Expr::Call(_) => self.ensure_expr(x, static_type_usage),
+            Expr::Attribute(ExprAttribute { value, attr, .. })
+                if let Expr::Name(value) = &**value
+                // We assume "args" and "kwargs" are ParamSpec attributes rather than imported TypeVars.
+                    && attr.id != "args" && attr.id != "kwargs" =>
+            {
+                // We intercept <name>.<name> to check if this is an imported legacy type parameter.
+                self.ensure_simple_attr(
+                    &Ast::expr_name_identifier(value.clone()),
+                    attr,
+                    static_type_usage,
+                    tparams_builder,
+                );
+            }
             _ => {
                 x.recurse_mut(&mut |x| self.ensure_type_impl(x, tparams_builder, in_string_literal))
             }

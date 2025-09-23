@@ -1,6 +1,5 @@
-
 """
-Snowflake Alert API
+Snowflake Alert API.
 
 The Snowflake Alert API is a REST API that you can use to access, update, and perform certain actions on Alert resource in a Snowflake database.  # noqa: E501
 
@@ -34,8 +33,6 @@ class AlertClone(BaseModel):
     name : str
         Name of the alert
     point_of_time : PointOfTime, optional
-
-
     """
 
     name: StrictStr
@@ -58,14 +55,14 @@ class AlertClone(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> AlertClone:
-        """Create an instance of AlertClone from a JSON string"""
+        """Create an instance of AlertClone from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -120,7 +117,6 @@ class AlertCloneModel:
         name : str
             Name of the alert
         point_of_time : PointOfTime, optional
-
         """
         self.name = name
         self.point_of_time = point_of_time

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trackio
-Version: 0.4.0
+Version: 0.4.1
 Summary: A lightweight, local-first, and free experiment tracking library built on top of Hugging Face Datasets and Spaces.
 Project-URL: homepage, https://github.com/gradio-app/trackio
 Project-URL: repository, https://github.com/gradio-app/trackio
@@ -13,6 +13,7 @@ Requires-Python: >=3.10
 Requires-Dist: gradio<6.0.0,>=5.46.0
 Requires-Dist: huggingface-hub<1.0.0
 Requires-Dist: numpy<3.0.0
+Requires-Dist: orjson<4.0.0,>=3.0
 Requires-Dist: pandas<3.0.0
 Requires-Dist: pillow<12.0.0
 Provides-Extra: dev

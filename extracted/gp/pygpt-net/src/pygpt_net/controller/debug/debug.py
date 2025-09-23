@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.14 20:00:00                  #
+# Updated Date: 2025.09.22 19:00:00                  #
 # ================================================== #
 
 from datetime import datetime
@@ -45,10 +45,13 @@ class Debug(QObject):
     def update_menu(self):
         """Update debug menu"""
         for id in self.window.controller.dialogs.debug.get_ids():
+            key = f"debug.{id}"
+            if key not in self.window.ui.menu:
+                continue
             if self.window.controller.dialogs.debug.is_active(id):
-                self.window.ui.menu['debug.' + id].setChecked(True)
+                self.window.ui.menu[key].setChecked(True)
             else:
-                self.window.ui.menu['debug.' + id].setChecked(False)
+                self.window.ui.menu[key].setChecked(False)
 
         if self.is_logger:
             self.window.ui.menu['debug.logger'].setChecked(True)
@@ -64,6 +67,27 @@ class Debug(QObject):
         """Toggle debug menu"""
         state = self.window.core.config.get('debug')
         self.window.ui.menu['menu.debug'].menuAction().setVisible(state)
+
+    def open_chrome_debug(self, url: str = "about:blank"):
+        """
+        Open Chrome debug URL
+
+        :param url: debug URL
+        """
+        self.window.tools.get("web_browser").set_url(url)
+        self.window.tools.get("web_browser").auto_open(load=False)
+
+    def open_dev_tools(self) -> None:
+        """
+        Open dev tools for given PID (Web renderer only)
+
+        :param pid: PID
+        """
+        meta = self.window.core.ctx.get_current_meta()
+        if meta:
+            node = self.window.core.ctx.output.get_current(meta)
+            if node:
+                node.show_devtools()
 
     def toggle_render(self):
         """Toggle render debug"""

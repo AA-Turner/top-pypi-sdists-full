@@ -17650,6 +17650,145 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_operator_events_api_v2_dataset_runs_operator_events_get(self, cluster_id, session_name, dataset_id, operator_id, **kwargs):  # noqa: E501
+        """Get Operator Events  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_operator_events_api_v2_dataset_runs_operator_events_get(cluster_id, session_name, dataset_id, operator_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str session_name: (required)
+        :param str dataset_id: (required)
+        :param str operator_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: OperatorEventResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_operator_events_api_v2_dataset_runs_operator_events_get_with_http_info(cluster_id, session_name, dataset_id, operator_id, **kwargs)  # noqa: E501
+
+    def get_operator_events_api_v2_dataset_runs_operator_events_get_with_http_info(self, cluster_id, session_name, dataset_id, operator_id, **kwargs):  # noqa: E501
+        """Get Operator Events  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_operator_events_api_v2_dataset_runs_operator_events_get_with_http_info(cluster_id, session_name, dataset_id, operator_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str session_name: (required)
+        :param str dataset_id: (required)
+        :param str operator_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(OperatorEventResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'session_name',
+            'dataset_id',
+            'operator_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_operator_events_api_v2_dataset_runs_operator_events_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_operator_events_api_v2_dataset_runs_operator_events_get`")  # noqa: E501
+        # verify the required parameter 'session_name' is set
+        if self.api_client.client_side_validation and ('session_name' not in local_var_params or  # noqa: E501
+                                                        local_var_params['session_name'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `session_name` when calling `get_operator_events_api_v2_dataset_runs_operator_events_get`")  # noqa: E501
+        # verify the required parameter 'dataset_id' is set
+        if self.api_client.client_side_validation and ('dataset_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['dataset_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `dataset_id` when calling `get_operator_events_api_v2_dataset_runs_operator_events_get`")  # noqa: E501
+        # verify the required parameter 'operator_id' is set
+        if self.api_client.client_side_validation and ('operator_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['operator_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `operator_id` when calling `get_operator_events_api_v2_dataset_runs_operator_events_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'session_name' in local_var_params and local_var_params['session_name'] is not None:  # noqa: E501
+            query_params.append(('session_name', local_var_params['session_name']))  # noqa: E501
+        if 'dataset_id' in local_var_params and local_var_params['dataset_id'] is not None:  # noqa: E501
+            query_params.append(('dataset_id', local_var_params['dataset_id']))  # noqa: E501
+        if 'operator_id' in local_var_params and local_var_params['operator_id'] is not None:  # noqa: E501
+            query_params.append(('operator_id', local_var_params['operator_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/dataset_runs/operator_events', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='OperatorEventResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_operator_metrics_api_v2_dataset_runs_operator_get(self, cluster_id, session_name, dataset_id, operator_id, dataset_start_time, dataset_end_time, **kwargs):  # noqa: E501
         """Get Operator Metrics  # noqa: E501
 
@@ -22161,6 +22300,119 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_workos_authorize_url_api_v2_workos_authorize_get(self, **kwargs):  # noqa: E501
+        """Get Workos Authorize Url  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workos_authorize_url_api_v2_workos_authorize_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_address:
+        :param str provider:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkosauthorizeurlresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_workos_authorize_url_api_v2_workos_authorize_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_workos_authorize_url_api_v2_workos_authorize_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Workos Authorize Url  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workos_authorize_url_api_v2_workos_authorize_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str email_address:
+        :param str provider:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkosauthorizeurlresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'email_address',
+            'provider'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_workos_authorize_url_api_v2_workos_authorize_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'email_address' in local_var_params and local_var_params['email_address'] is not None:  # noqa: E501
+            query_params.append(('email_address', local_var_params['email_address']))  # noqa: E501
+        if 'provider' in local_var_params and local_var_params['provider'] is not None:  # noqa: E501
+            query_params.append(('provider', local_var_params['provider']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/workos/authorize', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkosauthorizeurlresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_workspace_api_v2_experimental_workspaces_workspace_id_get(self, workspace_id, **kwargs):  # noqa: E501
         """Get Workspace  # noqa: E501
 
@@ -24969,6 +25221,7 @@ class DefaultApi(object):
         :param str source_cron_job_id: filter by cron_job_id id
         :param ArchiveStatus archive_status: The archive status to filter by. Defaults to unarchived.
         :param str cloud_id: cloud_id to filter by
+        :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
         :param HaJobsSortField sort_field: If absent, the sort order will be determined according to the type_filter.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
         :param str paging_token:
@@ -25005,6 +25258,7 @@ class DefaultApi(object):
         :param str source_cron_job_id: filter by cron_job_id id
         :param ArchiveStatus archive_status: The archive status to filter by. Defaults to unarchived.
         :param str cloud_id: cloud_id to filter by
+        :param list[str] tag_filter: Repeatable filter of tags in the form key:value. Can be specified multiple times. Values with the same key are ORed; keys are ANDed.
         :param HaJobsSortField sort_field: If absent, the sort order will be determined according to the type_filter.
         :param SortOrder sort_order: If sort_field is absent, this field is ignored.If absent, this field defaults to ascending.
         :param str paging_token:
@@ -25035,6 +25289,7 @@ class DefaultApi(object):
             'source_cron_job_id',
             'archive_status',
             'cloud_id',
+            'tag_filter',
             'sort_field',
             'sort_order',
             'paging_token',
@@ -25086,6 +25341,9 @@ class DefaultApi(object):
             query_params.append(('archive_status', local_var_params['archive_status']))  # noqa: E501
         if 'cloud_id' in local_var_params and local_var_params['cloud_id'] is not None:  # noqa: E501
             query_params.append(('cloud_id', local_var_params['cloud_id']))  # noqa: E501
+        if 'tag_filter' in local_var_params and local_var_params['tag_filter'] is not None:  # noqa: E501
+            query_params.append(('tag_filter', local_var_params['tag_filter']))  # noqa: E501
+            collection_formats['tag_filter'] = 'multi'  # noqa: E501
         if 'sort_field' in local_var_params and local_var_params['sort_field'] is not None:  # noqa: E501
             query_params.append(('sort_field', local_var_params['sort_field']))  # noqa: E501
         if 'sort_order' in local_var_params and local_var_params['sort_order'] is not None:  # noqa: E501
@@ -27865,6 +28123,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str name: Filter by template name (partial match)
+        :param str text_contains: Filter by template name, description, or labels (partial match)
         :param WorkspaceTemplateComplexity complexity: Filter by complexity level
         :param WorkspaceTemplateCategory category: Filter by category
         :param str labels: Comma-separated list of labels to filter by
@@ -27901,6 +28160,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str name: Filter by template name (partial match)
+        :param str text_contains: Filter by template name, description, or labels (partial match)
         :param WorkspaceTemplateComplexity complexity: Filter by complexity level
         :param WorkspaceTemplateCategory category: Filter by category
         :param str labels: Comma-separated list of labels to filter by
@@ -27930,6 +28190,7 @@ class DefaultApi(object):
 
         all_params = [
             'name',
+            'text_contains',
             'complexity',
             'category',
             'labels',
@@ -27960,8 +28221,8 @@ class DefaultApi(object):
             local_var_params[key] = val
         del local_var_params['kwargs']
 
-        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 50:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `count` when calling `list_templates_api_v2_workspace_templates_get`, must be a value less than or equal to `50`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_templates_api_v2_workspace_templates_get`, must be a value less than or equal to `1000`")  # noqa: E501
         if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
             raise ApiValueError("Invalid value for parameter `count` when calling `list_templates_api_v2_workspace_templates_get`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
@@ -27971,6 +28232,8 @@ class DefaultApi(object):
         query_params = []
         if 'name' in local_var_params and local_var_params['name'] is not None:  # noqa: E501
             query_params.append(('name', local_var_params['name']))  # noqa: E501
+        if 'text_contains' in local_var_params and local_var_params['text_contains'] is not None:  # noqa: E501
+            query_params.append(('text_contains', local_var_params['text_contains']))  # noqa: E501
         if 'complexity' in local_var_params and local_var_params['complexity'] is not None:  # noqa: E501
             query_params.append(('complexity', local_var_params['complexity']))  # noqa: E501
         if 'category' in local_var_params and local_var_params['category'] is not None:  # noqa: E501
@@ -38282,6 +38545,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def use_workos_api_v2_workos_use_workos_get(self, **kwargs):  # noqa: E501
+        """Use Workos  # noqa: E501
+
+        Determine whether to use WorkOS based on the user's IP address. This endpoint evaluates the WorkOS feature flag server-side using the client's IP address for targeting. This allows for IP-based rollouts and geographic targeting of the WorkOS authentication flow. Returns:     UseWorkOSResponse: Contains boolean indicating whether WorkOS should be enabled  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.use_workos_api_v2_workos_use_workos_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: UseworkosresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.use_workos_api_v2_workos_use_workos_get_with_http_info(**kwargs)  # noqa: E501
+
+    def use_workos_api_v2_workos_use_workos_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Use Workos  # noqa: E501
+
+        Determine whether to use WorkOS based on the user's IP address. This endpoint evaluates the WorkOS feature flag server-side using the client's IP address for targeting. This allows for IP-based rollouts and geographic targeting of the WorkOS authentication flow. Returns:     UseWorkOSResponse: Contains boolean indicating whether WorkOS should be enabled  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.use_workos_api_v2_workos_use_workos_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(UseworkosresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method use_workos_api_v2_workos_use_workos_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/workos/use_workos', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='UseworkosresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def user_resend_email_api_v2_users_resend_email_post(self, user_resend_email_options, **kwargs):  # noqa: E501
         """User Resend Email  # noqa: E501
 
@@ -39077,6 +39445,238 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def workos_callback_api_v2_workos_callback_get(self, code, **kwargs):  # noqa: E501
+        """Workos Callback  # noqa: E501
+
+        Callback for WorkOS authentication. WorkOS will call this endpoint with a code after the user authenticates with WorkOS.  We use the code to get the user's information from WorkOS and then authenticate the user with Anyscale.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.workos_callback_api_v2_workos_callback_get(code, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str code: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: object
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.workos_callback_api_v2_workos_callback_get_with_http_info(code, **kwargs)  # noqa: E501
+
+    def workos_callback_api_v2_workos_callback_get_with_http_info(self, code, **kwargs):  # noqa: E501
+        """Workos Callback  # noqa: E501
+
+        Callback for WorkOS authentication. WorkOS will call this endpoint with a code after the user authenticates with WorkOS.  We use the code to get the user's information from WorkOS and then authenticate the user with Anyscale.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.workos_callback_api_v2_workos_callback_get_with_http_info(code, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str code: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(object, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'code'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method workos_callback_api_v2_workos_callback_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'code' is set
+        if self.api_client.client_side_validation and ('code' not in local_var_params or  # noqa: E501
+                                                        local_var_params['code'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `code` when calling `workos_callback_api_v2_workos_callback_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'code' in local_var_params and local_var_params['code'] is not None:  # noqa: E501
+            query_params.append(('code', local_var_params['code']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/workos/callback', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='object',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def workos_verify_email_code_api_v2_workos_email_verification_verify_post(self, email_verification_request, **kwargs):  # noqa: E501
+        """Workos Verify Email Code  # noqa: E501
+
+        Verify email with a 6-digit code sent by WorkOS.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.workos_verify_email_code_api_v2_workos_email_verification_verify_post(email_verification_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param EmailVerificationRequest email_verification_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: EmailverificationresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.workos_verify_email_code_api_v2_workos_email_verification_verify_post_with_http_info(email_verification_request, **kwargs)  # noqa: E501
+
+    def workos_verify_email_code_api_v2_workos_email_verification_verify_post_with_http_info(self, email_verification_request, **kwargs):  # noqa: E501
+        """Workos Verify Email Code  # noqa: E501
+
+        Verify email with a 6-digit code sent by WorkOS.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.workos_verify_email_code_api_v2_workos_email_verification_verify_post_with_http_info(email_verification_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param EmailVerificationRequest email_verification_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(EmailverificationresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'email_verification_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method workos_verify_email_code_api_v2_workos_email_verification_verify_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'email_verification_request' is set
+        if self.api_client.client_side_validation and ('email_verification_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['email_verification_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `email_verification_request` when calling `workos_verify_email_code_api_v2_workos_email_verification_verify_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'email_verification_request' in local_var_params:
+            body_params = local_var_params['email_verification_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/workos/email_verification/verify', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='EmailverificationresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

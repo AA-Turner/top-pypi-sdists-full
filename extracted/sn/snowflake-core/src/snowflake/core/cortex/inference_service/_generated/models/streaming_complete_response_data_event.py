@@ -1,6 +1,5 @@
-
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 
@@ -35,8 +34,6 @@ class StreamingCompleteResponseDataEvent(BaseModel):
     Parameters
     __________
     choices : list[StreamingCompleteResponseDataEventChoicesInner], optional
-
-
     """
 
     choices: Optional[List[StreamingCompleteResponseDataEventChoicesInner]] = None
@@ -57,14 +54,14 @@ class StreamingCompleteResponseDataEvent(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> StreamingCompleteResponseDataEvent:
-        """Create an instance of StreamingCompleteResponseDataEvent from a JSON string"""
+        """Create an instance of StreamingCompleteResponseDataEvent from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -120,7 +117,6 @@ class StreamingCompleteResponseDataEventModel:
         Parameters
         __________
         choices : list[StreamingCompleteResponseDataEventChoicesInner], optional
-
         """
         self.choices = choices
 

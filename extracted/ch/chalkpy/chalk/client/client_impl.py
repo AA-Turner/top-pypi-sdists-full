@@ -157,6 +157,7 @@ from chalk.features.pseudofeatures import CHALK_TS_FEATURE
 from chalk.features.resolver import Resolver, StreamResolver
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
 from chalk.importer import CHALK_IMPORT_FLAG
+from chalk.ml import ModelEncoding, ModelType
 from chalk.parsed._proto.utils import encode_proto_to_b64
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.parsed.to_proto import ToProtoConverter
@@ -4816,8 +4817,8 @@ https://docs.chalk.ai/cli/apply
     def register_model_version(
         self,
         name: str,
-        model_type: str,
-        model_format: str,
+        model_type: ModelType,
+        model_encoding: Optional[ModelEncoding] = None,
         aliases: Optional[List[str]] = None,
         model: Optional[Any] = None,
         model_paths: Optional[List[str]] = None,
@@ -4825,6 +4826,8 @@ https://docs.chalk.ai/cli/apply
         input_schema: Optional[Any] = None,
         output_schema: Optional[Any] = None,
         metadata: Optional[Mapping[str, Any]] = None,
+        input_features: Optional[list[str]] = None,
+        output_features: Optional[list[str]] = None,
     ) -> RegisterModelVersionResponse:
         from chalk.client.client_grpc import ChalkGRPCClient
 
@@ -4839,13 +4842,15 @@ https://docs.chalk.ai/cli/apply
             name=name,
             aliases=aliases,
             model_type=model_type,
-            model_format=model_format,
+            model_encoding=model_encoding,
             model=model,
             model_paths=model_paths,
             additional_files=additional_files,
             input_schema=input_schema,
             output_schema=output_schema,
             metadata=metadata,
+            input_features=input_features,
+            output_features=output_features,
         )
 
         return resp

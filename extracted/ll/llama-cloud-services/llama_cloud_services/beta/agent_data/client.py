@@ -1,6 +1,11 @@
 import os
 from typing import Any, Dict, Generic, List, Optional, Type
 
+from llama_cloud import (
+    AgentData,
+    PaginatedResponseAgentData,
+    PaginatedResponseAggregateGroup,
+)
 from llama_cloud.client import AsyncLlamaCloud
 from tenacity import (
     WrappedFn,
@@ -157,10 +162,14 @@ class AsyncAgentDataClient(Generic[AgentDataT]):
 
     @agent_data_retry
     async def get_item(self, item_id: str) -> TypedAgentData[AgentDataT]:
-        raw_data = await self.client.beta.get_agent_data(
+        raw_data = await self.untyped_get_item(item_id)
+        return TypedAgentData.from_raw(raw_data, self.type)
+
+    @agent_data_retry
+    async def untyped_get_item(self, item_id: str) -> AgentData:
+        return await self.client.beta.get_agent_data(
             item_id=item_id,
         )
-        return TypedAgentData.from_raw(raw_data, validator=self.type)
 
     @agent_data_retry
     async def create_item(self, data: AgentDataT) -> TypedAgentData[AgentDataT]:
@@ -211,9 +220,7 @@ class AsyncAgentDataClient(Generic[AgentDataT]):
             offset: Number of items to skip from the beginning. Defaults to 0.
             include_total: Whether to include the total count in the response. Defaults to False to improve performance. It's recommended to only request on the first page.
         """
-        raw = await self.client.beta.search_agent_data_api_v_1_beta_agent_data_search_post(
-            deployment_name=self.deployment_name,
-            collection=self.collection,
+        raw = await self.untyped_search(
             filter=filter,
             order_by=order_by,
             offset=offset,
@@ -226,6 +233,25 @@ class AsyncAgentDataClient(Generic[AgentDataT]):
             ],
             has_more=raw.next_page_token is not None,
             total=raw.total_size,
+        )
+
+    @agent_data_retry
+    async def untyped_search(
+        self,
+        filter: Optional[Dict[str, Dict[ComparisonOperator, Any]]] = None,
+        order_by: Optional[str] = None,
+        offset: Optional[int] = None,
+        page_size: Optional[int] = None,
+        include_total: bool = False,
+    ) -> PaginatedResponseAgentData:
+        return await self.client.beta.search_agent_data_api_v_1_beta_agent_data_search_post(
+            deployment_name=self.deployment_name,
+            collection=self.collection,
+            filter=filter,
+            order_by=order_by,
+            offset=offset,
+            page_size=page_size,
+            include_total=include_total,
         )
 
     @agent_data_retry
@@ -254,7 +280,37 @@ class AsyncAgentDataClient(Generic[AgentDataT]):
             offset: Number of groups to skip from the beginning. Defaults to 0.
             page_size: Maximum number of groups to return per page.
         """
-        raw = await self.client.beta.aggregate_agent_data_api_v_1_beta_agent_data_aggregate_post(
+        raw = await self.untyped_aggregate(
+            filter=filter,
+            group_by=group_by,
+            count=count,
+            first=first,
+            order_by=order_by,
+            offset=offset,
+            page_size=page_size,
+        )
+
+        return TypedAggregateGroupItems(
+            items=[
+                TypedAggregateGroup.from_raw(grp, validator=self.type)
+                for grp in raw.items
+            ],
+            has_more=raw.next_page_token is not None,
+            total=raw.total_size,
+        )
+
+    @agent_data_retry
+    async def untyped_aggregate(
+        self,
+        filter: Optional[Dict[str, Dict[ComparisonOperator, Any]]] = None,
+        group_by: Optional[List[str]] = None,
+        count: Optional[bool] = None,
+        first: Optional[bool] = None,
+        order_by: Optional[str] = None,
+        offset: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> PaginatedResponseAggregateGroup:
+        return await self.client.beta.aggregate_agent_data_api_v_1_beta_agent_data_aggregate_post(
             deployment_name=self.deployment_name,
             collection=self.collection,
             page_size=page_size,
@@ -264,12 +320,4 @@ class AsyncAgentDataClient(Generic[AgentDataT]):
             count=count,
             first=first,
             offset=offset,
-        )
-        return TypedAggregateGroupItems(
-            items=[
-                TypedAggregateGroup.from_raw(item, validator=self.type)
-                for item in raw.items
-            ],
-            has_more=raw.next_page_token is not None,
-            total=raw.total_size,
         )

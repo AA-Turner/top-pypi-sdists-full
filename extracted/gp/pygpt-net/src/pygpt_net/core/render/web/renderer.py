@@ -182,6 +182,7 @@ class Renderer(BaseRenderer):
         self._stream_timer: dict[int, QTimer] = {}
         self._stream_header: dict[int, str] = {}
         self._stream_last_flush: dict[int, float] = {}
+        self._stream_last_cleanup: float = 0.0
 
         # Pid-related cached methods
         self._get_pid = None
@@ -496,6 +497,7 @@ class Renderer(BaseRenderer):
         Soft cleanup, called after each context is done.
         """
         try:
+            gc.collect()
             malloc_trim_linux()
         except Exception:
             pass
@@ -1248,7 +1250,10 @@ class Renderer(BaseRenderer):
         html = self.body.get_html(pid)
         node = self.get_output_node_by_pid(pid)
         if node is not None:
-            node.setHtml(html, baseUrl="file://")
+            try:
+                node.setHtml(html, baseUrl="file://")
+            except Exception as e:
+                print("[Renderer] flush error:", e)
 
     def fresh(self, meta: Optional[CtxMeta] = None, force: bool = False):
         """
@@ -1319,7 +1324,7 @@ class Renderer(BaseRenderer):
         :return: output node or None
         """
         if self._get_output_node_by_meta is None:
-            self._get_output_node_by_meta = self.window.core.ctx.output.get_output_node_by_meta
+            self._get_output_node_by_meta = self.window.core.ctx.output.get_current
         return self._get_output_node_by_meta(meta)
 
     def get_output_node_by_pid(self, pid: Optional[int]) -> Optional[ChatWebOutput]:
@@ -1330,7 +1335,7 @@ class Renderer(BaseRenderer):
         :return: output node or None
         """
         if self._get_output_node_by_pid is None:
-            self._get_output_node_by_pid = self.window.core.ctx.output.get_output_node_by_pid
+            self._get_output_node_by_pid = self.window.core.ctx.output.get_by_pid
         return self._get_output_node_by_pid(pid)
 
     def get_input_node(self) -> ChatInput:
@@ -1861,29 +1866,19 @@ class Renderer(BaseRenderer):
         data = buf.get_and_clear()
         name = self._stream_header.get(pid, "") or ""
 
-        try:
-            br = getattr(node.page(), "bridge", None)
-            if br is not None and hasattr(br, "chunk"):
-                br.chunk.emit(name, data, "text_delta")
-            else:
-                node.page().runJavaScript(
-                    f"if (typeof window.appendStream !== 'undefined') appendStream({self.to_json(name)},{self.to_json(data)});"
-                )
-        except Exception:
-            try:
-                node.page().runJavaScript(
-                    f"if (typeof window.appendStream !== 'undefined') appendStream({self.to_json(name)},{self.to_json(data)});"
-                )
-            except Exception:
-                pass
+        node.page().bridge.chunk.emit(name, data, "text_delta")
 
         try:
-            if len(data) >= (256 * 1024):
+            del data
+            # auto GC cleanup after some time
+            now = monotonic()
+            last = self._stream_last_cleanup
+            if now - last > 120.0:
                 self.auto_cleanup_soft()
+                self._stream_last_cleanup = now
         except Exception:
             pass
 
-        del data
         self._stream_last_flush[pid] = monotonic()
 
     def eval_js(self, script: str):

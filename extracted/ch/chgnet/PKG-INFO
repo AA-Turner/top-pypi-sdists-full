@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chgnet
-Version: 0.4.1
+Version: 0.4.2
 Summary: Pretrained Universal Neural Network Potential for Charge-informed Atomistic Modeling
 Author-email: Bowen Deng <bowendeng@berkeley.edu>
 License: Modified BSD
@@ -111,7 +111,7 @@ from chgnet.model.model import CHGNet
 # Load the latest CHGNet model (default: 0.3.0)
 chgnet = CHGNet.load()
 # Load specific CHGNet versions
-chgnet_r2scan = CHGNet.load('r2scan')
+chgnet = CHGNet.load(model_name='r2scan')
 ```
 
 **Model Details:**

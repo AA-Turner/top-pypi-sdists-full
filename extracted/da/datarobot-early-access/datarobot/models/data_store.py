@@ -141,6 +141,7 @@ class DataStore(APIObject):
             t.Key("params"): _data_store_params_converter,
             t.Key("updated"): parse_time,
             t.Key("role"): String(),
+            t.Key("driver_class_type", optional=True): t.Or(String(), t.Null()),
         }
     ).ignore_extra("*")
 
@@ -153,11 +154,13 @@ class DataStore(APIObject):
         updated: Optional[datetime] = None,
         params: Optional[DataStoreParameters] = None,
         role: Optional[str] = None,
+        driver_class_type: Optional[str] = None,
     ):
         self._id = data_store_id
         self._type = data_store_type
         self.canonical_name = canonical_name
         self._creator = creator
+        self._driver_class_type = driver_class_type
         self._updated = updated
         self.params = params
         self.role = role
@@ -541,6 +544,10 @@ class DataStore(APIObject):
     @property
     def updated(self) -> Optional[datetime]:
         return self._updated
+
+    @property
+    def driver_class_type(self) -> Optional[str]:
+        return self._driver_class_type
 
     def get_shared_roles(self) -> List[SharingRole]:
         """Retrieve what users have access to this data store

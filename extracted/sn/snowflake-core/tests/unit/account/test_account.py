@@ -8,7 +8,7 @@ from snowflake.core.account import Account, AccountCollection, AccountResource
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.account._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 ACCOUNT = Account("my_account", "STANDARD", "admin", "admin@localhost")
 
 

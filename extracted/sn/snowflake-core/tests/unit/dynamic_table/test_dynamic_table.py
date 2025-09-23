@@ -18,7 +18,7 @@ def dynamic_table(dynamic_tables):
     return dynamic_tables["my_table"]
 
 
-API_CLIENT_REQUEST = "snowflake.core.dynamic_table._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 DYNAMIC_TABLE = DynamicTable(
     name="my_table",
     target_lag=DownstreamLag(),
@@ -87,8 +87,8 @@ def test_create_dynamic_table_clone(fake_root, dynamic_tables):
 
 
 def test_iter_dynamic_table(fake_root, dynamic_tables):
-    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables?deep=False")
-    kwargs = extra_params(query_params=[("deep", False)])
+    args = (fake_root, "GET", BASE_URL + "/databases/my_db/schemas/my_schema/dynamic-tables")
+    kwargs = extra_params()
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         mocked_request.return_value = mock_http_response()

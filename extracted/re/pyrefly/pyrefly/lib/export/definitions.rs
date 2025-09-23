@@ -35,7 +35,8 @@ use starlark_map::small_map::Entry;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::types::globals::Global;
+use crate::export::special::SpecialExport;
+use crate::types::globals::ImplicitGlobal;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum MutableCaptureKind {
@@ -47,6 +48,10 @@ pub enum MutableCaptureKind {
 
 /// How a name is defined. If a name is defined outside of this
 /// module, we additionally store the module we got it from.
+///
+/// This type is ordered - if there are multiple statements defining
+/// the name (in which case the `Definition` count will be greater than 1),
+/// then the minimal style is the one we track.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum DefinitionStyle {
     /// A name defined by a mutable capture. In valid code, the current scope
@@ -56,7 +61,7 @@ pub enum DefinitionStyle {
     /// We also store what kind of symbol it is
     Local(SymbolKind),
     /// Defined as an implicit global like `__name__`.
-    Global,
+    ImplicitGlobal,
     /// Imported with an alias, e.g. `from x import y as z`
     /// Name is the previous name before the alias
     ImportAs(ModuleName, Name),
@@ -92,12 +97,8 @@ pub struct Definition {
 /// since they are separate scopes.
 #[derive(Debug, Clone, Default)]
 pub struct Definitions {
-    /// All the names defined in this scope.
-    ///
-    /// If a name is a mutable capture (declared with a `global` or `nonlocal`
-    /// statement) and is mutated in this scope, it will be included, even though it
-    /// does not belong to the static scope. We can discover the fact that it is a
-    /// mutable capture by checking `globals` and `nonlocals`.
+    /// All the names defined in this scope, including mutable captures
+    /// (`global` and `nonlocal` declarations)
     pub definitions: SmallMap<Name, Definition>,
     /// All the modules that are imported with `from x import *`.
     pub import_all: SmallMap<ModuleName, TextRange>,
@@ -109,6 +110,8 @@ pub struct Definitions {
     pub implicitly_imported_submodules: SmallSet<Name>,
     /// Deprecated names that are defined in this module.
     pub deprecated: SmallSet<Name>,
+    /// Special exports defined in this module
+    pub special_exports: SmallMap<Name, SpecialExport>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -205,13 +208,13 @@ impl Definitions {
         self.import_all.entry(ModuleName::builtins()).or_default();
     }
 
-    pub fn inject_globals(&mut self) {
-        for global in Global::globals(false) {
+    pub fn inject_implicit_globals(&mut self) {
+        for global in ImplicitGlobal::implicit_globals(false) {
             self.definitions.insert(
                 global.name().clone(),
                 Definition {
                     range: TextRange::default(),
-                    style: DefinitionStyle::Global,
+                    style: DefinitionStyle::ImplicitGlobal,
                     annot: None,
                     count: 1,
                     docstring_range: None,
@@ -298,6 +301,12 @@ impl<'a> DefinitionsBuilder<'a> {
         style: DefinitionStyle,
         annot: Option<ShortIdentifier>,
     ) {
+        if matches!(style, DefinitionStyle::Local(_))
+            && let Some(special_export) = SpecialExport::new(x)
+            && special_export.defined_in(self.module_name)
+        {
+            self.inner.special_exports.insert(x.clone(), special_export);
+        }
         self.add_name_with_body(x, range, style, annot, None)
     }
 

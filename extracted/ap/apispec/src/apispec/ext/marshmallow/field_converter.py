@@ -31,7 +31,7 @@ DEFAULT_FIELD_MAPPING: dict[type, tuple[str | None, str | None]] = {
     marshmallow.fields.DateTime: ("string", "date-time"),
     marshmallow.fields.Date: ("string", "date"),
     marshmallow.fields.Time: ("string", None),
-    marshmallow.fields.TimeDelta: ("integer", None),
+    marshmallow.fields.TimeDelta: ("number", None),
     marshmallow.fields.Email: ("string", "email"),
     marshmallow.fields.URL: ("string", "url"),
     marshmallow.fields.Dict: ("object", None),
@@ -538,6 +538,13 @@ class FieldConverterMixin:
         ret = {}
         if isinstance(field, marshmallow.fields.TimeDelta):
             ret["x-unit"] = field.precision
+            # Required for Marshmallow <4. Can be removed when support for Marshmallow 3 is dropped.
+            # This overrides the type set in field2type_and_format (from DEFAULT_FIELD_MAPPING)
+            if hasattr(field, "serialization_type"):
+                ret["type"] = {
+                    int: "integer",
+                    float: "number",
+                }.get(field.serialization_type, "number")
         return ret
 
     def enum2properties(self, field, **kwargs: typing.Any) -> dict:

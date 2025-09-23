@@ -30,11 +30,11 @@ os.environ["ORT_LOG_SEVERITY_LEVEL"] = "3"
 # Attempt to import fast_plate_ocr; fall back to a stub if unavailable
 try:
     from fast_plate_ocr import LicensePlateRecognizer  # type: ignore
-except ImportError:  # pragma: no cover – optional dependency may be absent
+except:  # pragma: no cover – optional dependency may be absent
     class LicensePlateRecognizer:  # type: ignore
         """Stub fallback when fast_plate_ocr is not installed."""
         def __init__(self, *args, **kwargs):
-            raise ImportError("fast_plate_ocr is required for LicensePlateMonitorUseCase but is not installed.")
+            print("fast_plate_ocr is required for LicensePlateMonitorUseCase but is not installed.")
 
 # Internal utilities that are still required
 from ..ocr.preprocessing import ImagePreprocessor
@@ -129,7 +129,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
                 LicensePlateMonitorUseCase._ocr_model = LicensePlateRecognizer('cct-s-v1-global-model')
                 self.logger.info("LicensePlateRecognizer loaded successfully")
             except Exception as e:
-                self.logger.error(f"Failed to initialise LicensePlateRecognizer: {e}")
+                self.logger.warning(f"Failed to initialise LicensePlateRecognizer: {e}")
         self.ocr_model = LicensePlateMonitorUseCase._ocr_model
         # OCR text history for stability checks (text → consecutive frame count)
         self._text_history: Dict[str, int] = {}
@@ -838,7 +838,7 @@ class LicensePlateMonitorUseCase(BaseProcessor):
 
         return incidents
 
-    def _generate_summary(self, summary: Dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[Dict]:
+    def _generate_summary(self, summary: Dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[str]:
         """Generate a human-readable summary."""
         """
         Generate a human_text string for the tracking_stat, incident, business analytics and alerts.

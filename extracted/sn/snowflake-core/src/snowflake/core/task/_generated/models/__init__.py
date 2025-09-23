@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Task API
+Snowflake Task API.
 
 The Snowflake Task API is a REST API that you can use to access, update, and perform certain actions on task resources in a Snowflake database.  # noqa: E501
 

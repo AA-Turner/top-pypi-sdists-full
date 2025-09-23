@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake User API
+Snowflake User API.
 
 The Snowflake User API is a REST API that you can use to access, update, and perform certain action on Users in a Snowflake database.  # noqa: E501
 

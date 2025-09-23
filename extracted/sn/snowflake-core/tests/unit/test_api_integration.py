@@ -20,7 +20,9 @@ def _mock_api_integrations_collection(fake_root):
 
 @pytest.fixture
 def _mock_api():
-    with mock.patch("snowflake.core.api_integration._api_integration.ApiIntegrationApi") as mock_api:
+    with mock.patch(
+        "snowflake.core.api_integration._generated.api.api_integration_api_base.ApiIntegrationApi"
+    ) as mock_api:
         yield mock_api.return_value
 
 
@@ -61,7 +63,7 @@ class TestApiIntegrationResource:
         resource = ApiIntegrationResource(name="my_resource", collection=_mock_collection)
         get_method(resource, "create_or_alter", is_async)(api_integration)
         _mock_collection._api.create_or_alter_api_integration.assert_called_once_with(
-            name=api_integration.name, api_integration=api_integration, async_req=is_async
+            api_integration.name, api_integration=api_integration, async_req=is_async
         )
 
     @parametrize_if_exists()
@@ -95,4 +97,6 @@ class TestApiIntegrationCollection:
         )
         get_method(_mock_api_integrations_collection, "create", is_async)(api_integration=api_integration, mode=mode)
 
-        _mock_api.create_api_integration.assert_called_once_with(api_integration, create_mode=mode, async_req=is_async)
+        _mock_api.create_api_integration.assert_called_once_with(
+            api_integration=api_integration, create_mode=mode, async_req=is_async
+        )

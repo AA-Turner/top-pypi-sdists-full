@@ -4941,6 +4941,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "DEEP_SEEK_R1_V1_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="DEEP_SEEK_V3_V1_0")
+    def DEEP_SEEK_V3_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base model "deepseek.v3-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "DEEP_SEEK_V3_V1_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="LUMA_RAY_V2_0")
     def LUMA_RAY_V2_0(cls) -> "FoundationModelIdentifier":
         '''Base model "luma.ray-v2:0".'''
@@ -5165,6 +5171,30 @@ class FoundationModelIdentifier(
     def OPENAI_GPT_OSS_20_B_1(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-oss-20b-1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_20B_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="QWEN_QWEN3_235B_A22B_2507_V1_0")
+    def QWEN_QWEN3_235_B_A22_B_2507_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base Model "qwen.qwen3-235b-a22b-2507-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_235B_A22B_2507_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="QWEN_QWEN3_32B_V1_0")
+    def QWEN_QWEN3_32_B_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base Model "qwen.qwen3-32b-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_32B_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="QWEN_QWEN3_CODER_30B_A3B_V1_0")
+    def QWEN_QWEN3_CODER_30_B_A3_B_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base Model "qwen.qwen3-coder-30b-a3b-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_CODER_30B_A3B_V1_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="QWEN_QWEN3_CODER_480B_A35B_V1_0")
+    def QWEN_QWEN3_CODER_480_B_A35_B_V1_0(cls) -> "FoundationModelIdentifier":
+        '''Base Model "qwen.qwen3-coder-480b-a35b-v1:0".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "QWEN_QWEN3_CODER_480B_A35B_V1_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STABILITY_SD3_5_LARGE_V1_0")

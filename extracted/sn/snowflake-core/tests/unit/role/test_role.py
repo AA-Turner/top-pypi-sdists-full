@@ -8,7 +8,7 @@ from snowflake.core.role import ContainingScope, Role, RoleCollection, RoleResou
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.role._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 ROLE = Role(name="my_role")
 OTHER_ROLE = Securable(name="my_role")
 

@@ -12,12 +12,12 @@ from snowflake.core._common import (
     SchemaObjectCollectionParent,
     SchemaObjectReferenceMixin,
 )
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._operation import PollingOperations
 
 from .._internal.telemetry import api_telemetry
 from ._generated import ConvertToManagedIcebergTableRequest, RefreshIcebergTableRequest, SuccessResponse
 from ._generated.api import IcebergTableApi
-from ._generated.api_client import StoredProcApiClient
 from ._generated.models.iceberg_table import IcebergTable
 from ._generated.models.iceberg_table_as_select import IcebergTableAsSelect
 from ._generated.models.iceberg_table_clone import IcebergTableClone

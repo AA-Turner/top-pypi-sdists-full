@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Stream API
+Snowflake Stream API.
 
 The Snowflake Stream API is a REST API that you can use to access, update, and perform certain actions on Stream resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.stream._generated.api.stream_api import StreamApi
-
-# import ApiClient
-from snowflake.core.stream._generated.api_client import ApiClient
-from snowflake.core.stream._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.stream._generated.models.error_response import ErrorResponse

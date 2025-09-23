@@ -1,8 +1,8 @@
 import operator
 import functools
-from copy import deepcopy
+from copy import deepcopy, copy
 from collections import OrderedDict
-from typing import Optional, List, Dict, TYPE_CHECKING, Any, Union
+from typing import Optional, List, Dict, TYPE_CHECKING, Any, Union, Set
 
 if TYPE_CHECKING:
     from typing import TypeVar
@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from .ast import ASTNode
 
     ComponentClass = TypeVar('ComponentClass', bound='Component')
+    AddressableComponentClass = TypeVar('AddressableComponentClass', bound='AddressableComponent')
+    VectorComponentClass = TypeVar('VectorComponentClass', bound='VectorComponent')
 
 class Component:
     """
@@ -68,17 +70,17 @@ class Component:
         self.children: List[Component] = []
 
         # Parameters of this component definition.
-        # These are listed in the order that they were defined
-        self.parameters: List[Parameter] = []
+        # These are stored in the order that they were defined
+        self.parameters_dict: 'OrderedDict[str, Parameter]' = OrderedDict()
 
         # Properties applied to this component
         self.properties: Dict[str, Any] = {}
 
         #: :ref:`api_src_ref` for each explicit property assignment (if available)
-        self.property_src_ref: Dict[str, SourceRefBase] = {}
+        self.property_src_ref: Dict[str, 'SourceRefBase'] = {}
 
         #: :ref:`api_src_ref` for the component definition
-        self.def_src_ref: Optional[SourceRefBase] = None
+        self.def_src_ref: Optional['SourceRefBase'] = None
 
         #------------------------------
         # Component instantiation
@@ -99,50 +101,64 @@ class Component:
         self.external: Optional[bool] = None
 
         #: :ref:`api_src_ref` for the component instantiation.
-        self.inst_src_ref: Optional[SourceRefBase] = None
+        self.inst_src_ref: Optional['SourceRefBase'] = None
 
         #------------------------------
         # List of property names that were assigned via a dynamic property
         # assignment.
-        self._dyn_assigned_props: List[str] = []
+        self._dyn_assigned_props: Set[str] = set()
 
         # List of child instances that were assigned "through" this component,
         # from outside this component's scope.
-        self._dyn_assigned_children: List[str] = []
+        self._dyn_assigned_children: Set[str] = set()
+
+    @property
+    def parameters(self) -> List['Parameter']:
+        # TODO: Add deprecation warning?
+        return list(self.parameters_dict.values())
 
 
-    def _copy_for_inst(self: 'ComponentClass', memo: Dict[int, Any]) -> 'ComponentClass':
+    def _copy_for_inst(self: 'ComponentClass', memo: Dict[int, Any], recursive: bool = False) -> 'ComponentClass':
         """
         Make a copy of the component tree in order to instantiate it.
-
-        This is subtly different from a normal deepcopy since it ensures that
-        references within the component tree are deepcopied, while references
-        to external parameters are copied by reference.
         """
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
 
-        # First, explicitly copy all parameter objects
-        result.parameters = [param._copy_for_inst(memo) for param in self.parameters]
+        # Shallow-copy parameter objects so that they can accept value overrides
+        result.parameters_dict = OrderedDict()
+        for name, param in self.parameters_dict.items():
+            result.parameters_dict[name] = copy(param)
 
-        # Ensure child components get copied first
-        result.children = [child._copy_for_inst(memo) for child in self.children]
+        # Shallow-copy the dicts to ensure they remain distinct
+        result.properties = self.properties.copy()
+        result.property_src_ref = self.property_src_ref.copy()
+        result._dyn_assigned_props = copy(self._dyn_assigned_props)
+        result._dyn_assigned_children = copy(self._dyn_assigned_children)
 
-        # Finally, continue deepcopying everything else
-        copy_by_ref = {"original_def", "parent_scope", "comp_defs"}
-        skip = {"parameters", "children"}
-        for k, v in self.__dict__.items():
-            if k in skip:
-                continue
-            if k in copy_by_ref:
-                setattr(result, k, v)
-            else:
-                setattr(result, k, deepcopy(v, memo))
+        if recursive:
+            # Recurse this special copy method for children
+            result.children = [child._copy_for_inst(memo, recursive=True) for child in self.children]
+        else:
+            # ... Otherwise, optimistically skip the copy during compilation.
+            # Copy the list and individual children later, only if needed due
+            # to a DPA assignment
+            result.children = self.children
+
+        # Copy by reference.
+        result.parent_scope = self.parent_scope
+        result._scope_name = self._scope_name
+        result.type_name = self.type_name
+        result.def_src_ref = self.def_src_ref
+        result.is_instance = self.is_instance
+        result.inst_name = self.inst_name
+        result.original_def = self.original_def
+        result.external = self.external
+        result.inst_src_ref = self.inst_src_ref
+
         return result
 
-    def __deepcopy__(self: 'ComponentClass', memo: Dict[int, Any]) -> 'ComponentClass':
-        return self._copy_for_inst(memo)
 
     def __repr__(self) -> str:
         if self.is_instance:
@@ -259,6 +275,15 @@ class AddressableComponent(Component):
         #: If left as None, compiler will resolve with inferred value.
         self.array_stride: Optional[int] = None
 
+    def _copy_for_inst(self: 'AddressableComponentClass', memo: Dict[int, Any], recursive: bool = False) -> 'AddressableComponentClass':
+        result = super()._copy_for_inst(memo, recursive)
+        result.addr_offset = self.addr_offset
+        result.addr_align = self.addr_align
+        result.is_array = self.is_array
+        result.array_dimensions = copy(self.array_dimensions)
+        result.array_stride = self.array_stride
+        return result
+
 
     @property
     def n_elements(self) -> int:
@@ -310,6 +335,15 @@ class VectorComponent(Component):
         #: Low index of bit range
         self.low: int = None # type: ignore
 
+    def _copy_for_inst(self: 'VectorComponentClass', memo: Dict[int, Any], recursive: bool = False) -> 'VectorComponentClass':
+        result = super()._copy_for_inst(memo, recursive)
+        result.width = self.width
+        result.msb = self.msb
+        result.lsb = self.lsb
+        result.high = self.high
+        result.low = self.low
+        return result
+
 
 class VectorComponent_PreExprElab(VectorComponent):
     """
@@ -330,6 +364,11 @@ class Root(Component):
         #: Dictionary of :class:`~systemrdl.component.Component` definitions in
         #: the global root scope.
         self.comp_defs: Dict[str, Component] = OrderedDict()
+
+    def _copy_for_inst(self: 'Root', memo: Dict[int, Any], recursive: bool = False) -> 'Root':
+        result = super()._copy_for_inst(memo, recursive)
+        result.comp_defs = copy(self.comp_defs)
+        return result
 
 class Signal(VectorComponent):
     original_def: Optional['Signal']
@@ -384,6 +423,14 @@ class Reg(AddressableComponent):
         #: Reference to primary register :class:`~systemrdl.component.Component`
         #: instance
         self.alias_primary_inst: Optional[Reg] = None
+
+    def _copy_for_inst(self: 'Reg', memo: Dict[int, Any], recursive: bool = False) -> 'Reg':
+        result = super()._copy_for_inst(memo, recursive)
+        result.is_msb0_order = self.is_msb0_order
+        result._alias_names = copy(self._alias_names)
+        result.is_alias = self.is_alias
+        result.alias_primary_inst = deepcopy(self.alias_primary_inst, memo)
+        return result
 
 class Regfile(AddressableComponent):
     original_def: Optional['Regfile']

@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features.resolver import Resolver
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
+from chalk.ml import ModelEncoding, ModelType
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.prompts import Prompt
 
@@ -2130,8 +2131,8 @@ class ChalkClient:
     def register_model_version(
         self,
         name: str,
-        model_type: str,
-        model_format: str,
+        model_type: ModelType,
+        model_encoding: Optional[ModelEncoding] = None,
         aliases: Optional[List[str]] = None,
         model: Optional[Any] = None,
         model_paths: Optional[List[str]] = None,
@@ -2139,6 +2140,8 @@ class ChalkClient:
         input_schema: Optional[Any] = None,
         output_schema: Optional[Any] = None,
         metadata: Optional[Mapping[str, Any]] = None,
+        input_features: Optional[list[str]] = None,
+        output_features: Optional[list[str]] = None,
     ) -> RegisterModelVersionResponse:
         """
         Register a model in the Chalk model registry.
@@ -2155,10 +2158,10 @@ class ChalkClient:
            Python model object (for object-based registration)
         additional_files : list of str, optional
            Additional files needed for inference (tokenizers, configs, etc.)
-        model_type : str
-           Type of model framework ("pytorch", "sklearn", "tensorflow", etc.)
-        model_format : str
-           Serialization format ("pytorch", "pickle", "savedmodel", etc.)
+        model_type : ModelType
+           Type of model framework
+        model_encoding : ModelEncoding, optional
+           Serialization format
         input_schema : pyarrow.DataType
            PyArrow data type defining the input schema
         output_schema : pyarrow.DataType
@@ -2166,7 +2169,14 @@ class ChalkClient:
         metadata : dict, optional
            Additional metadata dictionary containing framework info,
            training details, performance metrics, etc.
-
+        input_features : FeatureReference, str, optional
+            The features to be used as inputs to the model.
+            For example, `[User.message]`. Features can also be expressed as snakecased strings,
+            e.g. `["user.message"]`
+        output_features : FeatureReference, str, optional
+            The features to be used as outputs to the model.
+            For example, `[User.is_spam]`. Features can also be expressed as snakecased strings,
+            e.g. `["user.is_spam"]`
         Returns
         -------
         ModelVersion
@@ -2174,27 +2184,33 @@ class ChalkClient:
 
         Examples
         --------
+        Register from Python object:
+
+        >>> client.register_model_version(
+        ...     name="RiskModel",
+        ...     model=trained_sklearn_model,
+        ...     model_type="pytorch",
+        ... )
+
         Register from local files:
 
         >>> from chalk.client import ChalkClient
         >>> import pyarrow as pa
         >>> client = ChalkClient()
-        >>> client.register_model(
+        >>> client.register_model_version(
         ...     name="RiskModel",
-        ...     model_path=["./model.pth"],
+        ...     model_paths=["./model.pth"],
         ...     model_type="pytorch",
-        ...     model_format="pytorch",
         ...     input_schema=pa.large_string(),
         ...     output_schema=pa.float32()
         ... )
 
-        Register from Python object:
+        Register from s3 path:
 
-        >>> client.register_model(
+        >>> client.register_model_version(
         ...     name="RiskModel",
-        ...     model=trained_sklearn_model,
-        ...     model_type="sklearn",
-        ...     model_format="pickle"
+        ...     model_paths=["s3://my-bucket/path/to/model.pth"],
+        ...     model_type="pytorch",
         ... )
         """
         ...

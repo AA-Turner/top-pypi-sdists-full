@@ -1,6 +1,5 @@
-
 """
-Snowflake Iceberg Table API
+Snowflake Iceberg Table API.
 
 The Snowflake Iceberg Table API is a REST API that you can use to access, update, and perform certain actions on Iceberg Table resource in a Snowflake database.  # noqa: E501
 
@@ -40,7 +39,6 @@ class IcebergTableAsSelect(BaseModel):
         Specifies the path to a directory where Snowflake can write data and metadata files for the table
     columns : list[IcebergTableColumn], optional
 
-
     external_volume : str, optional
         Specifies the name of the external volume to use for the table
     cluster_by : list[str], optional
@@ -77,14 +75,14 @@ class IcebergTableAsSelect(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> IcebergTableAsSelect:
-        """Create an instance of IcebergTableAsSelect from a JSON string"""
+        """Create an instance of IcebergTableAsSelect from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

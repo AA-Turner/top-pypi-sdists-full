@@ -24,7 +24,24 @@ def clear_s3_proxy_config():
 
 
 def get_s3_proxy_config():
+    global _S3_PROXY_CONFIG
+    if _S3_PROXY_CONFIG is None:
+        set_s3_proxy_config(get_s3_proxy_config_from_env())
     return _S3_PROXY_CONFIG
+
+
+# TODO: Refactor out the _S3_PROXY_CONFIG global variable and instead use the function that
+# extracts it from the environment variables.
+
+import os
+import json
+
+
+def get_s3_proxy_config_from_env():
+    env_conf = os.environ.get("METAFLOW_S3_PROXY_USER_CODE_CONFIG")
+    if env_conf:
+        return json.loads(env_conf)
+    return None
 
 
 # Must match the signature of metaflow.plugins.aws.aws_client.get_aws_client
@@ -55,9 +72,14 @@ def get_aws_client(
         if decorator_role_arn:
             role_arn = decorator_role_arn
 
-    if module == "s3" and _S3_PROXY_CONFIG is not None:
+    if module == "s3" and get_s3_proxy_config() is not None:
         return get_aws_client_with_s3_proxy(
-            module, with_error, role_arn, session_vars, client_params, _S3_PROXY_CONFIG
+            module,
+            with_error,
+            role_arn,
+            session_vars,
+            client_params,
+            get_s3_proxy_config(),
         )
 
     client = metaflow.plugins.aws.aws_client.get_aws_client(
@@ -97,11 +119,17 @@ def S3(*args, **kwargs):
             kwargs["role"] = USE_CSPR_ROLE_ARN_IF_SET
 
     # Check if S3 proxy is active using module variable (like CSPR)
-    if _S3_PROXY_CONFIG is not None:
-        return get_S3_with_s3_proxy(_S3_PROXY_CONFIG, *args, **kwargs)
+    if get_s3_proxy_config() is not None:
+        return get_S3_with_s3_proxy(get_s3_proxy_config(), *args, **kwargs)
 
     return metaflow.plugins.datatools.s3.S3(*args, **kwargs)
 
+
+# Setting the S3 client docstring in order to ensure that
+# stubs get generated properly.
+import metaflow.plugins.datatools.s3
+
+S3.__doc__ = metaflow.plugins.datatools.s3.S3.__doc__
 
 from .. import profilers
 from ..plugins.snowflake import Snowflake

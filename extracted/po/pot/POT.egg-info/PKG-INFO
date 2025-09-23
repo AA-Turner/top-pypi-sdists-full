@@ -1,9 +1,9 @@
 Metadata-Version: 2.2
 Name: POT
-Version: 0.9.6
+Version: 0.9.6.post1
 Summary: Python Optimal Transport Library
 Home-page: https://github.com/PythonOT/POT
-Download-URL: https://github.com/PythonOT/POT/archive/0.9.6.tar.gz
+Download-URL: https://github.com/PythonOT/POT/archive/0.9.6.post1.tar.gz
 Author: Remi Flamary, Nicolas Courty, Cédric Vincent-Cuaz, POT Contributors
 Author-email: remi.flamary@gmail.com, ncourty@gmail.com, cedvincentcuaz@gmail.com
 License: MIT

@@ -56,7 +56,6 @@ from typing import (
 
 # Type variable for user-defined data models
 AgentDataT = TypeVar("AgentDataT", bound=BaseModel)
-
 # Type variable for extracted data (can be dict or Pydantic model)
 ExtractedT = TypeVar("ExtractedT", bound=Union[BaseModel, dict])
 
@@ -116,10 +115,10 @@ class TypedAgentData(BaseModel, Generic[AgentDataT]):
         Args:
             raw_data: Raw agent data from the API
             validator: Pydantic model class to validate the data field
-
         Returns:
             TypedAgentData instance with validated data
         """
+
         data: AgentDataT = validator.model_validate(raw_data.data)
 
         return cls(
@@ -222,12 +221,16 @@ def parse_extracted_field_metadata(
     return {
         k: _parse_extracted_field_metadata_recursive(v)
         for k, v in field_metadata.items()
-        if k not in _METADATA_FIELDS_SIBLING_TO_LEAF
-        and k not in _ADDITIONAL_ROOT_METADATA_FIELDS
+        if not _is_reasoning_field(k, v) and k not in _ADDITIONAL_ROOT_METADATA_FIELDS
     }
 
 
-_METADATA_FIELDS_SIBLING_TO_LEAF = {"reasoning"}
+def _is_reasoning_field(field_name: str, field_value: Any) -> bool:
+    # There can either be a user specified reasoning field (from the schema), or a reasoning metadata field for the
+    # dict of values
+    return field_name == "reasoning" and isinstance(field_value, str)
+
+
 _ADDITIONAL_ROOT_METADATA_FIELDS = {"error"}
 
 
@@ -257,14 +260,12 @@ def _parse_extracted_field_metadata_recursive(
             except ValidationError:
                 pass
         additional_fields = {
-            k: v
-            for k, v in field_value.items()
-            if k in _METADATA_FIELDS_SIBLING_TO_LEAF
+            k: v for k, v in field_value.items() if _is_reasoning_field(k, v)
         }
         return {
             k: _parse_extracted_field_metadata_recursive(v, additional_fields)
             for k, v in field_value.items()
-            if k not in _METADATA_FIELDS_SIBLING_TO_LEAF
+            if not _is_reasoning_field(k, v)
         }
     elif isinstance(field_value, list):
         return [_parse_extracted_field_metadata_recursive(item) for item in field_value]

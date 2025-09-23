@@ -1,25 +1,16 @@
-from collections.abc import Iterator
 from os import PathLike, fspath
 from typing import TYPE_CHECKING, Optional, Union
 
-from pydantic import StrictStr
-
-from snowflake.core import PollingOperation
-from snowflake.core._common import CreateMode, SchemaObjectCollectionParent, SchemaObjectReferenceMixin
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated, get_file, put_file
-from snowflake.core._operation import PollingOperations
-from snowflake.core.stage._generated.api import StageApi
-from snowflake.core.stage._generated.api_client import StoredProcApiClient
-from snowflake.core.stage._generated.models.stage import Stage
-from snowflake.core.stage._generated.models.stage_file import StageFile
+from snowflake.core.stage._generated.api.stage_api_base import StageCollectionBase, StageResourceBase
 
 
 if TYPE_CHECKING:
     from snowflake.core.schema import SchemaResource
 
 
-class StageCollection(SchemaObjectCollectionParent["StageResource"]):
+class StageCollection(StageCollectionBase):
     """Represents the collection operations on the Snowflake Stage resource.
 
     With this collection, you can create, iterate through, and fetch stages
@@ -36,220 +27,24 @@ class StageCollection(SchemaObjectCollectionParent["StageResource"]):
 
     def __init__(self, schema: "SchemaResource"):
         super().__init__(schema, StageResource)
-        self._api = StageApi(
-            root=self.root, resource_class=self._ref_class, sproc_client=StoredProcApiClient(root=self.root)
-        )
-
-    @api_telemetry
-    def create(self, stage: Stage, *, mode: CreateMode = CreateMode.error_if_exists) -> "StageResource":
-        """Create a stage in Snowflake.
-
-        Parameters
-        __________
-        stage: Stage
-            The ``Stage`` object, together with the ``Stage``'s properties:
-            name; kind, url, endpoint, storage_integration, comment, crendentials, encryption,
-            directory_table are optional.
-        mode: CreateMode, optional
-            One of the following enum values.
-
-            ``CreateMode.error_if_exists``: Throw an :class:`snowflake.core.exceptions.ConflictError`
-            if the stage already exists in Snowflake.  Equivalent to SQL ``create stage <name> ...``.
-
-            ``CreateMode.or_replace``: Replace if the stage already exists in Snowflake. Equivalent to SQL
-            ``create or replace stage <name> ...``.
-
-            ``CreateMode.if_not_exists``: Do nothing if the stage already exists in Snowflake.
-            Equivalent to SQL ``create stage <name> if not exists...``
-
-            Default is ``CreateMode.error_if_exists``.
-
-        Examples
-        ________
-        Creating a stage, replacing any existing stage with the same name:
-
-        >>> stages = root.databases["my_db"].schemas["my_schema"].stages
-        >>> new_stage = Stage(name="my_stage", comment="This is a stage")
-        >>> stages.create(new_stage, mode=CreateMode.or_replace)
-        """
-        real_mode = CreateMode[mode].value
-        self._api.create_stage(
-            self.database.name, self.schema.name, stage, create_mode=StrictStr(real_mode), async_req=False
-        )
-        return StageResource(stage.name, self)
-
-    @api_telemetry
-    def create_async(
-        self, stage: Stage, *, mode: CreateMode = CreateMode.error_if_exists
-    ) -> PollingOperation["StageResource"]:
-        """An asynchronous version of :func:`create`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        real_mode = CreateMode[mode].value
-        future = self._api.create_stage(
-            self.database.name, self.schema.name, stage, create_mode=StrictStr(real_mode), async_req=True
-        )
-        return PollingOperation(future, lambda _: StageResource(stage.name, self))
-
-    @api_telemetry
-    def iter(self, *, like: Optional[str] = None) -> Iterator[Stage]:
-        """Iterate through ``Stage`` objects from Snowflake, filtering on any optional 'like' pattern.
-
-        Parameters
-        _________
-        like: str, optional
-            A case-insensitive string functioning as a filter, with support for SQL
-            wildcard characters (% and _).
-
-        Examples
-        ________
-        Showing all stages that you have access to see:
-
-        >>> stages = stage_collection.iter()
-
-        Showing information of the exact stage you want to see:
-
-        >>> stages = stage_collection.iter(like="your-stage-name")
-
-        Showing stages starting with 'your-stage-name-':
-
-        >>> stages = stage_collection.iter(like="your-stage-name-%")
-
-        Using a for loop to retrieve information from iterator:
-
-        >>> for stage in stages:
-        ...     print(stage.name)
-        """
-        stages = self._api.list_stages(
-            database=self.database.name, var_schema=self.schema.name, like=like, async_req=False
-        )
-
-        return iter(stages)
-
-    @api_telemetry
-    def iter_async(self, *, like: Optional[str] = None) -> PollingOperation[Iterator[Stage]]:
-        """An asynchronous version of :func:`iter`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self._api.list_stages(
-            database=self.database.name, var_schema=self.schema.name, like=like, async_req=True
-        )
-        return PollingOperations.iterator(future)
 
 
-class StageResource(SchemaObjectReferenceMixin[StageCollection]):
+class StageResource(StageResourceBase):
     """Represents a reference to a Snowflake stage.
 
     With this stage reference, you can drop, list files, put files, get files,
     and fetch information about stages.
     """
 
+    _plural_name = "stages"
+
     def __init__(self, name: str, collection: StageCollection) -> None:
-        self.collection = collection
-        self.name = name
-
-    @api_telemetry
-    def fetch(self) -> Stage:
-        """Fetch the details of a stage.
-
-        Examples
-        ________
-        Fetching a reference to a stage to print its name:
-
-        >>> my_stage = stage_reference.fetch()
-        >>> print(my_stage.name)
-        """
-        return self.collection._api.fetch_stage(self.database.name, self.schema.name, self.name, async_req=False)
-
-    @api_telemetry
-    def fetch_async(self) -> PollingOperation[Stage]:
-        """An asynchronous version of :func:`fetch`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self.collection._api.fetch_stage(self.database.name, self.schema.name, self.name, async_req=True)
-        return PollingOperations.identity(future)
+        super().__init__(name, collection)
 
     @api_telemetry
     @deprecated("drop")
     def delete(self) -> None:
         self.drop()
-
-    @api_telemetry
-    def drop(self, if_exists: Optional[bool] = None) -> None:
-        """Drop this stage.
-
-        Parameters
-        __________
-        if_exists: bool, optional
-            Check the existence of this stage before suspending it.
-            Default is ``None``, which is equivalent to ``False``.
-
-        Examples
-        ________
-        Dropping a stage using its reference:
-
-        >>> stage_reference.drop()
-        """
-        self.collection._api.delete_stage(self.database.name, self.schema.name, self.name, if_exists, async_req=False)
-
-    @api_telemetry
-    def drop_async(self, if_exists: Optional[bool] = None) -> PollingOperation[None]:
-        """An asynchronous version of :func:`drop`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self.collection._api.delete_stage(
-            self.database.name, self.schema.name, self.name, if_exists, async_req=True
-        )
-        return PollingOperations.empty(future)
-
-    @api_telemetry
-    def list_files(self, *, pattern: Optional[str] = None) -> Iterator[StageFile]:
-        """List files in the stage, filtering on any optional 'pattern'.
-
-        Parameters
-        __________
-        pattern: str, optional
-            Specifies a regular expression pattern for filtering files from the output.
-
-        Examples
-        ________
-        Listing all files in the stage:
-
-        >>> files = stage_reference.list_files()
-
-        Listing files with a specific pattern:
-
-        >>> files = stage_reference.list_files(pattern=".*.txt")
-
-        Using a for loop to retrieve information from iterator:
-
-        >>> for file in files:
-        ...     print(file.name)
-        """
-        files = self.collection._api.list_files(
-            self.database.name, self.schema.name, self.name, pattern, async_req=False
-        )
-        return iter(files)
-
-    @api_telemetry
-    def list_files_async(self, *, pattern: Optional[str] = None) -> PollingOperation[Iterator[StageFile]]:
-        """An asynchronous version of :func:`list_files`.
-
-        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
-        the return type.
-        """  # noqa: D401
-        future = self.collection._api.list_files(
-            self.database.name, self.schema.name, self.name, pattern, async_req=True
-        )
-        return PollingOperations.iterator(future)
 
     @api_telemetry
     @deprecated("put")

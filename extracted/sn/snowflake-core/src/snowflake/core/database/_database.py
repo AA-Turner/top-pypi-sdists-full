@@ -7,12 +7,12 @@ from pydantic import StrictStr
 
 from snowflake.core import PollingOperation
 from snowflake.core._common import AccountObjectCollectionParent, Clone, CreateMode, ObjectReferenceMixin, PointOfTime
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated
 from snowflake.core._operation import PollingOperations
 from snowflake.core.database._generated import SuccessResponse
 from snowflake.core.database._generated.api import DatabaseApi
-from snowflake.core.database._generated.api_client import StoredProcApiClient
 from snowflake.core.database._generated.models.account_identifiers import AccountIdentifiers
 from snowflake.core.database._generated.models.database import DatabaseModel as Database
 from snowflake.core.database._generated.models.database_clone import DatabaseClone

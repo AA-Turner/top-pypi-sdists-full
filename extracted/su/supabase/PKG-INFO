@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supabase
-Version: 2.19.0
+Version: 2.20.0
 Summary: Supabase client for Python.
 Author: Joel Lee, Leon Fedden, Daniel Reinón García, Leynier Gutiérrez González, Anand, Andrew Smith
 Author-email: Joel Lee <joel@joellee.org>, Leon Fedden <leonfedden@gmail.com>, Daniel Reinón García <danielreinon@outlook.com>, Leynier Gutiérrez González <leynier41@gmail.com>, Andrew Smith <a.smith@silentworks.co.uk>

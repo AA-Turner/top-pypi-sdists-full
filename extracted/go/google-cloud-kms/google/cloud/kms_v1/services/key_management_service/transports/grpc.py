@@ -119,10 +119,10 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
     Manages cryptographic keys and operations using those keys.
     Implements a REST model with the following objects:
 
-    -  [KeyRing][google.cloud.kms.v1.KeyRing]
-    -  [CryptoKey][google.cloud.kms.v1.CryptoKey]
-    -  [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
-    -  [ImportJob][google.cloud.kms.v1.ImportJob]
+    - [KeyRing][google.cloud.kms.v1.KeyRing]
+    - [CryptoKey][google.cloud.kms.v1.CryptoKey]
+    - [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion]
+    - [ImportJob][google.cloud.kms.v1.ImportJob]
 
     If you are using manual gRPC libraries, see `Using gRPC with Cloud
     KMS <https://cloud.google.com/kms/docs/grpc>`__.
@@ -1165,6 +1165,38 @@ class KeyManagementServiceGrpcTransport(KeyManagementServiceTransport):
                 response_deserializer=service.MacVerifyResponse.deserialize,
             )
         return self._stubs["mac_verify"]
+
+    @property
+    def decapsulate(
+        self,
+    ) -> Callable[[service.DecapsulateRequest], service.DecapsulateResponse]:
+        r"""Return a callable for the decapsulate method over gRPC.
+
+        Decapsulates data that was encapsulated with a public key
+        retrieved from
+        [GetPublicKey][google.cloud.kms.v1.KeyManagementService.GetPublicKey]
+        corresponding to a
+        [CryptoKeyVersion][google.cloud.kms.v1.CryptoKeyVersion] with
+        [CryptoKey.purpose][google.cloud.kms.v1.CryptoKey.purpose]
+        KEY_ENCAPSULATION.
+
+        Returns:
+            Callable[[~.DecapsulateRequest],
+                    ~.DecapsulateResponse]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "decapsulate" not in self._stubs:
+            self._stubs["decapsulate"] = self._logged_channel.unary_unary(
+                "/google.cloud.kms.v1.KeyManagementService/Decapsulate",
+                request_serializer=service.DecapsulateRequest.serialize,
+                response_deserializer=service.DecapsulateResponse.deserialize,
+            )
+        return self._stubs["decapsulate"]
 
     @property
     def generate_random_bytes(

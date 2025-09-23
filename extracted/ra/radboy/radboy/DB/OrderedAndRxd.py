@@ -94,193 +94,119 @@ MOOD_STRING='''
 
 class OrderedAndRecieved(BASE,Template):
     '''
-    select an order date by name and date , and at a later date 
-    set the rx datetime
+    work notes
     '''
     __tablename__='OrderedAndRecieved'
-    Name=Column(String,default=None)
-    ForWhom=Column(String,default=None)
+    TitleOrSubject=Column(String,default=None)
+    NameForWhom=Column(String,default=None)
     Description=Column(String,default=None)
-    oarid=Column(Integer,primary_key=True)
+    AddressForWhom=Column(String,default=None)
+    RecieptId=Column(String,default=None)
+    NanoId=Column(String,default=None)
     dtoe=Column(DateTime,default=datetime.now())
 
+    #Organizational info.
+    payee_name=Column(String,default=None)
+    payor_name=Column(String,default=None)
+    what_is_the_address_worked_at=Column(String,default=None)
+    if_necessary_what_is_the_payors_address=Column(String,default=None)
+    did_the_payor_specify_restrictions_and_if_so_what_are_they=Column(String,default=None)
+    are_there_any_special_requirements_that_need_to_be_mentioned=Column(String,default=None)
+    was_this_for_a_residence=Column(Boolean,default=None)
+    was_this_for_a_business=Column(Boolean,default=None)
+    what_was_the_organizations_name=Column(String,default=None)
+    was_this_for_something_else=Column(String,default=None)
+    is_the_address_worked_at_owned_by_the_payor=Column(Boolean,default=None)
+    is_the_address_worked_at_lived_at_by_the_payor=Column(Boolean,default=None)
+    is_the_address_worked_at_a_bussiness_address=Column(Boolean,default=None)
+    is_the_address_worked_at_a_home_address=Column(Boolean,default=None)
+    #Contact info
+    payor_comments=Column(String,default=None)
+    payee_comments=Column(String,default=None)
+    payor_home_phone_1=Column(String,default=None)
+    payor_work_phone_1=Column(String,default=None)
+    payor_business_phone_1=Column(String,default=None)
+    payor_mobile_phone_1=Column(String,default=None)
+    payor_home_phone_2=Column(String,default=None)
+    payor_work_phone_2=Column(String,default=None)
+    payor_business_phone_2=Column(String,default=None)
+    payor_mobile_phone_2=Column(String,default=None)
+    payor_home_phone_3=Column(String,default=None)
+    payor_work_phone_3=Column(String,default=None)
+    payor_business_phone_3=Column(String,default=None)
+    payor_mobile_phone_3=Column(String,default=None)
+    payor_email_1=Column(String,default=None)
+    payor_fax_1=Column(String,default=None)
+    payor_email_2=Column(String,default=None)
+    payor_fax_2=Column(String,default=None)
+    payor_email_3=Column(String,default=None)
+    payor_fax_1_3=Column(String,default=None)
+
+    #segment 11 driving record
+    #678-659-9383
+    #dmv error processing unit
+    #let them know that i filled out my application on sept. 9.
+    How_are_wages_being_dispensed=Column(String,default=None)
+
+    RateOfPay=Column(Float,default=None)
+    RateOfPayComment=Column(Float,default=None)
+    RateOfPayBy=Column(String,default=None)
+
+    Amount_Paid=Column(Float,default=None)
+    Duration_For_Amount_Paid=Column(String,default=None)
+    Amount_Paid_Form=Column(String,default=None)
+
+    Paid_When_DT=Column(DateTime,default=None)
+    Shift_Started_DT=Column(DateTime,default=None)
+    Shift_Lunch_Start=Column(DateTime,default=None)
+    Shift_Lunch_End=Column(DateTime,default=None)
+    Shift_Ended_DT=Column(DateTime,default=None)
+    Shift_Labor_Breaks=Column(Text,default=None)
+    is_lunch_paid=Column(Boolean,default=None)
+    is_break_paid=Column(Boolean,default=None)
+
+    #schedule 
+    Was_This_A_Scheduled_Shift=Column(Boolean,default=None)
+    ScheduledShiftDTOE=Column(DateTime,default=None)
+    ScheduledDays=Column(String,default=None)
+    ScheduledShiftNotes=Column(String,default=None)
+    Assigned_Department=Column(String,default=None)
+    Departments_Handled_or_Touched=Column(Text,default=None)
+
+    #shift info
+    TasksPerformed=Column(Text,default=None)
+    TasksAssigned=Column(Text,default=None)
+    TasksNotes=Column(Text,default=None)
     order_dt=Column(DateTime,default=datetime.now())
     rx_dt=Column(DateTime,default=datetime.today()+timedelta(days=1))
+    #management
+    ManagerPresent=Column(Boolean,default=None)
+    Manager_Name=Column(Boolean,default=None)
+    ManagerNotes=Column(Text,default=None)
 
-    was_what_was_ordered_get_recieved=Column(Boolean,default=None)
-    frozen_pallets_rxd=Column(Integer,default=0)
-    grocery_pallets_rxd=Column(Integer,default=0)
-    variety_pallets_rxd=Column(Integer,default=0)
-    tote_pallets_rxd=Column(Integer,default=0)
-    bread_stacks_rxd=Column(Integer,default=0)
-    red_totes_rxd=Column(Integer,default=0)
+    SupervisorPresent=Column(Boolean,default=None)
+    SupervisorName=Column(String,default=None)
+    SupervisorNotes=Column(Text,default=None)
 
-    one_gallon_stacks_rxd=Column(Integer,default=0)
-    one_gallon_stacks_ordered=Column(Integer,default=0)
-    one_gallon_stacks_size=Column(Integer,default=5)
-    one_gallon_per_crate=Column(Integer,default=6)
+    PersonInChargePresent=Column(Boolean,default=None)
+    PersonInChargeName=Column(String,default=None)
+    PersonInChargeNotes=Column(Text,default=None)
 
-    two_and_half_gallon_stacks_rxd=Column(Integer,default=0)
-    two_and_half_gallon_stacks_ordered=Column(Integer,default=0)
-    two_and_half_gallon_stack_size=Column(Integer,default=5)
-    two_and_half_gallon_per_crate=Column(Integer,default=3)
+    MentalEpisode=Column(Boolean,default=None)
+    MentalEpisodeTotal=Column(Integer,default=None)
+    MentalEpisodeNotes=Column(Text,default=None)
 
-    one_gallon_crates_ordered=Column(Integer,default=0)
-    one_gallon_crates_rxd=Column(Integer,default=0)
-    one_gallon_per_crate=Column(Integer,default=6)
-    one_gallon_names=Column(String,default="distilled and/or spring water")
+    HealthViolations=Column(Boolean,default=None)
+    HealthViolationsTotal=Column(Integer,default=None)
+    HealthViolationsNotes=Column(Text,default=None)
 
-    two_and_half_gallon_crates_ordered=Column(Integer,default=0)
-    two_and_half_gallon_crates_rxd=Column(Integer,default=0)
-    two_and_half_gallon_per_crate=Column(Integer,default=3)
-    two_and_half_gallon_names=Column(String,default="distilled and/or spring water")
+    SafetyViolations=Column(Boolean,default=None)
+    SafetyViolationsTotal=Column(Integer,default=None)
+    SafetyViolationsNotes=Column(Text,default=None)
 
-    dairy_fluid_thrown=Column(Boolean,default=False)
-    dairy_fluid_dropped=Column(Boolean,default=False)
-    dairy_crated_fluids_thrown=Column(Boolean,default=False)
-    dairy_cmt=Column(String,default='')
-
-    was_frozen_assisted=Column(Boolean,default=False)
-    frozne_load_thrown=Column(Boolean,default=False)
-    frozne_load_dropped=Column(Boolean,default=False)
-    frozne_load_broken=Column(Boolean,default=False) 
-    frozen_old_load_broken=Column(Boolean,default=False)
-    frozen_old_load_broken=Column(Boolean,default=False)
-    frozen_old_load_cmt=Column(String,default='')
-    sixteen_lb_ice_thrown=Column(Boolean,default=False)
-    nine_lb_ice_thrown=Column(Boolean,default=False)
-    frozen_cmt=Column(String,default='')
-
-    empty_pallets_exported=Column(Integer,default=0)
-    crate_pallets_exported=Column(Integer,default=0)
-    bales_exported=Column(Integer,default=0)
-    bales_tied=Column(Integer,default=0)
-
-    beverage_pallets_restacked=Column(Integer,default=0)
-    beverage_pallets_restacked_cmt=Column(String,default='')
-
-    meat_barrel_pallets_exported=Column(Integer,default=0)
-
-    produce__waxbins_exported=Column(Integer,default=0)
-    produce_waxbins_constructed=Column(Integer,default=0)
-    produce_compost_bins_exported=Column(Integer,default=0)
-    produce_compost_bins_constructed=Column(Integer,default=0)
-    produce_foldable_crate_pallets_exported=Column(Integer,default=0)
-
-    sick_calls_total=Column(Integer,default=0)
-    sick_calls_cmt=Column(String,default='')
-
-    workers_present=Column(String,default='')
-    workers_present_cmt=Column(String,default='')
-
-    was_hallway_cleared=Column(Boolean,default=False)
-    was_hallway_cleared_cmt=Column(String,default='')
-
-    DT_punched_in=Column(DateTime,default=None)
-    DT_out_of_recieving=Column(DateTime,default=None)
-    DT_first_break=Column(DateTime,default=None)
-    DT_on_aisle_from_first_break=Column(DateTime,default=None)
-    DT_to_lunch=Column(DateTime,default=None)
-    DT_from_lunch=Column(DateTime,default=None)
-    DT_punched_out=Column(DateTime,default=None)
-    DT_grocery_breakdown_finished=Column(DateTime,default=None)
-    DT_frozen_breakdown_finished=Column(DateTime,default=None)
-
-    clocked_in_early=Column(Boolean,default=False)
-    clocked_in_late=Column(Boolean,default=False)
-    clocked_out_early=Column(Boolean,default=False)
-    clocked_out_late=Column(Boolean,default=False)
-    lunch_out_early=Column(Boolean,default=False)
-    lunch_in_early=Column(Boolean,default=False)
-    lunch_out_late=Column(Boolean,default=False)
-    lunch_in_late=Column(Boolean,default=False)
-
-    assisted_deli=Column(Boolean,default=False)
-    assisted_deli_with=Column(String,default='')
-
-    rate_your_anger_0_to_10=Column(Integer,default=0)
-    rate_your_anxiety_0_to_10=Column(Integer,default=0)
-    rate_your_mood_0_to_10=Column(Integer,default=0)
-    rate_your_energy_0_to_10=Column(Integer,default=0)
-    rate_your_worriedness_0_to_10=Column(Integer,default=0)
-    personal_comment_related_to_rating=Column(String,default=MOOD_STRING)
-
-    was_receiving_assisted=Column(Boolean,default=False)
-    recieving_comments=Column(Text,default=None)
-    reciever_name=Column(String,default='')
-    reciever_present_by_dt=Column(DateTime,default=None)
-    was_there_a_reciever=Column(Boolean,default=False)
-
-    was_gm_assisted=Column(Boolean,default=False)
-    gm_comments=Column(Text,default=None)
-    gm_manager_name=Column(String,default='')
-    gm_manager_present_by_dt=Column(DateTime,default=None)
-    was_there_a_gm_manager=Column(Boolean,default=False)
-
-    was_liquor_assisted=Column(Boolean,default=False)
-    liquor_comments=Column(Text,default=None)
-    liquor_manager_name=Column(String,default='')
-    liquor_manager_present_by_dt=Column(DateTime,default=None)
-    was_there_a_liquor_manager=Column(Boolean,default=False)
-
-    was_grocery_assisted=Column(Boolean,default=False)
-    grocery_comments=Column(Text,default=None)
-    grocery_manager_name=Column(String,default='')
-    grocery_manager_present_by_dt=Column(DateTime,default=None)
-    was_there_a_grocery_manager=Column(Boolean,default=False)
-
-    was_dairy_assisted=Column(Boolean,default=False)
-    dairy_comments=Column(Text,default=None)
-    dairy_manager_name=Column(String,default='')
-    dairy_manager_present_by_dt=Column(DateTime,default=None)
-    was_there_a_dairy_manager=Column(Boolean,default=False)
-
-    was_meat_department_assisted=Column(Boolean,default=False)
-    meat_department_comments=Column(Text,default=None)
-    meat_department_manager_name=Column(String,default='')
-    meat_department_manager_present_by_dt=Column(DateTime,default=None)
-    was_there_a_meat_department_manager=Column(Boolean,default=False)
-
-    was_deli_assisted=Column(Boolean,default=False)
-    deli_comments=Column(Text,default=None)
-    deli_manager_name=Column(String,default='')
-    deli_manager_present_by_dt=Column(DateTime,default=None)
-    was_there_a_deli_manager=Column(Boolean,default=False)
-
-    was_bakery_assisted=Column(Boolean,default=False)
-    bakery_comments=Column(Text,default=None)
-    bakery_manager_name=Column(String,default='')
-    #Column(String,default=None)
-    bakery_manager_present_by_dt=Column(DateTime,default=None)
-    was_there_a_bakery_manager=Column(Boolean,default=False)
-
-    did_you_deliver_general_merchadise=Column(String,default=None)
-    did_you_break_down_general_merchandise=Column(String,default=None)
-    did_throw_general_merchandise=Column(String,default=None)
-    did_you_face_general_merchandise=Column(String,default=None)
-    did_you_face_endcaps_frontend_displays=Column(String,default=None)
-    did_you_deliver_tote_pallets=Column(String,default=None)
-    did_you_deliver_bread_stacks=Column(String,default=None)
-    did_you_deliver_red_totes_to_icc=Column(String,default=None)
-    did_deliver_warehouse39=Column(String,default=None)
-    did_you_deliver_kehe=Column(String,default=None)
-    did_you_throw_kehe=Column(String,default=None)
-    did_you_break_down_kehe=Column(String,default=None)
-    did_you_break_down_warehouse39=Column(String,default=None)
-    did_you_throw_warehouse39=Column(String,default=None)
-    did_deliver_bakery_items=Column(String,default=None)
-    did_you_deliver_meat_items=Column(String,default=None)
-    did_you_deliver_deli_items=Column(String,default=None)
-    did_you_deliver_starbucks_items=Column(String,default=None)
-    did_you_deliver_anything_to_file_maintenance=Column(String,default=None)
-    did_you_deliver_anything_to_the_front_end_or_customer_service=Column(String,default=None)
-    did_you_condense_beverage=Column(String,default=None)
-    did_you_deliver_anything_for_anyother_department_other_than_assigned=Column(String,default=None)
-    your_assigned_department=Column(String,default=None)
-
-
-    comment=Column(String,default='')
-    
+    web_links=Column(Text,default=None)
+    comment=Column(String,default=None)
+    oarid=Column(Integer,primary_key=True)
     def __init__(self,*args,**kwargs):
         for k in kwargs:
             if k in [i.name for i in self.__table__.columns]:

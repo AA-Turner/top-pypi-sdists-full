@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING
 
 from snowflake.core import PollingOperation
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._internal.utils import deprecated
 from snowflake.core.cortex.lite_agent_service._generated.api import CortexLiteAgentApi
-from snowflake.core.cortex.lite_agent_service._generated.api_client import StoredProcApiClient
 from snowflake.core.cortex.lite_agent_service._generated.models import AgentRunRequest
 from snowflake.core.rest import SSEClient
 

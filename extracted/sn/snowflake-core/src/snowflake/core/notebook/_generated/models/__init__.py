@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Notebook API
+Snowflake Notebook API.
 
 The Snowflake Notebook API is a REST API that you can use to access, update, and perform certain actions on Notebook resource in a Snowflake database.  # noqa: E501
 

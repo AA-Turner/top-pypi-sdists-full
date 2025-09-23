@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Alert API
+Snowflake Alert API.
 
 The Snowflake Alert API is a REST API that you can use to access, update, and perform certain actions on Alert resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.alert._generated.api.alert_api import AlertApi
-
-# import ApiClient
-from snowflake.core.alert._generated.api_client import ApiClient
-from snowflake.core.alert._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.alert._generated.models.alert import Alert

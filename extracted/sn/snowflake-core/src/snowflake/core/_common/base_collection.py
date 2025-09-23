@@ -44,6 +44,14 @@ class ObjectCollection(ObjectCollectionBC, Generic[T]):
     def values(self) -> ValuesView[T]:
         return self._items.values()
 
+    def update_reference(self, old_name: str, new_name: str, resource: T) -> None:
+        """Update the collection with a new item."""
+        if not isinstance(resource, self._ref_class):
+            raise TypeError(f"Expected instance of {self._ref_class.__name__}, got {type(resource).__name__}")
+        self._items[new_name] = resource
+        if old_name in self._items:
+            del self._items[old_name]
+
 
 class ObjectReferenceProtocol(Protocol[T]):
     @property

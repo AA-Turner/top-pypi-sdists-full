@@ -2,6 +2,7 @@
 
 import os
 import re
+import secrets
 import shutil
 from dataclasses import dataclass
 from typing import Any
@@ -33,6 +34,63 @@ except ImportError:
     from ui import fns
     from ui.run_detail import run_detail_page
     from ui.runs import run_page
+
+
+INSTRUCTIONS_SPACES = """
+## Start logging with Trackio 🤗
+
+To start logging to this Trackio dashboard, first make sure you have the Trackio library installed. You can do this by running:
+
+```bash
+pip install trackio
+```
+
+Then, start logging to this Trackio dashboard by passing in the `space_id` to `trackio.init()`:
+
+```python
+import trackio
+trackio.init(project="my-project", space_id="{}")
+```
+
+Then call `trackio.log()` to log metrics.
+
+```python
+for i in range(10):
+    trackio.log({{"loss": 1/(i+1)}})
+```
+
+Finally, call `trackio.finish()` to finish the run.
+
+```python
+trackio.finish()
+```
+"""
+
+INSTRUCTIONS_LOCAL = """
+## Start logging with Trackio 🤗
+ 
+You can create a new project by calling `trackio.init()`:
+
+```python
+import trackio
+trackio.init(project="my-project")
+ ```
+
+Then call `trackio.log()` to log metrics.
+
+```python
+for i in range(10):
+    trackio.log({"loss": 1/(i+1)})
+```
+
+Finally, call `trackio.finish()` to finish the run.
+
+```python
+trackio.finish()
+```
+
+Read the [Trackio documentation](https://huggingface.co/docs/trackio/en/index) for more examples.
+"""
 
 
 def get_runs(project) -> list[str]:
@@ -741,6 +799,10 @@ with gr.Blocks(title="Trackio Dashboard", css=css, head=javascript) as demo:
             master_df = pd.DataFrame()
 
         if master_df.empty:
+            if space_id := os.environ.get("SPACE_ID"):
+                gr.Markdown(INSTRUCTIONS_SPACES.format(space_id))
+            else:
+                gr.Markdown(INSTRUCTIONS_LOCAL)
             return
 
         x_column = "step"
@@ -932,6 +994,11 @@ with demo.route("Runs", show_in_navbar=False):
     run_page.render()
 with demo.route("Run", show_in_navbar=False):
     run_detail_page.render()
+
+write_token = secrets.token_urlsafe(32)
+demo.write_token = write_token
+run_page.write_token = write_token
+run_detail_page.write_token = write_token
 
 if __name__ == "__main__":
     demo.launch(allowed_paths=[utils.TRACKIO_LOGO_DIR], show_api=False, show_error=True)

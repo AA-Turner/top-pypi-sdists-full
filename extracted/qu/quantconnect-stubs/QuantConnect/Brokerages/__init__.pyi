@@ -3624,6 +3624,20 @@ class BrokerageExtensions(System.Object):
         """
         ...
 
+    @staticmethod
+    def validate_market_on_open_order(security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, get_market_on_open_allowed_window: typing.Callable[[QuantConnect.Securities.MarketHoursSegment], System.ValueTuple[System.TimeOnly, System.TimeOnly]], supported_security_types: System.Collections.Generic.IReadOnlySet[QuantConnect.SecurityType], message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Validates whether a OrderType.MarketOnOpen order.
+        
+        :param security: The security associated with the order.
+        :param order: The order to validate.
+        :param get_market_on_open_allowed_window: A delegate that takes a MarketHoursSegment and returns the allowed Market-on-Open submission window as a TimeOnly tuple (start, end).
+        :param supported_security_types: The set of SecurityType values allowed for OrderType.MarketOnOpen orders.
+        :param message: An output BrokerageMessageEvent containing the reason the order is invalid if the check fails; otherwise null.
+        :returns: true if the order may be submitted within the given window; otherwise false.
+        """
+        ...
+
 
 class CoinbaseBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
     """

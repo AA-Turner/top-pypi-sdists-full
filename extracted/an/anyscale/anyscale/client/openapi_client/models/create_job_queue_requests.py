@@ -40,7 +40,8 @@ class CreateJobQueueRequests(object):
         'max_concurrency': 'int',
         'idle_timeout_sec': 'int',
         'auto_termination_threshold_job_count': 'int',
-        'project_id': 'str'
+        'project_id': 'str',
+        'tags': 'dict(str, str)'
     }
 
     attribute_map = {
@@ -51,10 +52,11 @@ class CreateJobQueueRequests(object):
         'max_concurrency': 'max_concurrency',
         'idle_timeout_sec': 'idle_timeout_sec',
         'auto_termination_threshold_job_count': 'auto_termination_threshold_job_count',
-        'project_id': 'project_id'
+        'project_id': 'project_id',
+        'tags': 'tags'
     }
 
-    def __init__(self, job_queue_name=None, execution_mode=None, compute_config_id=None, cluster_environment_build_id=None, max_concurrency=1, idle_timeout_sec=None, auto_termination_threshold_job_count=None, project_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, job_queue_name=None, execution_mode=None, compute_config_id=None, cluster_environment_build_id=None, max_concurrency=1, idle_timeout_sec=None, auto_termination_threshold_job_count=None, project_id=None, tags=None, local_vars_configuration=None):  # noqa: E501
         """CreateJobQueueRequests - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -68,6 +70,7 @@ class CreateJobQueueRequests(object):
         self._idle_timeout_sec = None
         self._auto_termination_threshold_job_count = None
         self._project_id = None
+        self._tags = None
         self.discriminator = None
 
         if job_queue_name is not None:
@@ -82,6 +85,8 @@ class CreateJobQueueRequests(object):
         if auto_termination_threshold_job_count is not None:
             self.auto_termination_threshold_job_count = auto_termination_threshold_job_count
         self.project_id = project_id
+        if tags is not None:
+            self.tags = tags
 
     @property
     def job_queue_name(self):
@@ -274,6 +279,29 @@ class CreateJobQueueRequests(object):
             raise ValueError("Invalid value for `project_id`, must not be `None`")  # noqa: E501
 
         self._project_id = project_id
+
+    @property
+    def tags(self):
+        """Gets the tags of this CreateJobQueueRequests.  # noqa: E501
+
+        Tags to associate with the job queue  # noqa: E501
+
+        :return: The tags of this CreateJobQueueRequests.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this CreateJobQueueRequests.
+
+        Tags to associate with the job queue  # noqa: E501
+
+        :param tags: The tags of this CreateJobQueueRequests.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._tags = tags
 
     def to_dict(self):
         """Returns the model properties as a dict"""

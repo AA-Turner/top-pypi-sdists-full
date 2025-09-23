@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Cortex Chat API
+Cortex Chat API.
 
 OpenAPI 3.0 specification for the Cortex Chat API  # noqa: E501
 

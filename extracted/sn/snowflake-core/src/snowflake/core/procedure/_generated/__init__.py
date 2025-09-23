@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Procedure API
+Snowflake Procedure API.
 
 The Snowflake Procedure API is a REST API that you can use to access, update, and perform certain actions on Procedure resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.procedure._generated.api.procedure_api import ProcedureApi
-
-# import ApiClient
-from snowflake.core.procedure._generated.api_client import ApiClient
-from snowflake.core.procedure._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.procedure._generated.models.argument import Argument

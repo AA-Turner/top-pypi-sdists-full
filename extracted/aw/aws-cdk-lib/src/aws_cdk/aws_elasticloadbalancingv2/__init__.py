@@ -771,6 +771,28 @@ ipv6_network_target_group = elbv2.NetworkTargetGroup(self, "Ipv6NetworkTargetGro
 )
 ```
 
+### Target Group level health setting for Application Load Balancers and Network Load Balancers
+
+You can set target group health setting at target group level by setting `targetGroupHealth` property.
+
+For more information, see [How Elastic Load Balancing works](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes).
+
+```python
+# vpc: ec2.Vpc
+
+
+target_group = elbv2.ApplicationTargetGroup(self, "TargetGroup",
+    vpc=vpc,
+    port=80,
+    target_group_health=elbv2.TargetGroupHealth(
+        dns_minimum_healthy_target_count=3,
+        dns_minimum_healthy_target_percentage=70,
+        routing_minimum_healthy_target_count=2,
+        routing_minimum_healthy_target_percentage=50
+    )
+)
+```
+
 ## Using Lambda Targets
 
 To use a Lambda Function as a target, use the integration class in the
@@ -3564,6 +3586,7 @@ class BaseNetworkListenerProps:
         "deregistration_delay": "deregistrationDelay",
         "health_check": "healthCheck",
         "ip_address_type": "ipAddressType",
+        "target_group_health": "targetGroupHealth",
         "target_group_name": "targetGroupName",
         "target_type": "targetType",
         "vpc": "vpc",
@@ -3577,6 +3600,7 @@ class BaseTargetGroupProps:
         deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
         health_check: typing.Optional[typing.Union["HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional["TargetGroupIpAddressType"] = None,
+        target_group_health: typing.Optional[typing.Union["TargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional["TargetType"] = None,
         vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -3587,6 +3611,7 @@ class BaseTargetGroupProps:
         :param deregistration_delay: The amount of time for Elastic Load Balancing to wait before deregistering a target. The range is 0-3600 seconds. Default: 300
         :param health_check: Health check configuration. Default: - The default value for each property in this configuration varies depending on the target.
         :param ip_address_type: The type of IP addresses of the targets registered with the target group. Default: undefined - ELB defaults to IPv4
+        :param target_group_health: Configuring target group health. Default: - use default configuration
         :param target_group_name: The name of the target group. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen. Default: - Automatically generated.
         :param target_type: The type of targets registered to this TargetGroup, either IP or Instance. All targets registered into the group must be of this type. If you register targets to the TargetGroup in the CDK app, the TargetType is determined automatically. Default: - Determined automatically.
         :param vpc: The virtual private cloud (VPC). only if ``TargetType`` is ``Ip`` or ``InstanceId`` Default: - undefined
@@ -3619,6 +3644,12 @@ class BaseTargetGroupProps:
                     unhealthy_threshold_count=123
                 ),
                 ip_address_type=elbv2.TargetGroupIpAddressType.IPV4,
+                target_group_health=elbv2.TargetGroupHealth(
+                    dns_minimum_healthy_target_count=123,
+                    dns_minimum_healthy_target_percentage=123,
+                    routing_minimum_healthy_target_count=123,
+                    routing_minimum_healthy_target_percentage=123
+                ),
                 target_group_name="targetGroupName",
                 target_type=elbv2.TargetType.INSTANCE,
                 vpc=vpc
@@ -3626,12 +3657,15 @@ class BaseTargetGroupProps:
         '''
         if isinstance(health_check, dict):
             health_check = HealthCheck(**health_check)
+        if isinstance(target_group_health, dict):
+            target_group_health = TargetGroupHealth(**target_group_health)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5e7f5d87f70cb030d7ac44f4637a5d73814a6c8b1c1bff9adf19ede879e36bb)
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument target_group_health", value=target_group_health, expected_type=type_hints["target_group_health"])
             check_type(argname="argument target_group_name", value=target_group_name, expected_type=type_hints["target_group_name"])
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
@@ -3644,6 +3678,8 @@ class BaseTargetGroupProps:
             self._values["health_check"] = health_check
         if ip_address_type is not None:
             self._values["ip_address_type"] = ip_address_type
+        if target_group_health is not None:
+            self._values["target_group_health"] = target_group_health
         if target_group_name is not None:
             self._values["target_group_name"] = target_group_name
         if target_type is not None:
@@ -3692,6 +3728,17 @@ class BaseTargetGroupProps:
         '''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional["TargetGroupIpAddressType"], result)
+
+    @builtins.property
+    def target_group_health(self) -> typing.Optional["TargetGroupHealth"]:
+        '''Configuring target group health.
+
+        :default: - use default configuration
+
+        :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes
+        '''
+        result = self._values.get("target_group_health")
+        return typing.cast(typing.Optional["TargetGroupHealth"], result)
 
     @builtins.property
     def target_group_name(self) -> typing.Optional[builtins.str]:
@@ -13435,6 +13482,7 @@ class NetworkLoadBalancerProps(BaseLoadBalancerProps):
         "deregistration_delay": "deregistrationDelay",
         "health_check": "healthCheck",
         "ip_address_type": "ipAddressType",
+        "target_group_health": "targetGroupHealth",
         "target_group_name": "targetGroupName",
         "target_type": "targetType",
         "vpc": "vpc",
@@ -13454,6 +13502,7 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
         health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional["TargetGroupIpAddressType"] = None,
+        target_group_health: typing.Optional[typing.Union["TargetGroupHealth", typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional["TargetType"] = None,
         vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -13470,6 +13519,7 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         :param deregistration_delay: The amount of time for Elastic Load Balancing to wait before deregistering a target. The range is 0-3600 seconds. Default: 300
         :param health_check: Health check configuration. Default: - The default value for each property in this configuration varies depending on the target.
         :param ip_address_type: The type of IP addresses of the targets registered with the target group. Default: undefined - ELB defaults to IPv4
+        :param target_group_health: Configuring target group health. Default: - use default configuration
         :param target_group_name: The name of the target group. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen. Default: - Automatically generated.
         :param target_type: The type of targets registered to this TargetGroup, either IP or Instance. All targets registered into the group must be of this type. If you register targets to the TargetGroup in the CDK app, the TargetType is determined automatically. Default: - Determined automatically.
         :param vpc: The virtual private cloud (VPC). only if ``TargetType`` is ``Ip`` or ``InstanceId`` Default: - undefined
@@ -13517,12 +13567,15 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         '''
         if isinstance(health_check, dict):
             health_check = HealthCheck(**health_check)
+        if isinstance(target_group_health, dict):
+            target_group_health = TargetGroupHealth(**target_group_health)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5f1086cffe813b24d7b8ff7c124bffc37ca7e22afda9f6af7ad869d92f7c65b2)
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument target_group_health", value=target_group_health, expected_type=type_hints["target_group_health"])
             check_type(argname="argument target_group_name", value=target_group_name, expected_type=type_hints["target_group_name"])
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
@@ -13543,6 +13596,8 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
             self._values["health_check"] = health_check
         if ip_address_type is not None:
             self._values["ip_address_type"] = ip_address_type
+        if target_group_health is not None:
+            self._values["target_group_health"] = target_group_health
         if target_group_name is not None:
             self._values["target_group_name"] = target_group_name
         if target_type is not None:
@@ -13601,6 +13656,17 @@ class NetworkTargetGroupProps(BaseTargetGroupProps):
         '''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional["TargetGroupIpAddressType"], result)
+
+    @builtins.property
+    def target_group_health(self) -> typing.Optional["TargetGroupHealth"]:
+        '''Configuring target group health.
+
+        :default: - use default configuration
+
+        :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes
+        '''
+        result = self._values.get("target_group_health")
+        return typing.cast(typing.Optional["TargetGroupHealth"], result)
 
     @builtins.property
     def target_group_name(self) -> typing.Optional[builtins.str]:
@@ -14843,6 +14909,126 @@ class _TargetGroupBaseProxy(TargetGroupBase):
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, TargetGroupBase).__jsii_proxy_class__ = lambda : _TargetGroupBaseProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TargetGroupHealth",
+    jsii_struct_bases=[],
+    name_mapping={
+        "dns_minimum_healthy_target_count": "dnsMinimumHealthyTargetCount",
+        "dns_minimum_healthy_target_percentage": "dnsMinimumHealthyTargetPercentage",
+        "routing_minimum_healthy_target_count": "routingMinimumHealthyTargetCount",
+        "routing_minimum_healthy_target_percentage": "routingMinimumHealthyTargetPercentage",
+    },
+)
+class TargetGroupHealth:
+    def __init__(
+        self,
+        *,
+        dns_minimum_healthy_target_count: typing.Optional[jsii.Number] = None,
+        dns_minimum_healthy_target_percentage: typing.Optional[jsii.Number] = None,
+        routing_minimum_healthy_target_count: typing.Optional[jsii.Number] = None,
+        routing_minimum_healthy_target_percentage: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for configuring a target group health.
+
+        :param dns_minimum_healthy_target_count: The minimum number of targets that must be healthy for DNS failover. If below this value, mark the zone as unhealthy in DNS. Use 0 for "off". Default: 1
+        :param dns_minimum_healthy_target_percentage: The minimum percentage of targets that must be healthy for DNS failover. If below this value, mark the zone as unhealthy in DNS. Use 0 for "off". Default: 0
+        :param routing_minimum_healthy_target_count: The minimum number of targets that must be healthy for unhealthy state routing. If below this value, send traffic to all targets including unhealthy ones. Default: 1
+        :param routing_minimum_healthy_target_percentage: The minimum percentage of targets that must be healthy for unhealthy state routing. If below this value, send traffic to all targets including unhealthy ones. Use 0 for "off". Default: 0
+
+        :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes
+        :exampleMetadata: infused
+
+        Example::
+
+            # vpc: ec2.Vpc
+            
+            
+            target_group = elbv2.ApplicationTargetGroup(self, "TargetGroup",
+                vpc=vpc,
+                port=80,
+                target_group_health=elbv2.TargetGroupHealth(
+                    dns_minimum_healthy_target_count=3,
+                    dns_minimum_healthy_target_percentage=70,
+                    routing_minimum_healthy_target_count=2,
+                    routing_minimum_healthy_target_percentage=50
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50b92a6e3fb50861786c29f006a421debbe4bf2e446caaef18d21a99c0e35f73)
+            check_type(argname="argument dns_minimum_healthy_target_count", value=dns_minimum_healthy_target_count, expected_type=type_hints["dns_minimum_healthy_target_count"])
+            check_type(argname="argument dns_minimum_healthy_target_percentage", value=dns_minimum_healthy_target_percentage, expected_type=type_hints["dns_minimum_healthy_target_percentage"])
+            check_type(argname="argument routing_minimum_healthy_target_count", value=routing_minimum_healthy_target_count, expected_type=type_hints["routing_minimum_healthy_target_count"])
+            check_type(argname="argument routing_minimum_healthy_target_percentage", value=routing_minimum_healthy_target_percentage, expected_type=type_hints["routing_minimum_healthy_target_percentage"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if dns_minimum_healthy_target_count is not None:
+            self._values["dns_minimum_healthy_target_count"] = dns_minimum_healthy_target_count
+        if dns_minimum_healthy_target_percentage is not None:
+            self._values["dns_minimum_healthy_target_percentage"] = dns_minimum_healthy_target_percentage
+        if routing_minimum_healthy_target_count is not None:
+            self._values["routing_minimum_healthy_target_count"] = routing_minimum_healthy_target_count
+        if routing_minimum_healthy_target_percentage is not None:
+            self._values["routing_minimum_healthy_target_percentage"] = routing_minimum_healthy_target_percentage
+
+    @builtins.property
+    def dns_minimum_healthy_target_count(self) -> typing.Optional[jsii.Number]:
+        '''The minimum number of targets that must be healthy for DNS failover.
+
+        If below this value, mark the zone as unhealthy in DNS.
+        Use 0 for "off".
+
+        :default: 1
+        '''
+        result = self._values.get("dns_minimum_healthy_target_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def dns_minimum_healthy_target_percentage(self) -> typing.Optional[jsii.Number]:
+        '''The minimum percentage of targets that must be healthy for DNS failover.
+
+        If below this value, mark the zone as unhealthy in DNS.
+        Use 0 for "off".
+
+        :default: 0
+        '''
+        result = self._values.get("dns_minimum_healthy_target_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def routing_minimum_healthy_target_count(self) -> typing.Optional[jsii.Number]:
+        '''The minimum number of targets that must be healthy for unhealthy state routing.
+
+        If below this value, send traffic to all targets including unhealthy ones.
+
+        :default: 1
+        '''
+        result = self._values.get("routing_minimum_healthy_target_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def routing_minimum_healthy_target_percentage(self) -> typing.Optional[jsii.Number]:
+        '''The minimum percentage of targets that must be healthy for unhealthy state routing.
+
+        If below this value, send traffic to all targets including unhealthy ones.
+        Use 0 for "off".
+
+        :default: 0
+        '''
+        result = self._values.get("routing_minimum_healthy_target_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TargetGroupHealth(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_elasticloadbalancingv2.TargetGroupIpAddressType")
@@ -17118,6 +17304,7 @@ class ApplicationLoadBalancerProps(BaseLoadBalancerProps):
         "deregistration_delay": "deregistrationDelay",
         "health_check": "healthCheck",
         "ip_address_type": "ipAddressType",
+        "target_group_health": "targetGroupHealth",
         "target_group_name": "targetGroupName",
         "target_type": "targetType",
         "vpc": "vpc",
@@ -17141,6 +17328,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
         health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+        target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional[TargetType] = None,
         vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -17161,6 +17349,7 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         :param deregistration_delay: The amount of time for Elastic Load Balancing to wait before deregistering a target. The range is 0-3600 seconds. Default: 300
         :param health_check: Health check configuration. Default: - The default value for each property in this configuration varies depending on the target.
         :param ip_address_type: The type of IP addresses of the targets registered with the target group. Default: undefined - ELB defaults to IPv4
+        :param target_group_health: Configuring target group health. Default: - use default configuration
         :param target_group_name: The name of the target group. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen. Default: - Automatically generated.
         :param target_type: The type of targets registered to this TargetGroup, either IP or Instance. All targets registered into the group must be of this type. If you register targets to the TargetGroup in the CDK app, the TargetType is determined automatically. Default: - Determined automatically.
         :param vpc: The virtual private cloud (VPC). only if ``TargetType`` is ``Ip`` or ``InstanceId`` Default: - undefined
@@ -17196,12 +17385,15 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         '''
         if isinstance(health_check, dict):
             health_check = HealthCheck(**health_check)
+        if isinstance(target_group_health, dict):
+            target_group_health = TargetGroupHealth(**target_group_health)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fbf37aa0a91cb985ce7a336a6188364cc38400538c1653e53453287c780e881)
             check_type(argname="argument cross_zone_enabled", value=cross_zone_enabled, expected_type=type_hints["cross_zone_enabled"])
             check_type(argname="argument deregistration_delay", value=deregistration_delay, expected_type=type_hints["deregistration_delay"])
             check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
             check_type(argname="argument ip_address_type", value=ip_address_type, expected_type=type_hints["ip_address_type"])
+            check_type(argname="argument target_group_health", value=target_group_health, expected_type=type_hints["target_group_health"])
             check_type(argname="argument target_group_name", value=target_group_name, expected_type=type_hints["target_group_name"])
             check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
             check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
@@ -17224,6 +17416,8 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
             self._values["health_check"] = health_check
         if ip_address_type is not None:
             self._values["ip_address_type"] = ip_address_type
+        if target_group_health is not None:
+            self._values["target_group_health"] = target_group_health
         if target_group_name is not None:
             self._values["target_group_name"] = target_group_name
         if target_type is not None:
@@ -17292,6 +17486,17 @@ class ApplicationTargetGroupProps(BaseTargetGroupProps):
         '''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[TargetGroupIpAddressType], result)
+
+    @builtins.property
+    def target_group_health(self) -> typing.Optional[TargetGroupHealth]:
+        '''Configuring target group health.
+
+        :default: - use default configuration
+
+        :see: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-attributes
+        '''
+        result = self._values.get("target_group_health")
+        return typing.cast(typing.Optional[TargetGroupHealth], result)
 
     @builtins.property
     def target_group_name(self) -> typing.Optional[builtins.str]:
@@ -24765,6 +24970,7 @@ class NetworkTargetGroup(
         deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
         health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+        target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional[TargetType] = None,
         vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -24782,6 +24988,7 @@ class NetworkTargetGroup(
         :param deregistration_delay: The amount of time for Elastic Load Balancing to wait before deregistering a target. The range is 0-3600 seconds. Default: 300
         :param health_check: Health check configuration. Default: - The default value for each property in this configuration varies depending on the target.
         :param ip_address_type: The type of IP addresses of the targets registered with the target group. Default: undefined - ELB defaults to IPv4
+        :param target_group_health: Configuring target group health. Default: - use default configuration
         :param target_group_name: The name of the target group. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen. Default: - Automatically generated.
         :param target_type: The type of targets registered to this TargetGroup, either IP or Instance. All targets registered into the group must be of this type. If you register targets to the TargetGroup in the CDK app, the TargetType is determined automatically. Default: - Determined automatically.
         :param vpc: The virtual private cloud (VPC). only if ``TargetType`` is ``Ip`` or ``InstanceId`` Default: - undefined
@@ -24801,6 +25008,7 @@ class NetworkTargetGroup(
             deregistration_delay=deregistration_delay,
             health_check=health_check,
             ip_address_type=ip_address_type,
+            target_group_health=target_group_health,
             target_group_name=target_group_name,
             target_type=target_type,
             vpc=vpc,
@@ -27042,6 +27250,7 @@ class ApplicationTargetGroup(
         deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
         health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
         ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+        target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
         target_group_name: typing.Optional[builtins.str] = None,
         target_type: typing.Optional[TargetType] = None,
         vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -27063,6 +27272,7 @@ class ApplicationTargetGroup(
         :param deregistration_delay: The amount of time for Elastic Load Balancing to wait before deregistering a target. The range is 0-3600 seconds. Default: 300
         :param health_check: Health check configuration. Default: - The default value for each property in this configuration varies depending on the target.
         :param ip_address_type: The type of IP addresses of the targets registered with the target group. Default: undefined - ELB defaults to IPv4
+        :param target_group_health: Configuring target group health. Default: - use default configuration
         :param target_group_name: The name of the target group. This name must be unique per region per account, can have a maximum of 32 characters, must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen. Default: - Automatically generated.
         :param target_type: The type of targets registered to this TargetGroup, either IP or Instance. All targets registered into the group must be of this type. If you register targets to the TargetGroup in the CDK app, the TargetType is determined automatically. Default: - Determined automatically.
         :param vpc: The virtual private cloud (VPC). only if ``TargetType`` is ``Ip`` or ``InstanceId`` Default: - undefined
@@ -27086,6 +27296,7 @@ class ApplicationTargetGroup(
             deregistration_delay=deregistration_delay,
             health_check=health_check,
             ip_address_type=ip_address_type,
+            target_group_health=target_group_health,
             target_group_name=target_group_name,
             target_type=target_type,
             vpc=vpc,
@@ -27897,6 +28108,7 @@ __all__ = [
     "SubnetMapping",
     "TargetGroupAttributes",
     "TargetGroupBase",
+    "TargetGroupHealth",
     "TargetGroupIpAddressType",
     "TargetGroupLoadBalancingAlgorithmType",
     "TargetGroupReference",
@@ -28141,6 +28353,7 @@ def _typecheckingstub__b5e7f5d87f70cb030d7ac44f4637a5d73814a6c8b1c1bff9adf19ede8
     deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+    target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -28782,6 +28995,7 @@ def _typecheckingstub__5f1086cffe813b24d7b8ff7c124bffc37ca7e22afda9f6af7ad869d92
     deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+    target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -28888,6 +29102,16 @@ def _typecheckingstub__abb5a8931437f8e7217ee9fc1b5e8775ee2fa63e0ad5310f5c3ee5a7e
 
 def _typecheckingstub__7c19dd8de36c1c86ebd89e7c24379bf1b20a6e5f343db95042864bf022f23513(
     value: typing.Optional[TargetType],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50b92a6e3fb50861786c29f006a421debbe4bf2e446caaef18d21a99c0e35f73(
+    *,
+    dns_minimum_healthy_target_count: typing.Optional[jsii.Number] = None,
+    dns_minimum_healthy_target_percentage: typing.Optional[jsii.Number] = None,
+    routing_minimum_healthy_target_count: typing.Optional[jsii.Number] = None,
+    routing_minimum_healthy_target_percentage: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -29086,6 +29310,7 @@ def _typecheckingstub__0fbf37aa0a91cb985ce7a336a6188364cc38400538c1653e53453287c
     deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+    target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -30183,6 +30408,7 @@ def _typecheckingstub__eebfbf2a20edd0baf4d455f02dd34d748c5eccfa9a5268e5e2ebec245
     deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+    target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,
@@ -30471,6 +30697,7 @@ def _typecheckingstub__e179515c9d6138007cc1b74835b75f10a179c1f5ef977cbe4188c778c
     deregistration_delay: typing.Optional[_Duration_4839e8c3] = None,
     health_check: typing.Optional[typing.Union[HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
     ip_address_type: typing.Optional[TargetGroupIpAddressType] = None,
+    target_group_health: typing.Optional[typing.Union[TargetGroupHealth, typing.Dict[builtins.str, typing.Any]]] = None,
     target_group_name: typing.Optional[builtins.str] = None,
     target_type: typing.Optional[TargetType] = None,
     vpc: typing.Optional[_IVpc_f30d5663] = None,

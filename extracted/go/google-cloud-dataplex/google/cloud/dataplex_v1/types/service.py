@@ -81,17 +81,17 @@ class CreateLakeRequest(proto.Message):
         parent (str):
             Required. The resource name of the lake location, of the
             form: projects/{project_number}/locations/{location_id}
-            where ``location_id`` refers to a GCP region.
+            where ``location_id`` refers to a Google Cloud region.
         lake_id (str):
             Required. Lake identifier. This ID will be used to generate
             names such as database and dataset names when publishing
             metadata to Hive Metastore and BigQuery.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must end with a number or a letter.
-            -  Must be between 1-63 characters.
-            -  Must be unique within the customer project / location.
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must end with a number or a letter.
+            - Must be between 1-63 characters.
+            - Must be unique within the customer project / location.
         lake (google.cloud.dataplex_v1.types.Lake):
             Required. Lake resource
         validate_only (bool):
@@ -170,7 +170,7 @@ class ListLakesRequest(proto.Message):
         parent (str):
             Required. The resource name of the lake location, of the
             form: ``projects/{project_number}/locations/{location_id}``
-            where ``location_id`` refers to a GCP region.
+            where ``location_id`` refers to a Google Cloud region.
         page_size (int):
             Optional. Maximum number of Lakes to return.
             The service may return fewer than this value. If
@@ -333,14 +333,14 @@ class CreateZoneRequest(proto.Message):
             names such as database and dataset names when publishing
             metadata to Hive Metastore and BigQuery.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must end with a number or a letter.
-            -  Must be between 1-63 characters.
-            -  Must be unique across all lakes from all locations in a
-               project.
-            -  Must not be one of the reserved IDs (i.e. "default",
-               "global-temp")
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must end with a number or a letter.
+            - Must be between 1-63 characters.
+            - Must be unique across all lakes from all locations in a
+              project.
+            - Must not be one of the reserved IDs (i.e. "default",
+              "global-temp")
         zone (google.cloud.dataplex_v1.types.Zone):
             Required. Zone resource.
         validate_only (bool):
@@ -547,11 +547,11 @@ class CreateAssetRequest(proto.Message):
             names such as table names when publishing metadata to Hive
             Metastore and BigQuery.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must end with a number or a letter.
-            -  Must be between 1-63 characters.
-            -  Must be unique within the zone.
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must end with a number or a letter.
+            - Must be between 1-63 characters.
+            - Must be unique within the zone.
         asset (google.cloud.dataplex_v1.types.Asset):
             Required. Asset resource.
         validate_only (bool):
@@ -1147,11 +1147,11 @@ class CreateEnvironmentRequest(proto.Message):
         environment_id (str):
             Required. Environment identifier.
 
-            -  Must contain only lowercase letters, numbers and hyphens.
-            -  Must start with a letter.
-            -  Must be between 1-63 characters.
-            -  Must end with a number or a letter.
-            -  Must be unique within the lake.
+            - Must contain only lowercase letters, numbers and hyphens.
+            - Must start with a letter.
+            - Must be between 1-63 characters.
+            - Must end with a number or a letter.
+            - Must be unique within the lake.
         environment (google.cloud.dataplex_v1.types.Environment):
             Required. Environment resource.
         validate_only (bool):

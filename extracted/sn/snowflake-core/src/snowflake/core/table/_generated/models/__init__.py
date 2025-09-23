@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Table API
+Snowflake Table API.
 
 The Snowflake Table API is a REST API that you can use to access, update, and perform certain actions on Tables resource in a Snowflake database.  # noqa: E501
 

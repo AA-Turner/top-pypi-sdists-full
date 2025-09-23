@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Catalog Integration API
+Snowflake Catalog Integration API.
 
 The Snowflake Catalog Integration API is a REST API that you can use to access, update, and perform certain actions on Catalog Integration resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.catalog_integration._generated.api.catalog_integration_api import CatalogIntegrationApi
-
-# import ApiClient
-from snowflake.core.catalog_integration._generated.api_client import ApiClient
-from snowflake.core.catalog_integration._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.catalog_integration._generated.models.catalog import Catalog

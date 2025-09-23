@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections.abc
 import dataclasses
 import datetime as dt
+import hashlib
 import json
 import os
 import random
@@ -10,11 +11,13 @@ import tempfile
 import typing
 import warnings
 from functools import cached_property
+from math import ceil
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Mapping, Optional, Sequence, Tuple, TypeVar, Union
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import urlparse
 
 import grpc
 import grpc.experimental
+import requests
 from google.protobuf import empty_pb2, struct_pb2, timestamp_pb2
 
 from chalk import DataFrame, EnvironmentId, chalk_logger
@@ -99,6 +102,7 @@ from chalk.features._encoding.outputs import encode_outputs
 from chalk.features.feature_set import is_feature_set_class
 from chalk.features.tag import DeploymentId
 from chalk.importer import CHALK_IMPORT_FLAG
+from chalk.ml import ModelEncoding, ModelType
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.utils import df_utils
 from chalk.utils.df_utils import record_batch_to_arrow_ipc
@@ -1214,6 +1218,7 @@ class ChalkGRPCClient:
         catalog: str | None = None,
         db_schema_filter_pattern: str | None = None,
         table_name_filter_pattern: str | None = None,
+        include_schemas: bool = False,
     ):
         return self._stub_refresher.call_sql_stub(
             lambda x: x.GetTables(
@@ -1221,6 +1226,7 @@ class ChalkGRPCClient:
                     catalog=catalog,
                     db_schema_filter_pattern=db_schema_filter_pattern,
                     table_name_filter_pattern=table_name_filter_pattern,
+                    include_schemas=include_schemas,
                 )
             )
         )
@@ -1506,19 +1512,16 @@ class ChalkGRPCClient:
             )
             return ModelUploadUrlResponse(
                 upload_urls=dict(resp.upload_urls),
-                success=True,
+                model_artifact_id=resp.model_artifact_id,
             )
-        except grpc.RpcError:
-            return ModelUploadUrlResponse(
-                upload_urls={},
-                success=False,
-            )
+        except grpc.RpcError as e:
+            raise RuntimeError(f"Could not get presigned S3 URLs for file upload: {e.details()}")
 
     def register_model_version(
         self,
         name: str,
-        model_type: str,
-        model_format: str,
+        model_type: ModelType,
+        model_encoding: Optional[ModelEncoding] = None,
         aliases: Optional[List[str]] = None,
         model: Optional[Any] = None,
         model_paths: Optional[List[str]] = None,
@@ -1526,6 +1529,8 @@ class ChalkGRPCClient:
         input_schema: Optional[Any] = None,
         output_schema: Optional[Any] = None,
         metadata: Optional[Mapping[str, Any]] = None,
+        input_features: Optional[list[str]] = None,
+        output_features: Optional[list[str]] = None,
     ) -> RegisterModelVersionResponse:
         """
         Register a model in the Chalk model registry.
@@ -1542,10 +1547,10 @@ class ChalkGRPCClient:
            Python model object (for object-based registration)
         additional_files : list of str, optional
            Additional files needed for inference (tokenizers, configs, etc.)
-        model_type : str
-           Type of model framework ("pytorch", "sklearn", "tensorflow", etc.)
-        model_format : str
-           Serialization format ("pytorch", "pickle", "savedmodel", etc.)
+        model_type : ModelType
+           Type of model framework
+        model_encoding : ModelEncoding, optional
+           Serialization format
         input_schema : dict, list, or Any
            Definition of the input schema. Can be:
            - dict: Dictionary mapping column names to dtypes for tabular data
@@ -1557,7 +1562,14 @@ class ChalkGRPCClient:
         metadata : dict, optional
            Additional metadata dictionary containing framework info,
            training details, performance metrics, etc.
-
+        input_features : FeatureReference, str, optional
+            The features to be used as inputs to the model.
+            For example, `[User.message]`. Features can also be expressed as snakecased strings,
+            e.g. `["user.message"]`
+        output_features : FeatureReference, str, optional
+            The features to be used as outputs to the model.
+            For example, `[User.is_spam]`. Features can also be expressed as snakecased strings,
+            e.g. `["user.is_spam"]`
         Returns
         -------
         ModelVersion
@@ -1565,6 +1577,14 @@ class ChalkGRPCClient:
 
         Examples
         --------
+        Register from Python object:
+
+        >>> client.register_model_version(
+        ...     name="RiskModel",
+        ...     model=trained_sklearn_model,
+        ...     model_type="pytorch",
+        ... )
+
         Register from local files:
 
         >>> from chalk.client import ChalkClient
@@ -1572,170 +1592,290 @@ class ChalkGRPCClient:
         >>> client = ChalkClient()
         >>> client.register_model_version(
         ...     name="RiskModel",
-        ...     model_path=["./model.pth"],
+        ...     model_paths=["./model.pth"],
         ...     model_type="pytorch",
-        ...     model_format="pytorch",
         ...     input_schema=pa.large_string(),
         ...     output_schema=pa.float32()
         ... )
 
-        Register from Python object:
+        Register from s3 path:
 
         >>> client.register_model_version(
         ...     name="RiskModel",
-        ...     model=trained_sklearn_model,
-        ...     model_type="sklearn",
-        ...     model_format="pickle"
+        ...     model_paths=["s3://my-bucket/path/to/model.pth"],
+        ...     model_type="pytorch",
         ... )
         """
-        model_upload_paths: List[str] = []
-        additional_file_upload_path: Dict[str, str] = {}
+        model_upload_paths: List[_model_artifact_pb2.ModelFile] = []
+        additional_file_upload_path: List[_model_artifact_pb2.ModelFile] = []
+        temp_files_to_cleanup: List[str] = []
 
-        metadata_converted: Dict[str, struct_pb2.Value] = {}
-
-        if metadata is not None:
-            for k, v in metadata.items():
-                converted_v = struct_pb2.Value()
-                if isinstance(v, str):
-                    converted_v.string_value = v
-                elif isinstance(v, (int, float)):
-                    converted_v.number_value = v
-                elif isinstance(v, bool):
-                    converted_v.bool_value = v
-                metadata_converted[k] = converted_v
-
-        if model_paths is None:
-            if model is None:
-                raise RuntimeError("Failed to register model. Please specify a model or model_path.")
-            else:
-                try:
-                    import torch
-                except:
-                    raise RuntimeError("Please install pytorch.")
-                if isinstance(model, torch.nn.Module):
-                    tmp_dir = tempfile.mkdtemp()
-                    model_path = os.path.join(tmp_dir, "model.pth")
-
-                    torch.save(model.state_dict(), model_path)
-
-                    model_paths = [str(model_path)]
-                else:
-                    tmp_dir = tempfile.mkdtemp()
-                    model_path = os.path.join(tmp_dir, "model.pth")
-                    model_paths = [str(model_path)]
-        else:
-            if model is not None:
-                raise RuntimeError(
-                    "Failed to register model. Ambiguous model, can't specify both model_path and model."
-                )
-
-        # Build input schema
-        input_model_schema = _model_artifact_pb2.ModelSchema()
-        if input_schema is not None:
-            if isinstance(input_schema, dict):
-                # Dictionary of column names to dtypes - build tabular schema
-                input_model_schema.tabular.CopyFrom(self._build_tabular_schema(input_schema))
-            elif isinstance(input_schema, list):
-                # List of (shape, dtype) tuples - build tensor schema
-                input_model_schema.tensor.CopyFrom(self._build_tensor_schema(input_schema))
-            else:
-                # Assume it's already a TensorSchema for backward compatibility
-                input_model_schema.tensor.CopyFrom(input_schema)
-
-        # Build output schema
-        output_model_schema = _model_artifact_pb2.ModelSchema()
-        if output_schema is not None:
-            if isinstance(output_schema, dict):
-                # Dictionary of column names to dtypes - build tabular schema
-                output_model_schema.tabular.CopyFrom(self._build_tabular_schema(output_schema))
-            elif isinstance(output_schema, list):
-                # List of (shape, dtype) tuples - build tensor schema
-                output_model_schema.tensor.CopyFrom(self._build_tensor_schema(output_schema))
-            else:
-                # Assume it's already a TensorSchema for backward compatibility
-                output_model_schema.tensor.CopyFrom(output_schema)
+        if input_schema is None and input_features is None:
+            raise ValueError(
+                "You must specify at least one of (input_schema, input_features) to register a model version."
+            )
+        if output_schema is None and output_features is None:
+            raise ValueError(
+                "You must specify at least one of (output_schema, output_features) to register a model version."
+            )
 
         try:
-            parsed_paths = [urlparse(model_path) for model_path in model_paths]
-            model_file_names = [os.path.basename(parsed.path) for parsed in parsed_paths]
-            original_files: Dict[str, ParseResult] = {os.path.basename(parsed.path): parsed for parsed in parsed_paths}
-            original_additional_mapping: Dict[str, str] = {}
+            metadata_converted: Dict[str, struct_pb2.Value] = {}
+            if metadata is not None:
+                for k, v in metadata.items():
+                    converted_v = struct_pb2.Value()
+                    if isinstance(v, str):
+                        converted_v.string_value = v
+                    elif isinstance(v, (int, float)):
+                        converted_v.number_value = v
+                    elif isinstance(v, bool):
+                        converted_v.bool_value = v
+                    metadata_converted[k] = converted_v
+
+            if model_paths is None:
+                if model is None:
+                    raise ValueError("Failed to register model. Please specify a model or model_paths.")
+
+                tmp_dir = tempfile.mkdtemp()
+
+                if model_type == ModelType.PYTORCH:
+                    try:
+                        import torch
+                    except ImportError:
+                        raise ImportError("Please install PyTorch to save PyTorch models.")
+                    model_path = os.path.join(tmp_dir, "model.pth")
+
+                    torch.save(model, model_path)  # Save entire model to support torch.load()
+
+                    model_encoding = ModelEncoding.PICKLE
+
+                elif model_type == ModelType.SKLEARN:
+                    try:
+                        import joblib
+                    except ImportError:
+                        raise ImportError("Please install joblib to save sklearn models.")
+                    model_path = os.path.join(tmp_dir, "model.pkl")
+                    joblib.dump(model, model_path)
+                    model_encoding = ModelEncoding.PICKLE
+
+                elif model_type == ModelType.TENSORFLOW:
+                    model_path = os.path.join(tmp_dir, "model.h5")
+                    model.save(model_path)
+                    model_encoding = ModelEncoding.HDF5
+
+                elif model_type == ModelType.XGBOOST:
+                    model_path = os.path.join(tmp_dir, "model.json")
+                    model.save_model(model_path)
+                    model_encoding = ModelEncoding.JSON
+
+                elif model_type == ModelType.LIGHTGBM:
+                    model_path = os.path.join(tmp_dir, "model.txt")
+                    model.save_model(model_path)
+                    model_encoding = ModelEncoding.TEXT
+
+                elif model_type == ModelType.CATBOOST:
+                    model_path = os.path.join(tmp_dir, "model.cbm")
+                    model.save_model(model_path)
+                    model_encoding = ModelEncoding.CBM
+
+                elif model_type == ModelType.ONNX:
+                    model_path = os.path.join(tmp_dir, "model.onnx")
+                    model.save_model(model_path)
+                    model_encoding = ModelEncoding.PROTOBUF
+
+                else:
+                    raise NotImplementedError(
+                        f"Unsupported model type: {model_type}; Please save the model to a file and register with "
+                        + "explicit model_paths or contact Chalk Support."
+                    )
+
+                model_paths = [model_path]
+                temp_files_to_cleanup.append(model_path)
+
+            else:
+                if model is not None:
+                    raise ValueError(
+                        "Failed to register model. Ambiguous model, can't specify both model_paths and model."
+                    )
+                if model_encoding is None:
+                    raise ValueError("Failed to register model. Please specify a model encoding if using model_paths.")
+
+            input_model_schema = _model_artifact_pb2.ModelSchema()
+            if input_schema is not None:
+                if isinstance(input_schema, dict):
+                    input_model_schema.tabular.CopyFrom(self._build_tabular_schema(input_schema))
+                elif isinstance(input_schema, list):
+                    input_model_schema.tensor.CopyFrom(self._build_tensor_schema(input_schema))
+                else:
+                    raise ValueError(f"Invalid input_schema: {input_schema}")
+
+            output_model_schema = _model_artifact_pb2.ModelSchema()
+            if output_schema is not None:
+                if isinstance(output_schema, dict):
+                    output_model_schema.tabular.CopyFrom(self._build_tabular_schema(output_schema))
+                elif isinstance(output_schema, list):
+                    output_model_schema.tensor.CopyFrom(self._build_tensor_schema(output_schema))
+                else:
+                    raise ValueError(f"Invalid output_schema: {output_schema}")
+
+            all_files_to_process: Dict[str, str] = {}  # map of filename -> local_path
+            model_file_names: List[str] = []
+
+            for model_path in model_paths:
+                filename = os.path.basename(model_path)
+                all_files_to_process[filename] = model_path
+                model_file_names.append(filename)
+
+            additional_file_mapping: Dict[str, str] = {}  # map of filename -> file_type
             if additional_files is not None:
                 for file_type, file_path in additional_files.items():
-                    additional_parsed = urlparse(file_path)
-                    original_files[os.path.basename(additional_parsed.path)] = additional_parsed
-                    original_additional_mapping[os.path.basename(additional_parsed.path)] = file_type
+                    filename = os.path.basename(file_path)
+                    all_files_to_process[filename] = file_path
+                    additional_file_mapping[filename] = file_type
 
             presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned_s3(
-                list(original_files.keys())
+                model_paths=list(all_files_to_process.keys())
             )
 
             try:
                 import boto3
-            except:
-                raise RuntimeError("Please install boto3.")
+            except ImportError:
+                raise ImportError("Please install boto3 to enable model registration.")
 
-            s3_client = boto3.client("s3")
+            aws_profile = os.environ.get("AWS_PROFILE")
+            aws_region = os.environ.get("AWS_REGION")
 
-            if presigned_s3_response.success:
-                for src_filename, src_parsed_url in original_files.items():
-                    dest_parsed_url = urlparse(presigned_s3_response.upload_urls[src_filename])
+            session = boto3.Session(profile_name=aws_profile, region_name=aws_region)
+            s3_client = session.client("s3")
 
-                    src_bucket = src_parsed_url.netloc
-                    dest_bucket = dest_parsed_url.netloc
-                    src_key = src_parsed_url.path.lstrip("/")
-                    dest_key = dest_parsed_url.path.lstrip("/")
+            for filename, local_or_s3_path in all_files_to_process.items():
+                presigned_url = presigned_s3_response.upload_urls[filename]
+                parsed_path = urlparse(local_or_s3_path)
+
+                filesize_kb: int
+                file_hash: bytes
+
+                if parsed_path.scheme == "s3":
+                    src_bucket = parsed_path.netloc
+                    src_key = parsed_path.path.lstrip("/")
                     try:
-                        s3_client.copy(
-                            CopySource={"Bucket": src_bucket, "Key": src_key},
-                            Bucket=dest_bucket,
-                            Key=dest_key,
-                        )
-                    except:
-                        pass
-                    if src_filename in model_file_names:
-                        model_upload_paths.append(presigned_s3_response.upload_urls[src_filename])
-                    else:
-                        additional_file_upload_path[
-                            original_additional_mapping[src_filename]
-                        ] = presigned_s3_response.upload_urls[src_filename]
-            else:
-                raise ValueError("If model_path is remote, it must be an s3 uri.")
-        except:
-            raise RuntimeError("Could not register model.")
+                        response = s3_client.get_object(Bucket=src_bucket, Key=src_key)
+                        file_data = response["Body"].read()
 
-        try:
-            resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
-                lambda x: x.CreateModelVersion(
-                    CreateModelVersionRequest(
-                        model_name=name,
-                        model_artifact=_model_artifact_pb2.ModelArtifactSpec(
-                            model_files=model_upload_paths,
-                            additional_files=additional_file_upload_path,
-                            model_type=model_type,
-                            model_encoding=model_format,
-                            model_signature=_model_artifact_pb2.ModelSignature(
-                                inputs=input_model_schema,
-                                outputs=output_model_schema,
+                        file_hash = hashlib.sha256(file_data).digest()
+                        filesize_kb = ceil(response["ContentLength"] / 1024.0)
+
+                        put_response = requests.put(
+                            presigned_url,
+                            data=file_data,
+                            headers={"Content-Type": response.get("ContentType", "application/octet-stream")},
+                        )
+
+                        if put_response.status_code != 200:
+                            raise RuntimeError(
+                                f"Failed to upload to presigned URL for {filename}: "
+                                + f"{put_response.status_code} {put_response.text}"
+                            )
+                    except Exception as e:
+                        raise RuntimeError(f"Unable to get object from {local_or_s3_path}. {e}")
+                elif parsed_path.scheme == "" or parsed_path.scheme == "file":
+
+                    def _validate_local_path(path: str):
+                        abs_path = os.path.abspath(path)
+                        if ".." in os.path.relpath(abs_path, start=os.getcwd()).split(os.sep):
+                            if not os.path.commonpath([abs_path, tmp_dir]) == tmp_dir:
+                                raise ValueError(f"Unsafe file path: {path}")
+                        if not os.path.isfile(abs_path):
+                            raise FileNotFoundError(f"Local file not found: {path}")
+                        return abs_path
+
+                    try:
+                        safe_path = _validate_local_path(local_or_s3_path)
+                        with open(safe_path, "rb") as f:
+                            file_data = f.read()
+
+                        file_hash = hashlib.sha256(file_data).digest()
+                        filesize_kb = ceil(os.path.getsize(local_or_s3_path) / 1024.0)
+
+                        put_response = requests.put(presigned_url, data=file_data)
+
+                        if put_response.status_code != 200:
+                            raise RuntimeError(
+                                f"Failed to upload local file {local_or_s3_path} to presigned URL: "
+                                + f"{put_response.status_code} {put_response.text}"
+                            )
+
+                    except Exception as e:
+                        raise RuntimeError(f"Failed to upload local file {local_or_s3_path}: {e}")
+                else:
+                    raise ValueError(f"Unsupported file path format: {local_or_s3_path}")
+
+                if filename in model_file_names:
+                    model_upload_paths.append(
+                        _model_artifact_pb2.ModelFile(
+                            name=filename,
+                            size_kb=filesize_kb,
+                            file_hash=file_hash,
+                        )
+                    )
+                else:
+                    additional_file_upload_path.append(
+                        _model_artifact_pb2.ModelFile(
+                            name=filename,
+                            size_kb=filesize_kb,
+                            file_hash=file_hash,
+                        )
+                    )
+            try:
+                resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
+                    lambda x: x.CreateModelVersion(
+                        CreateModelVersionRequest(
+                            model_name=name,
+                            model_artifact_id=presigned_s3_response.model_artifact_id,
+                            model_artifact=_model_artifact_pb2.ModelArtifactSpec(
+                                model_files=model_upload_paths,
+                                additional_files=additional_file_upload_path,
+                                model_type=model_type,
+                                model_encoding=model_encoding,
+                                model_signature=_model_artifact_pb2.ModelSignature(
+                                    inputs=input_model_schema,
+                                    outputs=output_model_schema,
+                                ),
+                                input_features=input_features,
+                                output_features=output_features,
                             ),
-                        ),
-                        aliases=aliases,
-                        metadata=metadata_converted,
+                            aliases=aliases,
+                            metadata=metadata_converted,
+                        )
                     )
                 )
-            )
-            return RegisterModelVersionResponse(
-                model_id=resp.model_version.id,
-                model_name=resp.model_version.model_name,
-                model_version=resp.model_version.version,
-                artifact=resp.model_version.model_artifact,
-                aliases=list(resp.model_version.aliases),
-                metadata=dict(resp.model_version.metadata),
-                created_by=resp.model_version.created_by,
-                created_at=resp.model_version.created_at.ToDatetime(),
-            )
-        except grpc.RpcError as e:
-            raise RuntimeError(f"Could not register model version. {e.details()}")
+                return RegisterModelVersionResponse(
+                    model_id=resp.model_version.id,
+                    model_name=resp.model_version.model_name,
+                    model_version=resp.model_version.version,
+                    artifact=resp.model_version.model_artifact,
+                    aliases=list(resp.model_version.aliases),
+                    metadata=dict(resp.model_version.metadata),
+                    created_by=resp.model_version.created_by,
+                    created_at=resp.model_version.created_at.ToDatetime(),
+                )
+            except grpc.RpcError as e:
+                raise RuntimeError(f"Could not register model version. {e.details()}")
+
+        finally:
+            import shutil
+
+            for temp_path in temp_files_to_cleanup:
+                try:
+                    if os.path.isfile(temp_path):
+                        os.remove(temp_path)
+                    elif os.path.isdir(temp_path):
+                        shutil.rmtree(temp_path)
+                    temp_dir = os.path.dirname(temp_path)
+                    if temp_dir and os.path.exists(temp_dir) and temp_dir.startswith(tempfile.gettempdir()):
+                        shutil.rmtree(temp_dir)
+                except Exception:
+                    pass
 
     def create_model_training_job(
         self,

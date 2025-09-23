@@ -1,6 +1,5 @@
-
 """
-Snowflake Dynamic Table API
+Snowflake Dynamic Table API.
 
 The Snowflake Dynamic Table API is a REST API that you can use to access, update, and perform certain actions on Dynamic Tables resource in a Snowflake database.  # noqa: E501
 
@@ -40,7 +39,6 @@ class DynamicTable(BaseModel):
         Specifies the name for the dynamic table, must be unique for the schema in which the dynamic table is created
     target_lag : TargetLag
 
-
     warehouse : str
         Specifies the name of the warehouse that provides the compute resources for refreshing the dynamic table
     query : str
@@ -48,7 +46,6 @@ class DynamicTable(BaseModel):
     kind : str,  default 'PERMANENT'
         Specifies the dynamic table type, permanent (default) or transient.
     columns : list[DynamicTableColumn], optional
-
 
     refresh_mode : str, optional
         Specifies the refresh type for the dynamic table
@@ -199,14 +196,14 @@ class DynamicTable(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> DynamicTable:
-        """Create an instance of DynamicTable from a JSON string"""
+        """Create an instance of DynamicTable from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:

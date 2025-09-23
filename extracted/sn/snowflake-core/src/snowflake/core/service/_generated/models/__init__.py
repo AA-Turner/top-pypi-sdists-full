@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Services API
+Snowflake Services API.
 
 The Snowflake Services API is a REST API that you can use to access, update, and perform certain actions on Services resource in a Snowflake database.  # noqa: E501
 

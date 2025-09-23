@@ -1,6 +1,5 @@
-
 """
-Cortex Inference API
+Cortex Inference API.
 
 OpenAPI 3.0 specification for the Cortex REST API  # noqa: E501
 
@@ -39,10 +38,7 @@ class ToolUse(BaseModel):
         Identifies this as a tool use request
     tool_use : ToolUseToolUse
 
-
     cache_control : CacheControl, optional
-
-
     """
 
     type: StrictStr
@@ -73,14 +69,14 @@ class ToolUse(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> ToolUse:
-        """Create an instance of ToolUse from a JSON string"""
+        """Create an instance of ToolUse from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -147,7 +143,6 @@ class ToolUseModel:
         tool_use : ToolUseToolUse
 
         cache_control : CacheControl, optional
-
         """
         self.type = type
         self.tool_use = tool_use

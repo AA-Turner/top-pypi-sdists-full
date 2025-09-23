@@ -40,6 +40,7 @@ __protobuf__ = proto.module(
         "AddHealthCheckTargetPoolRequest",
         "AddInstanceTargetPoolRequest",
         "AddInstancesInstanceGroupRequest",
+        "AddNetworkInterfaceInstanceRequest",
         "AddNodesNodeGroupRequest",
         "AddPacketMirroringRuleNetworkFirewallPolicyRequest",
         "AddPeeringNetworkRequest",
@@ -257,6 +258,7 @@ __protobuf__ = proto.module(
         "DeleteNetworkEdgeSecurityServiceRequest",
         "DeleteNetworkEndpointGroupRequest",
         "DeleteNetworkFirewallPolicyRequest",
+        "DeleteNetworkInterfaceInstanceRequest",
         "DeleteNetworkRequest",
         "DeleteNodeGroupRequest",
         "DeleteNodeTemplateRequest",
@@ -1014,6 +1016,7 @@ __protobuf__ = proto.module(
         "NetworkProfile",
         "NetworkProfileLocation",
         "NetworkProfileNetworkFeatures",
+        "NetworkProfileProfileType",
         "NetworkProfilesListResponse",
         "NetworkRoutingConfig",
         "NetworksAddPeeringRequest",
@@ -1289,6 +1292,7 @@ __protobuf__ = proto.module(
         "RouterNatRuleAction",
         "RouterNatSubnetworkToNat",
         "RouterNatSubnetworkToNat64",
+        "RouterParams",
         "RouterStatus",
         "RouterStatusBgpPeerStatus",
         "RouterStatusNatStatus",
@@ -1567,12 +1571,15 @@ __protobuf__ = proto.module(
         "TargetVpnGatewayList",
         "TargetVpnGatewaysScopedList",
         "TestFailure",
+        "TestIamPermissionsAddressRequest",
         "TestIamPermissionsBackendBucketRequest",
         "TestIamPermissionsBackendServiceRequest",
         "TestIamPermissionsDiskRequest",
         "TestIamPermissionsExternalVpnGatewayRequest",
         "TestIamPermissionsFirewallPolicyRequest",
+        "TestIamPermissionsGlobalAddressRequest",
         "TestIamPermissionsImageRequest",
+        "TestIamPermissionsInstanceGroupRequest",
         "TestIamPermissionsInstanceRequest",
         "TestIamPermissionsInstanceTemplateRequest",
         "TestIamPermissionsInstantSnapshotRequest",
@@ -1589,6 +1596,7 @@ __protobuf__ = proto.module(
         "TestIamPermissionsPacketMirroringRequest",
         "TestIamPermissionsRegionBackendServiceRequest",
         "TestIamPermissionsRegionDiskRequest",
+        "TestIamPermissionsRegionInstanceGroupRequest",
         "TestIamPermissionsRegionInstantSnapshotRequest",
         "TestIamPermissionsRegionNetworkFirewallPolicyRequest",
         "TestIamPermissionsReservationRequest",
@@ -1597,6 +1605,8 @@ __protobuf__ = proto.module(
         "TestIamPermissionsSnapshotRequest",
         "TestIamPermissionsStoragePoolRequest",
         "TestIamPermissionsSubnetworkRequest",
+        "TestIamPermissionsTargetInstanceRequest",
+        "TestIamPermissionsTargetPoolRequest",
         "TestIamPermissionsVpnGatewayRequest",
         "TestPermissionsRequest",
         "TestPermissionsResponse",
@@ -1661,7 +1671,10 @@ __protobuf__ = proto.module(
         "VpnGatewaysScopedList",
         "VpnTunnel",
         "VpnTunnelAggregatedList",
+        "VpnTunnelCipherSuite",
         "VpnTunnelList",
+        "VpnTunnelPhase1Algorithms",
+        "VpnTunnelPhase2Algorithms",
         "VpnTunnelsScopedList",
         "WafExpressionSet",
         "WafExpressionSetExpression",
@@ -2866,6 +2879,68 @@ class AddInstancesInstanceGroupRequest(proto.Message):
         proto.MESSAGE,
         number=453713246,
         message="InstanceGroupsAddInstancesRequest",
+    )
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=37109963,
+        optional=True,
+    )
+    zone: str = proto.Field(
+        proto.STRING,
+        number=3744684,
+    )
+
+
+class AddNetworkInterfaceInstanceRequest(proto.Message):
+    r"""A request message for Instances.AddNetworkInterface. See the
+    method description for details.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        instance (str):
+            The instance name for this request stored as resource_id.
+            Name should conform to RFC1035 or be an unsigned long
+            integer.
+        network_interface_resource (google.cloud.compute_v1.types.NetworkInterface):
+            The body resource for this request
+        project (str):
+            Project ID for this request.
+        request_id (str):
+            An optional request ID to identify requests.
+            Specify a unique request ID so that if you must
+            retry your request, the server will know to
+            ignore the request if it has already been
+            completed. For example, consider a situation
+            where you make an initial request and the
+            request times out. If you make the request again
+            with the same request ID, the server can check
+            if original operation with the same request ID
+            was received, and if so, will ignore the second
+            request. This prevents clients from accidentally
+            creating duplicate commitments. The request ID
+            must be a valid UUID with the exception that
+            zero UUID is not supported (
+            00000000-0000-0000-0000-000000000000).
+
+            This field is a member of `oneof`_ ``_request_id``.
+        zone (str):
+            The name of the zone for this request.
+    """
+
+    instance: str = proto.Field(
+        proto.STRING,
+        number=18257045,
+    )
+    network_interface_resource: "NetworkInterface" = proto.Field(
+        proto.MESSAGE,
+        number=325814789,
+        message="NetworkInterface",
     )
     project: str = proto.Field(
         proto.STRING,
@@ -14883,9 +14958,9 @@ class BackendBucketCdnPolicy(proto.Message):
             apply the following default TTLs to these status codes: HTTP
             300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
             HTTP 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal
-            Reasons): 120s HTTP 405 (Method Not Found), 421 (Misdirected
-            Request), 501 (Not Implemented): 60s. These defaults can be
-            overridden in negative_caching_policy.
+            Reasons): 120s HTTP 405 (Method Not Found), 501 (Not
+            Implemented): 60s. These defaults can be overridden in
+            negative_caching_policy.
 
             This field is a member of `oneof`_ ``_negative_caching``.
         negative_caching_policy (MutableSequence[google.cloud.compute_v1.types.BackendBucketCdnPolicyNegativeCachingPolicy]):
@@ -16645,9 +16720,9 @@ class BackendServiceCdnPolicy(proto.Message):
             apply the following default TTLs to these status codes: HTTP
             300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
             HTTP 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal
-            Reasons): 120s HTTP 405 (Method Not Found), 421 (Misdirected
-            Request), 501 (Not Implemented): 60s. These defaults can be
-            overridden in negative_caching_policy.
+            Reasons): 120s HTTP 405 (Method Not Found), 501 (Not
+            Implemented): 60s. These defaults can be overridden in
+            negative_caching_policy.
 
             This field is a member of `oneof`_ ``_negative_caching``.
         negative_caching_policy (MutableSequence[google.cloud.compute_v1.types.BackendServiceCdnPolicyNegativeCachingPolicy]):
@@ -23246,6 +23321,68 @@ class DeleteNetworkFirewallPolicyRequest(proto.Message):
         proto.STRING,
         number=37109963,
         optional=True,
+    )
+
+
+class DeleteNetworkInterfaceInstanceRequest(proto.Message):
+    r"""A request message for Instances.DeleteNetworkInterface. See
+    the method description for details.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        instance (str):
+            The instance name for this request stored as resource_id.
+            Name should conform to RFC1035 or be an unsigned long
+            integer.
+        network_interface_name (str):
+            The name of the dynamic network interface to
+            be deleted from the instance.
+        project (str):
+            Project ID for this request.
+        request_id (str):
+            An optional request ID to identify requests.
+            Specify a unique request ID so that if you must
+            retry your request, the server will know to
+            ignore the request if it has already been
+            completed. For example, consider a situation
+            where you make an initial request and the
+            request times out. If you make the request again
+            with the same request ID, the server can check
+            if original operation with the same request ID
+            was received, and if so, will ignore the second
+            request. This prevents clients from accidentally
+            creating duplicate commitments. The request ID
+            must be a valid UUID with the exception that
+            zero UUID is not supported (
+            00000000-0000-0000-0000-000000000000).
+
+            This field is a member of `oneof`_ ``_request_id``.
+        zone (str):
+            The name of the zone for this request.
+    """
+
+    instance: str = proto.Field(
+        proto.STRING,
+        number=18257045,
+    )
+    network_interface_name: str = proto.Field(
+        proto.STRING,
+        number=381342722,
+    )
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=37109963,
+        optional=True,
+    )
+    zone: str = proto.Field(
+        proto.STRING,
+        number=3744684,
     )
 
 
@@ -35883,6 +36020,9 @@ class GetServiceAttachmentRequest(proto.Message):
     r"""A request message for ServiceAttachments.Get. See the method
     description for details.
 
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         project (str):
             Project ID for this request.
@@ -35891,6 +36031,11 @@ class GetServiceAttachmentRequest(proto.Message):
         service_attachment (str):
             Name of the ServiceAttachment resource to
             return.
+        show_nat_ips (bool):
+            Indicates whether NAT IPs should be included
+            in the response.
+
+            This field is a member of `oneof`_ ``_show_nat_ips``.
     """
 
     project: str = proto.Field(
@@ -35904,6 +36049,11 @@ class GetServiceAttachmentRequest(proto.Message):
     service_attachment: str = proto.Field(
         proto.STRING,
         number=338957549,
+    )
+    show_nat_ips: bool = proto.Field(
+        proto.BOOL,
+        number=485502156,
+        optional=True,
     )
 
 
@@ -45035,6 +45185,10 @@ class Instance(proto.Message):
                 The instance is halted and we are performing
                 tear down tasks like network deprogramming,
                 releasing quota, IP, tearing down disks etc.
+            PENDING (35394935):
+                For Flex Start provisioning instance is
+                waiting for available capacity from Dynamic
+                Workload Scheduler (DWS).
             PROVISIONING (290896621):
                 Resources are being allocated for the
                 instance.
@@ -45060,6 +45214,7 @@ class Instance(proto.Message):
         """
         UNDEFINED_STATUS = 0
         DEPROVISIONING = 428935662
+        PENDING = 35394935
         PROVISIONING = 290896621
         REPAIRING = 413483285
         RUNNING = 121282975
@@ -48801,7 +48956,14 @@ class InstanceMoveRequest(proto.Message):
 class InstanceParams(proto.Message):
     r"""Additional instance params.
 
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
+        request_valid_for_duration (google.cloud.compute_v1.types.Duration):
+            Relative deadline for waiting for capacity.
+            Relevant only for Instances.Insert API.
+
+            This field is a member of `oneof`_ ``_request_valid_for_duration``.
         resource_manager_tags (MutableMapping[str, str]):
             Resource manager tags to be bound to the instance. Tag keys
             and values have the same definition as resource manager
@@ -48810,6 +48972,12 @@ class InstanceParams(proto.Message):
             ignored (both PUT & PATCH) when empty.
     """
 
+    request_valid_for_duration: "Duration" = proto.Field(
+        proto.MESSAGE,
+        number=116247389,
+        optional=True,
+        message="Duration",
+    )
     resource_manager_tags: MutableMapping[str, str] = proto.MapField(
         proto.STRING,
         proto.STRING,
@@ -49613,6 +49781,10 @@ class InstanceWithNamedPorts(proto.Message):
                 The instance is halted and we are performing
                 tear down tasks like network deprogramming,
                 releasing quota, IP, tearing down disks etc.
+            PENDING (35394935):
+                For Flex Start provisioning instance is
+                waiting for available capacity from Dynamic
+                Workload Scheduler (DWS).
             PROVISIONING (290896621):
                 Resources are being allocated for the
                 instance.
@@ -49638,6 +49810,7 @@ class InstanceWithNamedPorts(proto.Message):
         """
         UNDEFINED_STATUS = 0
         DEPROVISIONING = 428935662
+        PENDING = 35394935
         PROVISIONING = 290896621
         REPAIRING = 413483285
         RUNNING = 121282975
@@ -53132,11 +53305,9 @@ class InterconnectAttachmentGroupsOperationalStatusAttachmentStatus(proto.Messag
 
             This field is a member of `oneof`_ ``_is_active``.
         status (str):
-            Whether this Attachment is active, and if so, whether BGP is
-            up. This is based on the statuses available in the Pantheon
-            UI here:
-            http://google3/java/com/google/cloud/boq/clientapi/gce/hybrid/api/interconnect_models.proto
-            Check the Status enum for the list of possible values.
+            Whether this Attachment is active, and if so,
+            whether BGP is up. Check the Status enum for the
+            list of possible values.
 
             This field is a member of `oneof`_ ``_status``.
     """
@@ -53164,9 +53335,8 @@ class InterconnectAttachmentGroupsOperationalStatusAttachmentStatus(proto.Messag
         UNSPECIFIED = 526786327
 
     class Status(proto.Enum):
-        r"""Whether this Attachment is active, and if so, whether BGP is up.
-        This is based on the statuses available in the Pantheon UI here:
-        http://google3/java/com/google/cloud/boq/clientapi/gce/hybrid/api/interconnect_models.proto
+        r"""Whether this Attachment is active, and if so, whether BGP is
+        up.
 
         Values:
             UNDEFINED_STATUS (0):
@@ -74022,6 +74192,10 @@ class ManagedInstance(proto.Message):
                 The instance is halted and we are performing
                 tear down tasks like network deprogramming,
                 releasing quota, IP, tearing down disks etc.
+            PENDING (35394935):
+                For Flex Start provisioning instance is
+                waiting for available capacity from Dynamic
+                Workload Scheduler (DWS).
             PROVISIONING (290896621):
                 Resources are being allocated for the
                 instance.
@@ -74046,6 +74220,7 @@ class ManagedInstance(proto.Message):
         """
         UNDEFINED_INSTANCE_STATUS = 0
         DEPROVISIONING = 428935662
+        PENDING = 35394935
         PROVISIONING = 290896621
         REPAIRING = 413483285
         RUNNING = 121282975
@@ -77023,6 +77198,11 @@ class NetworkInterface(proto.Message):
             values.
 
             This field is a member of `oneof`_ ``_nic_type``.
+        parent_nic_name (str):
+            Name of the parent network interface of a
+            dynamic network interface.
+
+            This field is a member of `oneof`_ ``_parent_nic_name``.
         queue_count (int):
             The networking queue count that's specified
             by users for the network interface. Both Rx and
@@ -77054,6 +77234,12 @@ class NetworkInterface(proto.Message):
             regions/region/subnetworks/subnetwork
 
             This field is a member of `oneof`_ ``_subnetwork``.
+        vlan (int):
+            VLAN tag of a dynamic network interface, must
+            be an integer in the range from 2 to 255
+            inclusively.
+
+            This field is a member of `oneof`_ ``_vlan``.
     """
 
     class Ipv6AccessType(proto.Enum):
@@ -77202,6 +77388,11 @@ class NetworkInterface(proto.Message):
         number=59810577,
         optional=True,
     )
+    parent_nic_name: str = proto.Field(
+        proto.STRING,
+        number=418764375,
+        optional=True,
+    )
     queue_count: int = proto.Field(
         proto.INT32,
         number=503708769,
@@ -77215,6 +77406,11 @@ class NetworkInterface(proto.Message):
     subnetwork: str = proto.Field(
         proto.STRING,
         number=307827694,
+        optional=True,
+    )
+    vlan: int = proto.Field(
+        proto.INT32,
+        number=3622243,
         optional=True,
     )
 
@@ -77901,6 +78097,10 @@ class NetworkProfile(proto.Message):
             [Output Only] Name of the resource.
 
             This field is a member of `oneof`_ ``_name``.
+        profile_type (google.cloud.compute_v1.types.NetworkProfileProfileType):
+            [Output Only] Type of the network profile.
+
+            This field is a member of `oneof`_ ``_profile_type``.
         self_link (str):
             [Output Only] Server-defined URL for the resource.
 
@@ -77951,6 +78151,12 @@ class NetworkProfile(proto.Message):
         proto.STRING,
         number=3373707,
         optional=True,
+    )
+    profile_type: "NetworkProfileProfileType" = proto.Field(
+        proto.MESSAGE,
+        number=150167568,
+        optional=True,
+        message="NetworkProfileProfileType",
     )
     self_link: str = proto.Field(
         proto.STRING,
@@ -78847,6 +79053,120 @@ class NetworkProfileNetworkFeatures(proto.Message):
     unicast: str = proto.Field(
         proto.STRING,
         number=249841711,
+        optional=True,
+    )
+
+
+class NetworkProfileProfileType(proto.Message):
+    r"""
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        network_type (str):
+            Check the NetworkType enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_network_type``.
+        rdma_subtype (str):
+            Check the RdmaSubtype enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_rdma_subtype``.
+        ull_subtype (str):
+            Check the UllSubtype enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_ull_subtype``.
+        vpc_subtype (str):
+            Check the VpcSubtype enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_vpc_subtype``.
+    """
+
+    class NetworkType(proto.Enum):
+        r"""
+
+        Values:
+            UNDEFINED_NETWORK_TYPE (0):
+                A value indicating that the enum field is not
+                set.
+            RDMA (2510662):
+                RDMA network.
+            ULL (84117):
+                ULL network.
+            VPC (85193):
+                VPC network.
+        """
+        UNDEFINED_NETWORK_TYPE = 0
+        RDMA = 2510662
+        ULL = 84117
+        VPC = 85193
+
+    class RdmaSubtype(proto.Enum):
+        r"""
+
+        Values:
+            UNDEFINED_RDMA_SUBTYPE (0):
+                A value indicating that the enum field is not
+                set.
+            FALCON (455787729):
+                RDMA over Falcon.
+            ROCE (2520927):
+                RDMA over Converged Ethernet (RoCE).
+        """
+        UNDEFINED_RDMA_SUBTYPE = 0
+        FALCON = 455787729
+        ROCE = 2520927
+
+    class UllSubtype(proto.Enum):
+        r"""
+
+        Values:
+            UNDEFINED_ULL_SUBTYPE (0):
+                A value indicating that the enum field is not
+                set.
+            OPERATOR (282073252):
+                Exchange operator.
+            PARTICIPANT (236028691):
+                Exchange participant.
+        """
+        UNDEFINED_ULL_SUBTYPE = 0
+        OPERATOR = 282073252
+        PARTICIPANT = 236028691
+
+    class VpcSubtype(proto.Enum):
+        r"""
+
+        Values:
+            UNDEFINED_VPC_SUBTYPE (0):
+                A value indicating that the enum field is not
+                set.
+            REGIONAL (92288543):
+                Regionally bound VPC network.
+        """
+        UNDEFINED_VPC_SUBTYPE = 0
+        REGIONAL = 92288543
+
+    network_type: str = proto.Field(
+        proto.STRING,
+        number=517413547,
+        optional=True,
+    )
+    rdma_subtype: str = proto.Field(
+        proto.STRING,
+        number=82019713,
+        optional=True,
+    )
+    ull_subtype: str = proto.Field(
+        proto.STRING,
+        number=94311408,
+        optional=True,
+    )
+    vpc_subtype: str = proto.Field(
+        proto.STRING,
+        number=356623396,
         optional=True,
     )
 
@@ -96475,6 +96795,11 @@ class Router(proto.Message):
             belongs.
 
             This field is a member of `oneof`_ ``_network``.
+        params (google.cloud.compute_v1.types.RouterParams):
+            Input only. [Input Only] Additional params passed with the
+            request, but not persisted as part of resource payload.
+
+            This field is a member of `oneof`_ ``_params``.
         region (str):
             [Output Only] URI of the region where the router resides.
             You must specify this field as part of the HTTP request URL.
@@ -96549,6 +96874,12 @@ class Router(proto.Message):
         proto.STRING,
         number=232872494,
         optional=True,
+    )
+    params: "RouterParams" = proto.Field(
+        proto.MESSAGE,
+        number=78313862,
+        optional=True,
+        message="RouterParams",
     )
     region: str = proto.Field(
         proto.STRING,
@@ -98278,6 +98609,32 @@ class RouterNatSubnetworkToNat64(proto.Message):
     )
 
 
+class RouterParams(proto.Message):
+    r"""Additional router parameters.
+
+    Attributes:
+        resource_manager_tags (MutableMapping[str, str]):
+            Tag keys/values directly bound to this resource. The field
+            is allowed for INSERT only. The keys/values to set on the
+            resource should be specified in either ID { : } or
+            Namespaced format { : }. For example the following are valid
+            inputs: \* {"tagKeys/333" : "tagValues/444", "tagKeys/123" :
+            "tagValues/456"} \* {"123/environment" : "production",
+            "345/abc" : "xyz"} Note: \* Invalid combinations of ID &
+            namespaced format is not supported. For instance:
+            {"123/environment" : "tagValues/444"} is invalid. \*
+            Inconsistent format is not supported. For instance:
+            {"tagKeys/333" : "tagValues/444", "123/env" : "prod"} is
+            invalid.
+    """
+
+    resource_manager_tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=377671164,
+    )
+
+
 class RouterStatus(proto.Message):
     r"""
 
@@ -99698,6 +100055,13 @@ class Scheduling(proto.Message):
             the list of possible values.
 
             This field is a member of `oneof`_ ``_provisioning_model``.
+        skip_guest_os_shutdown (bool):
+            Default is false and there will be 120
+            seconds between GCE ACPI G2 Soft Off and ACPI G3
+            Mechanical Off for Standard VMs and 30 seconds
+            for Spot VMs.
+
+            This field is a member of `oneof`_ ``_skip_guest_os_shutdown``.
         termination_time (str):
             Specifies the timestamp, when the instance
             will be terminated, in RFC3339 text format. If
@@ -99762,6 +100126,9 @@ class Scheduling(proto.Message):
             UNDEFINED_PROVISIONING_MODEL (0):
                 A value indicating that the enum field is not
                 set.
+            FLEX_START (101746812):
+                Instance is provisioned using the Flex Start
+                provisioning model and has a limited runtime.
             RESERVATION_BOUND (293538571):
                 Bound to the lifecycle of the reservation in
                 which it is provisioned.
@@ -99772,6 +100139,7 @@ class Scheduling(proto.Message):
                 runtime, no discounts.
         """
         UNDEFINED_PROVISIONING_MODEL = 0
+        FLEX_START = 101746812
         RESERVATION_BOUND = 293538571
         SPOT = 2552066
         STANDARD = 484642493
@@ -99842,6 +100210,11 @@ class Scheduling(proto.Message):
     provisioning_model: str = proto.Field(
         proto.STRING,
         number=494423,
+        optional=True,
+    )
+    skip_guest_os_shutdown: bool = proto.Field(
+        proto.BOOL,
+        number=201662378,
         optional=True,
     )
     termination_time: str = proto.Field(
@@ -101138,12 +101511,12 @@ class SecurityPolicyRuleMatcher(proto.Message):
             User defined CEVAL expression. A CEVAL expression is used to
             specify match criteria such as origin.ip, source.region_code
             and contents in the request header. Expressions containing
-            ``evaluateThreatIntelligence`` require Cloud Armor Managed
-            Protection Plus tier and are not supported in Edge Policies
-            nor in Regional Policies. Expressions containing
-            ``evaluatePreconfiguredExpr('sourceiplist-*')`` require
-            Cloud Armor Managed Protection Plus tier and are only
-            supported in Global Security Policies.
+            ``evaluateThreatIntelligence`` require a Cloud Armor
+            Enterprise subscription and are not supported in Edge
+            Policies nor in Regional Policies. Expressions containing
+            ``evaluatePreconfiguredExpr('sourceiplist-*')`` require a
+            Cloud Armor Enterprise subscription and are only supported
+            in Global Security Policies.
 
             This field is a member of `oneof`_ ``_expr``.
         expr_options (google.cloud.compute_v1.types.SecurityPolicyRuleMatcherExprOptions):
@@ -102709,6 +103082,9 @@ class ServiceAttachmentConnectedEndpoint(proto.Message):
             The url of a connected endpoint.
 
             This field is a member of `oneof`_ ``_endpoint``.
+        nat_ips (MutableSequence[str]):
+            NAT IPs of the connected PSC endpoint and
+            those of other endpoints propagated from it.
         propagated_connection_count (int):
             The number of consumer Network Connectivity
             Center spokes that the connected Private Service
@@ -102773,6 +103149,10 @@ class ServiceAttachmentConnectedEndpoint(proto.Message):
         proto.STRING,
         number=130489749,
         optional=True,
+    )
+    nat_ips: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=117635086,
     )
     propagated_connection_count: int = proto.Field(
         proto.UINT32,
@@ -116913,6 +117293,40 @@ class TestFailure(proto.Message):
     )
 
 
+class TestIamPermissionsAddressRequest(proto.Message):
+    r"""A request message for Addresses.TestIamPermissions. See the
+    method description for details.
+
+    Attributes:
+        project (str):
+            Project ID for this request.
+        region (str):
+            The name of the region for this request.
+        resource (str):
+            Name or id of the resource for this request.
+        test_permissions_request_resource (google.cloud.compute_v1.types.TestPermissionsRequest):
+            The body resource for this request
+    """
+
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    region: str = proto.Field(
+        proto.STRING,
+        number=138946292,
+    )
+    resource: str = proto.Field(
+        proto.STRING,
+        number=195806222,
+    )
+    test_permissions_request_resource: "TestPermissionsRequest" = proto.Field(
+        proto.MESSAGE,
+        number=439214758,
+        message="TestPermissionsRequest",
+    )
+
+
 class TestIamPermissionsBackendBucketRequest(proto.Message):
     r"""A request message for BackendBuckets.TestIamPermissions. See
     the method description for details.
@@ -117053,6 +117467,34 @@ class TestIamPermissionsFirewallPolicyRequest(proto.Message):
     )
 
 
+class TestIamPermissionsGlobalAddressRequest(proto.Message):
+    r"""A request message for GlobalAddresses.TestIamPermissions. See
+    the method description for details.
+
+    Attributes:
+        project (str):
+            Project ID for this request.
+        resource (str):
+            Name or id of the resource for this request.
+        test_permissions_request_resource (google.cloud.compute_v1.types.TestPermissionsRequest):
+            The body resource for this request
+    """
+
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    resource: str = proto.Field(
+        proto.STRING,
+        number=195806222,
+    )
+    test_permissions_request_resource: "TestPermissionsRequest" = proto.Field(
+        proto.MESSAGE,
+        number=439214758,
+        message="TestPermissionsRequest",
+    )
+
+
 class TestIamPermissionsImageRequest(proto.Message):
     r"""A request message for Images.TestIamPermissions. See the
     method description for details.
@@ -117078,6 +117520,40 @@ class TestIamPermissionsImageRequest(proto.Message):
         proto.MESSAGE,
         number=439214758,
         message="TestPermissionsRequest",
+    )
+
+
+class TestIamPermissionsInstanceGroupRequest(proto.Message):
+    r"""A request message for InstanceGroups.TestIamPermissions. See
+    the method description for details.
+
+    Attributes:
+        project (str):
+            Project ID for this request.
+        resource (str):
+            Name or id of the resource for this request.
+        test_permissions_request_resource (google.cloud.compute_v1.types.TestPermissionsRequest):
+            The body resource for this request
+        zone (str):
+            The name of the zone for this request.
+    """
+
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    resource: str = proto.Field(
+        proto.STRING,
+        number=195806222,
+    )
+    test_permissions_request_resource: "TestPermissionsRequest" = proto.Field(
+        proto.MESSAGE,
+        number=439214758,
+        message="TestPermissionsRequest",
+    )
+    zone: str = proto.Field(
+        proto.STRING,
+        number=3744684,
     )
 
 
@@ -117587,6 +118063,41 @@ class TestIamPermissionsRegionDiskRequest(proto.Message):
     )
 
 
+class TestIamPermissionsRegionInstanceGroupRequest(proto.Message):
+    r"""A request message for
+    RegionInstanceGroups.TestIamPermissions. See the method
+    description for details.
+
+    Attributes:
+        project (str):
+            Project ID for this request.
+        region (str):
+            The name of the region for this request.
+        resource (str):
+            Name or id of the resource for this request.
+        test_permissions_request_resource (google.cloud.compute_v1.types.TestPermissionsRequest):
+            The body resource for this request
+    """
+
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    region: str = proto.Field(
+        proto.STRING,
+        number=138946292,
+    )
+    resource: str = proto.Field(
+        proto.STRING,
+        number=195806222,
+    )
+    test_permissions_request_resource: "TestPermissionsRequest" = proto.Field(
+        proto.MESSAGE,
+        number=439214758,
+        message="TestPermissionsRequest",
+    )
+
+
 class TestIamPermissionsRegionInstantSnapshotRequest(proto.Message):
     r"""A request message for
     RegionInstantSnapshots.TestIamPermissions. See the method
@@ -117855,6 +118366,74 @@ class TestIamPermissionsSubnetworkRequest(proto.Message):
     )
 
 
+class TestIamPermissionsTargetInstanceRequest(proto.Message):
+    r"""A request message for TargetInstances.TestIamPermissions. See
+    the method description for details.
+
+    Attributes:
+        project (str):
+            Project ID for this request.
+        resource (str):
+            Name or id of the resource for this request.
+        test_permissions_request_resource (google.cloud.compute_v1.types.TestPermissionsRequest):
+            The body resource for this request
+        zone (str):
+            The name of the zone for this request.
+    """
+
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    resource: str = proto.Field(
+        proto.STRING,
+        number=195806222,
+    )
+    test_permissions_request_resource: "TestPermissionsRequest" = proto.Field(
+        proto.MESSAGE,
+        number=439214758,
+        message="TestPermissionsRequest",
+    )
+    zone: str = proto.Field(
+        proto.STRING,
+        number=3744684,
+    )
+
+
+class TestIamPermissionsTargetPoolRequest(proto.Message):
+    r"""A request message for TargetPools.TestIamPermissions. See the
+    method description for details.
+
+    Attributes:
+        project (str):
+            Project ID for this request.
+        region (str):
+            The name of the region for this request.
+        resource (str):
+            Name or id of the resource for this request.
+        test_permissions_request_resource (google.cloud.compute_v1.types.TestPermissionsRequest):
+            The body resource for this request
+    """
+
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    region: str = proto.Field(
+        proto.STRING,
+        number=138946292,
+    )
+    resource: str = proto.Field(
+        proto.STRING,
+        number=195806222,
+    )
+    test_permissions_request_resource: "TestPermissionsRequest" = proto.Field(
+        proto.MESSAGE,
+        number=439214758,
+        message="TestPermissionsRequest",
+    )
+
+
 class TestIamPermissionsVpnGatewayRequest(proto.Message):
     r"""A request message for VpnGateways.TestIamPermissions. See the
     method description for details.
@@ -118008,6 +118587,12 @@ class UpcomingMaintenance(proto.Message):
                 Maintenance due to disk errors.
             FAILURE_GPU (467876919):
                 Maintenance due to GPU errors.
+            FAILURE_GPU_MULTIPLE_FAULTY_HOSTS_CUSTOMER_REPORTED (223284959):
+                Maintenance due to customer reported multiple
+                faulty hosts via R&R Subblock API.
+            FAILURE_GPU_NVLINK_SWITCH_CUSTOMER_REPORTED (88487838):
+                Maintenance due to customer reported NVLink
+                switch failure via R&R Subblock API.
             FAILURE_GPU_TEMPERATURE (24926540):
                 Maintenance due to high GPU temperature.
             FAILURE_GPU_XID (51956587):
@@ -118038,6 +118623,8 @@ class UpcomingMaintenance(proto.Message):
         UNDEFINED_MAINTENANCE_REASONS = 0
         FAILURE_DISK = 8573778
         FAILURE_GPU = 467876919
+        FAILURE_GPU_MULTIPLE_FAULTY_HOSTS_CUSTOMER_REPORTED = 223284959
+        FAILURE_GPU_NVLINK_SWITCH_CUSTOMER_REPORTED = 88487838
         FAILURE_GPU_TEMPERATURE = 24926540
         FAILURE_GPU_XID = 51956587
         FAILURE_INFRA = 270541467
@@ -122008,6 +122595,11 @@ class VpnTunnel(proto.Message):
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
+        cipher_suite (google.cloud.compute_v1.types.VpnTunnelCipherSuite):
+            User specified list of ciphers to use for the
+            phase 1 and phase 2 of the IKE protocol.
+
+            This field is a member of `oneof`_ ``_cipher_suite``.
         creation_timestamp (str):
             [Output Only] Creation timestamp in RFC3339 text format.
 
@@ -122273,6 +122865,12 @@ class VpnTunnel(proto.Message):
         STOPPED = 444276141
         WAITING_FOR_FULL_CONFIG = 41640522
 
+    cipher_suite: "VpnTunnelCipherSuite" = proto.Field(
+        proto.MESSAGE,
+        number=443788228,
+        optional=True,
+        message="VpnTunnelCipherSuite",
+    )
     creation_timestamp: str = proto.Field(
         proto.STRING,
         number=30525366,
@@ -122474,6 +123072,34 @@ class VpnTunnelAggregatedList(proto.Message):
     )
 
 
+class VpnTunnelCipherSuite(proto.Message):
+    r"""
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        phase1 (google.cloud.compute_v1.types.VpnTunnelPhase1Algorithms):
+
+            This field is a member of `oneof`_ ``_phase1``.
+        phase2 (google.cloud.compute_v1.types.VpnTunnelPhase2Algorithms):
+
+            This field is a member of `oneof`_ ``_phase2``.
+    """
+
+    phase1: "VpnTunnelPhase1Algorithms" = proto.Field(
+        proto.MESSAGE,
+        number=84289046,
+        optional=True,
+        message="VpnTunnelPhase1Algorithms",
+    )
+    phase2: "VpnTunnelPhase2Algorithms" = proto.Field(
+        proto.MESSAGE,
+        number=84289047,
+        optional=True,
+        message="VpnTunnelPhase2Algorithms",
+    )
+
+
 class VpnTunnelList(proto.Message):
     r"""Contains a list of VpnTunnel resources.
 
@@ -122545,6 +123171,64 @@ class VpnTunnelList(proto.Message):
         number=50704284,
         optional=True,
         message="Warning",
+    )
+
+
+class VpnTunnelPhase1Algorithms(proto.Message):
+    r"""
+
+    Attributes:
+        dh (MutableSequence[str]):
+
+        encryption (MutableSequence[str]):
+
+        integrity (MutableSequence[str]):
+
+        prf (MutableSequence[str]):
+
+    """
+
+    dh: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=3204,
+    )
+    encryption: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=97980291,
+    )
+    integrity: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=492830541,
+    )
+    prf: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=111268,
+    )
+
+
+class VpnTunnelPhase2Algorithms(proto.Message):
+    r"""
+
+    Attributes:
+        encryption (MutableSequence[str]):
+
+        integrity (MutableSequence[str]):
+
+        pfs (MutableSequence[str]):
+
+    """
+
+    encryption: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=97980291,
+    )
+    integrity: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=492830541,
+    )
+    pfs: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=110909,
     )
 
 

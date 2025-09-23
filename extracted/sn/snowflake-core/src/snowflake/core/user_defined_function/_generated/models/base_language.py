@@ -1,6 +1,5 @@
-
 """
-Snowflake User Defined Function API
+Snowflake User Defined Function API.
 
 The Snowflake User Defined Function API is a REST API that you can use to access, update, and perform certain actions on User Defined Function resource in a Snowflake database.  # noqa: E501
 
@@ -44,7 +43,6 @@ class BaseLanguage(FunctionLanguage):
     called_on_null_input : bool, optional
         Decide if the function/procedure can receive null input
 
-
     is_volatile : bool, optional
          Specifies the behavior of the UDF when returning results. This Field is deprecated for Procedure.
 
@@ -53,7 +51,6 @@ class BaseLanguage(FunctionLanguage):
 
                     If false, UDF assumes that the function, when called with the same inputs, will always return the same result.
                     This guarantee is not checked. Specifying IMMUTABLE for a UDF that returns different values for the same input will result in undefined behavior.
-
 
     imports : list[str], optional
         List of imports
@@ -114,14 +111,14 @@ class BaseLanguage(FunctionLanguage):
 
     @classmethod
     def from_json(cls, json_str: str) -> Union[JavaFunction, PythonFunction, ScalaFunction]:
-        """Create an instance of BaseLanguage from a JSON string"""
+        """Create an instance of BaseLanguage from a JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(
         self,
         hide_readonly_properties: bool = False,
     ) -> dict[str, Any]:
-        """Returns the dictionary representation of the model using alias"""
+        """Returns the dictionary representation of the model using alias."""
         exclude_properties = set()
 
         if hide_readonly_properties:
@@ -180,7 +177,6 @@ class BaseLanguageModel(FunctionLanguage):
         called_on_null_input : bool, optional
             Decide if the function/procedure can receive null input
 
-
         is_volatile : bool, optional
              Specifies the behavior of the UDF when returning results. This Field is deprecated for Procedure.
 
@@ -189,7 +185,6 @@ class BaseLanguageModel(FunctionLanguage):
 
             If false, UDF assumes that the function, when called with the same inputs, will always return the same result.
             This guarantee is not checked. Specifying IMMUTABLE for a UDF that returns different values for the same input will result in undefined behavior.
-
 
         imports : list[str], optional
             List of imports

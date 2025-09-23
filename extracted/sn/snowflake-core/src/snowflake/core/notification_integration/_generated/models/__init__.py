@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Notification Integration API
+Snowflake Notification Integration API.
 
 The Snowflake Notification Integration API is a REST API that you can use to access, update, and perform certain actions on Notification Integration resource in a Snowflake database.  # noqa: E501
 

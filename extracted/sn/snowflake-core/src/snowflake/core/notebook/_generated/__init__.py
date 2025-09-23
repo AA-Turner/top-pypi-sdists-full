@@ -3,7 +3,7 @@
 # flake8: noqa
 
 """
-Snowflake Notebook API
+Snowflake Notebook API.
 
 The Snowflake Notebook API is a REST API that you can use to access, update, and perform certain actions on Notebook resource in a Snowflake database.  # noqa: E501
 
@@ -20,10 +20,6 @@ __version__ = "1.0.0"
 
 # import apis into sdk package
 from snowflake.core.notebook._generated.api.notebook_api import NotebookApi
-
-# import ApiClient
-from snowflake.core.notebook._generated.api_client import ApiClient
-from snowflake.core.notebook._generated.configuration import Configuration
 
 # import models into sdk package
 from snowflake.core.notebook._generated.models.error_response import ErrorResponse

@@ -33,6 +33,9 @@ logger = structlog.stdlib.get_logger(__name__)
 # Cache for assistant schemas (assistant_id -> schemas dict)
 _assistant_schemas_cache = LRUCache[dict[str, Any]](max_size=1000, ttl=60)
 
+MAX_HISTORY_LENGTH_REQUESTED = 10
+LANGGRAPH_HISTORY_QUERY_LIMIT = 500
+
 
 # ============================================================================
 # JSON-RPC 2.0 Base Types (shared with MCP)
@@ -99,12 +102,11 @@ def _client() -> LangGraphClient:
 
 
 async def _get_assistant(
-    client: LangGraphClient, assistant_id: str, headers: Headers | dict[str, Any] | None
+    assistant_id: str, headers: Headers | dict[str, Any] | None
 ) -> dict[str, Any]:
     """Get assistant with proper 404 error handling.
 
     Args:
-        client: LangGraph client
         assistant_id: The assistant ID to get
         headers: Request headers
 
@@ -115,7 +117,7 @@ async def _get_assistant(
         ValueError: If assistant not found or other errors
     """
     try:
-        return await client.assistants.get(assistant_id, headers=headers)
+        return await get_client().assistants.get(assistant_id, headers=headers)
     except Exception as e:
         if (
             hasattr(e, "response")
@@ -127,7 +129,6 @@ async def _get_assistant(
 
 
 async def _validate_supports_messages(
-    client: LangGraphClient,
     assistant: dict[str, Any],
     headers: Headers | dict[str, Any] | None,
     parts: list[dict[str, Any]],
@@ -138,7 +139,6 @@ async def _validate_supports_messages(
     If the parts only contain data parts, no validation is performed.
 
     Args:
-        client: LangGraph client
         assistant: The assistant dictionary
         headers: Request headers
         parts: The original A2A message parts
@@ -156,7 +156,9 @@ async def _validate_supports_messages(
         schemas = cached_schemas
     else:
         try:
-            schemas = await client.assistants.get_schemas(assistant_id, headers=headers)
+            schemas = await get_client().assistants.get_schemas(
+                assistant_id, headers=headers
+            )
             _assistant_schemas_cache.set(assistant_id, schemas)
         except Exception as e:
             raise ValueError(
@@ -505,10 +507,50 @@ def _map_runs_get_error_to_rpc(
     }
 
 
-def _create_task_response(
+def _convert_messages_to_a2a_format(
+    messages: list[dict[str, Any]],
     task_id: str,
     context_id: str,
-    message: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Convert LangChain messages to A2A message format.
+
+    Args:
+        messages: List of LangChain messages
+        task_id: The task ID to assign to all messages
+        context_id: The context ID to assign to all messages
+
+    Returns:
+        List of A2A messages
+    """
+
+    # Convert each LangChain message to A2A format
+    a2a_messages = []
+    for msg in messages:
+        if isinstance(msg, dict):
+            msg_type = msg.get("type", "ai")
+            msg_role = msg.get("role", "")
+            content = msg.get("content", "")
+
+            # Support both LangChain style (type: "human"/"ai") and OpenAI style (role: "user"/"assistant")
+            # Map to A2A roles: "human"/"user" -> "user", everything else -> "agent"
+            a2a_role = "user" if msg_type == "human" or msg_role == "user" else "agent"
+
+            a2a_message = {
+                "role": a2a_role,
+                "parts": [{"kind": "text", "text": str(content)}],
+                "messageId": str(uuid.uuid4()),
+                "taskId": task_id,
+                "contextId": context_id,
+                "kind": "message",
+            }
+            a2a_messages.append(a2a_message)
+
+    return a2a_messages
+
+
+async def _create_task_response(
+    task_id: str,
+    context_id: str,
     result: dict[str, Any],
     assistant_id: str,
 ) -> dict[str, Any]:
@@ -520,16 +562,19 @@ def _create_task_response(
         message: Original A2A message from request
         result: LangGraph execution result
         assistant_id: The assistant ID used
+        headers: Request headers
 
     Returns:
         A2A Task response dictionary
     """
+    # Convert result messages to A2A message format
+    messages = result.get("messages", []) or []
+    thread_history = _convert_messages_to_a2a_format(messages, task_id, context_id)
+
     base_task = {
         "id": task_id,
         "contextId": context_id,
-        "history": [
-            {**message, "taskId": task_id, "contextId": context_id, "kind": "message"}
-        ],
+        "history": thread_history,
         "kind": "task",
     }
 
@@ -796,8 +841,8 @@ async def handle_message_send(
             }
 
         try:
-            assistant = await _get_assistant(client, assistant_id, request.headers)
-            await _validate_supports_messages(client, assistant, request.headers, parts)
+            assistant = await _get_assistant(assistant_id, request.headers)
+            await _validate_supports_messages(assistant, request.headers, parts)
         except ValueError as e:
             return {
                 "error": {
@@ -822,6 +867,10 @@ async def handle_message_send(
 
         context_id = message.get("contextId")
 
+        # If no contextId provided, generate a UUID so we don't pass None to runs.create
+        if context_id is None:
+            context_id = str(uuid.uuid4())
+
         try:
             run = await client.runs.create(
                 thread_id=context_id,
@@ -845,10 +894,9 @@ async def handle_message_send(
         task_id = run["run_id"]
         context_id = run["thread_id"]
 
-        return _create_task_response(
+        return await _create_task_response(
             task_id=task_id,
             context_id=context_id,
-            message=message,
             result=result,
             assistant_id=assistant_id,
         )
@@ -861,6 +909,37 @@ async def handle_message_send(
                 "message": f"Internal server error: {str(e)}",
             }
         }
+
+
+async def _get_historical_messages_for_task(
+    context_id: str,
+    task_run_id: str,
+    request_headers: Headers,
+    history_length: int | None = None,
+) -> list[Any]:
+    """Get historical messages for a specific task by matching run_id."""
+    history = await get_client().threads.get_history(
+        context_id,
+        limit=LANGGRAPH_HISTORY_QUERY_LIMIT,
+        metadata={"run_id": task_run_id},
+        headers=request_headers,
+    )
+
+    if history:
+        # Find the checkpoint with the highest step number (final state for this task)
+        target_checkpoint = max(
+            history, key=lambda c: c.get("metadata", {}).get("step", 0)
+        )
+        values = target_checkpoint["values"]
+        messages = values.get("messages", [])
+
+        # Apply client-requested history length limit per A2A spec
+        if history_length is not None and len(messages) > history_length:
+            # Return the most recent messages up to the limit
+            messages = messages[-history_length:]
+        return messages
+    else:
+        return []
 
 
 async def handle_tasks_get(
@@ -885,6 +964,7 @@ async def handle_tasks_get(
     try:
         task_id = params.get("id")
         context_id = params.get("contextId")
+        history_length = params.get("historyLength")
 
         if not task_id:
             return {
@@ -901,6 +981,23 @@ async def handle_tasks_get(
                     "message": "Missing required parameter: contextId (thread_id)",
                 }
             }
+
+        # Validate history_length parameter per A2A spec
+        if history_length is not None:
+            if not isinstance(history_length, int) or history_length < 0:
+                return {
+                    "error": {
+                        "code": ERROR_CODE_INVALID_PARAMS,
+                        "message": "historyLength must be a non-negative integer",
+                    }
+                }
+            if history_length > MAX_HISTORY_LENGTH_REQUESTED:
+                return {
+                    "error": {
+                        "code": ERROR_CODE_INVALID_PARAMS,
+                        "message": f"historyLength cannot exceed {MAX_HISTORY_LENGTH_REQUESTED}",
+                    }
+                }
 
         try:
             run_info = await client.runs.get(
@@ -919,7 +1016,7 @@ async def handle_tasks_get(
         if assistant_id:
             try:
                 # Verify that the assistant exists
-                await _get_assistant(client, assistant_id, request.headers)
+                await _get_assistant(assistant_id, request.headers)
             except ValueError as e:
                 return {
                     "error": {
@@ -941,10 +1038,24 @@ async def handle_tasks_get(
         else:
             a2a_state = "submitted"
 
+        try:
+            task_run_id = run_info.get("run_id")
+            messages = await _get_historical_messages_for_task(
+                context_id, task_run_id, request.headers, history_length
+            )
+            thread_history = _convert_messages_to_a2a_format(
+                messages, task_id, context_id
+            )
+        except Exception as e:
+            await logger.aexception(f"Failed to get thread state for tasks/get: {e}")
+            thread_history = []
+
         # Build the A2A Task response
         task_response = {
             "id": task_id,
             "contextId": context_id,
+            "history": thread_history,
+            "kind": "task",
             "status": {
                 "state": a2a_state,
             },
@@ -1033,7 +1144,7 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
     """
     client = _client()
 
-    assistant = await _get_assistant(client, assistant_id, request.headers)
+    assistant = await _get_assistant(assistant_id, request.headers)
     schemas = await client.assistants.get_schemas(assistant_id, headers=request.headers)
 
     # Extract schema information for metadata
@@ -1212,10 +1323,8 @@ async def handle_message_stream(
                 return
 
             try:
-                assistant = await _get_assistant(client, assistant_id, request.headers)
-                await _validate_supports_messages(
-                    client, assistant, request.headers, parts
-                )
+                assistant = await _get_assistant(assistant_id, request.headers)
+                await _validate_supports_messages(assistant, request.headers, parts)
             except ValueError as e:
                 yield (
                     b"message",

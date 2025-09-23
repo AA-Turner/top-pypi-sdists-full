@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.221.1
+Version: 0.221.2
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -275,6 +275,7 @@ Requires-Dist: google-cloud-bigquery; extra == "dev"
 Requires-Dist: google-cloud-bigquery-storage; extra == "dev"
 Requires-Dist: httpx; extra == "dev"
 Requires-Dist: mypy~=1.13.0; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: psycopg2-binary; extra == "dev"

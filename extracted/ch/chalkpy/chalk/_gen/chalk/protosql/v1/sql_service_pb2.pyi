@@ -104,30 +104,39 @@ class GetDbSchemasResponse(_message.Message):
     ) -> None: ...
 
 class GetTablesRequest(_message.Message):
-    __slots__ = ("catalog", "db_schema_filter_pattern", "table_name_filter_pattern")
+    __slots__ = ("catalog", "db_schema_filter_pattern", "table_name_filter_pattern", "include_schemas")
     CATALOG_FIELD_NUMBER: _ClassVar[int]
     DB_SCHEMA_FILTER_PATTERN_FIELD_NUMBER: _ClassVar[int]
     TABLE_NAME_FILTER_PATTERN_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_SCHEMAS_FIELD_NUMBER: _ClassVar[int]
     catalog: str
     db_schema_filter_pattern: str
     table_name_filter_pattern: str
+    include_schemas: bool
     def __init__(
         self,
         catalog: _Optional[str] = ...,
         db_schema_filter_pattern: _Optional[str] = ...,
         table_name_filter_pattern: _Optional[str] = ...,
+        include_schemas: bool = ...,
     ) -> None: ...
 
 class TableInfo(_message.Message):
-    __slots__ = ("catalog_name", "db_schema_name", "table_name")
+    __slots__ = ("catalog_name", "db_schema_name", "table_name", "table_arrow_schema")
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
     DB_SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
     TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    TABLE_ARROW_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     catalog_name: str
     db_schema_name: str
     table_name: str
+    table_arrow_schema: bytes
     def __init__(
-        self, catalog_name: _Optional[str] = ..., db_schema_name: _Optional[str] = ..., table_name: _Optional[str] = ...
+        self,
+        catalog_name: _Optional[str] = ...,
+        db_schema_name: _Optional[str] = ...,
+        table_name: _Optional[str] = ...,
+        table_arrow_schema: _Optional[bytes] = ...,
     ) -> None: ...
 
 class GetTablesResponse(_message.Message):

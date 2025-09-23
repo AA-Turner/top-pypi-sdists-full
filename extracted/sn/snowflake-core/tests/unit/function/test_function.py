@@ -12,7 +12,7 @@ from snowflake.core.version import __version__ as VERSION
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.function._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 FUNCTION = ServiceFunction(name="my_fn", arguments=[], service="my_service", endpoint="", path="/path/to/myapp")
 
 
@@ -27,9 +27,9 @@ def function(functions):
 
 
 def test_create_function(fake_root, functions):
-    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/functions?createMode=errorIfExists")
+    args = (fake_root, "POST", BASE_URL + "/databases/my_db/schemas/my_schema/functions")
     kwargs = extra_params(
-        query_params=[("createMode", "errorIfExists")],
+        query_params=[],
         body={
             "name": "my_fn",
             "arguments": [],
@@ -98,9 +98,9 @@ def test_drop_function(fake_root, function):
     args = (
         fake_root,
         "DELETE",
-        BASE_URL + f"/databases/my_db/schemas/my_schema/functions/{quote('my_fn()')}?ifExists=False",
+        BASE_URL + f"/databases/my_db/schemas/my_schema/functions/{quote('my_fn()')}",
     )
-    kwargs = extra_params(query_params=[("ifExists", False)])
+    kwargs = extra_params(query_params=[])
 
     with mock.patch(API_CLIENT_REQUEST) as mocked_request:
         function.drop()

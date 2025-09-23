@@ -19,6 +19,16 @@ def mock_bleak_client() -> Generator[AsyncMock]:
 
 
 @pytest.fixture
+def mock_establish_connection(mock_bleak_client: AsyncMock) -> Generator[AsyncMock]:
+    """Mock bleak_retry_connector."""
+    with patch(
+        "pynecil.client.establish_connection",
+        return_value=mock_bleak_client,
+    ) as mock_setup_entry:
+        yield mock_setup_entry
+
+
+@pytest.fixture
 def mock_bleak_scanner() -> Generator[AsyncMock]:
     """Mock bleak scanner."""
 
@@ -26,6 +36,6 @@ def mock_bleak_scanner() -> Generator[AsyncMock]:
         client = mock_client.return_value
 
         client.find_device_by_filter.return_value = BLEDevice(
-            address="AA:BB:CC:DD:EE:FF", name="Pinecil-ABCDEF", rssi=-50, details={}
+            address="AA:BB:CC:DD:EE:FF", name="Pinecil-ABCDEF", details={}
         )
         yield client

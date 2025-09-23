@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Cortex Embed API
+Cortex Embed API.
 
 OpenAPI 3.0 specification for the Cortex Embed REST API  # noqa: E501
 

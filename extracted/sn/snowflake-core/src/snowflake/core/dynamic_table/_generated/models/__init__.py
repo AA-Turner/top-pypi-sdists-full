@@ -2,7 +2,7 @@
 
 # flake8: noqa
 """
-Snowflake Dynamic Table API
+Snowflake Dynamic Table API.
 
 The Snowflake Dynamic Table API is a REST API that you can use to access, update, and perform certain actions on Dynamic Tables resource in a Snowflake database.  # noqa: E501
 

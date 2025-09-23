@@ -8,7 +8,7 @@ from snowflake.core.compute_pool import ComputePool, ComputePoolCollection, Comp
 from ...utils import BASE_URL, extra_params, mock_http_response
 
 
-API_CLIENT_REQUEST = "snowflake.core.compute_pool._generated.api_client.ApiClient.request"
+API_CLIENT_REQUEST = "snowflake.core._generated.api_client.ApiClient.request"
 COMPUTE_POOL = ComputePool(name="my_compute_pool", min_nodes=1, max_nodes=1, instance_family="")
 
 

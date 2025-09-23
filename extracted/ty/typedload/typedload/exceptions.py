@@ -22,7 +22,7 @@ Exceptions
 
 
 from enum import Enum
-from typing import Any, List, NamedTuple, Optional, Type, Union
+from typing import Any, NamedTuple, Type
 
 
 __all__ = [
@@ -50,17 +50,15 @@ class AnnotationType(Enum):
     UNION = 'union'
 
 
-Annotation = NamedTuple('Annotation', [
-    ('annotation_type', AnnotationType),
-    ('value', Union[str, int, Type]),
-])
+class Annotation(NamedTuple):
+    annotation_type: AnnotationType
+    value: str | int | Type
 
 
-TraceItem = NamedTuple('TraceItem', [
-    ('value', Any),
-    ('type_', Type),
-    ('annotation', Optional[Annotation]),
-])
+class TraceItem(NamedTuple):
+    value: Any
+    type_: Type
+    annotation: Annotation | None
 
 
 class TypedloadException(Exception):
@@ -91,10 +89,10 @@ class TypedloadException(Exception):
     def __init__(
             self,
             description: str,
-            trace: Optional[List[TraceItem]] = None,
+            trace: list[TraceItem] | None = None,
             value: Any=None,
-            type_: Optional[Type] = None,
-            exceptions: Optional[List['TypedloadException']] = None) -> None:
+            type_: Type | None = None,
+            exceptions: list['TypedloadException'] | None = None) -> None:
         super().__init__(description)
         self.trace = trace if trace else []
         self.value = value
@@ -102,7 +100,7 @@ class TypedloadException(Exception):
         self.exceptions = exceptions if exceptions else []
 
     @staticmethod
-    def _path(trace: List[TraceItem]) -> str:
+    def _path(trace: list[TraceItem]) -> str:
         '''
         Compact representation of where in the data the exception happened
         '''
@@ -118,7 +116,7 @@ class TypedloadException(Exception):
             path[0] = ''
         return '.'.join(path)
 
-    def _subexceptions(self, indent: int, trace: List) -> str:
+    def _subexceptions(self, indent: int, trace: list) -> str:
         '''
         Recursive list of all exceptions that happened in the unions
         '''

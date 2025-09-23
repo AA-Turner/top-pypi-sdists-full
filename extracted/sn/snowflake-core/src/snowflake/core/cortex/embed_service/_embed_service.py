@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING
 
 from snowflake.core import PollingOperation
+from snowflake.core._generated.api_client import StoredProcApiClient
 from snowflake.core._internal.telemetry import api_telemetry
 from snowflake.core._operation import PollingOperations
 from snowflake.core.cortex.embed_service._generated.api import CortexEmbedApi
-from snowflake.core.cortex.embed_service._generated.api_client import StoredProcApiClient
 from snowflake.core.cortex.embed_service._generated.models import EmbedRequest, EmbedResponse
 
 
