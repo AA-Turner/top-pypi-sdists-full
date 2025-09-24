@@ -31,6 +31,8 @@ __all__ = (
     "InstanceAccessControlAttributeConfigurationStatusType",
     "InstanceStatusType",
     "JwksRetrievalOptionType",
+    "KmsKeyStatusType",
+    "KmsKeyTypeType",
     "ListAccountAssignmentCreationStatusPaginatorName",
     "ListAccountAssignmentDeletionStatusPaginatorName",
     "ListAccountAssignmentsForPrincipalPaginatorName",
@@ -80,8 +82,10 @@ GrantTypeType = Literal[
 InstanceAccessControlAttributeConfigurationStatusType = Literal[
     "CREATION_FAILED", "CREATION_IN_PROGRESS", "ENABLED"
 ]
-InstanceStatusType = Literal["ACTIVE", "CREATE_IN_PROGRESS", "DELETE_IN_PROGRESS"]
+InstanceStatusType = Literal["ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_IN_PROGRESS"]
 JwksRetrievalOptionType = Literal["OPEN_ID_DISCOVERY"]
+KmsKeyStatusType = Literal["ENABLED", "UPDATE_FAILED", "UPDATING"]
+KmsKeyTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KEY"]
 ListAccountAssignmentCreationStatusPaginatorName = Literal[
     "list_account_assignment_creation_status"
 ]
@@ -168,8 +172,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -411,8 +417,6 @@ ServiceName = Literal[
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
@@ -494,7 +498,6 @@ ServiceName = Literal[
     "shield",
     "signer",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -545,16 +548,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_account_assignment_creation_status",

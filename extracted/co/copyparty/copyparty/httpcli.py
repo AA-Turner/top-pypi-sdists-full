@@ -2825,51 +2825,51 @@ class HttpCli(object):
         bail1 = False  # used in sad path to avoid contradicting error-text
         treport = time.time()  # ratelimit up2k reporting to reduce overhead
 
-        if "x-up2k-subc" in self.headers:
-            sc_ofs = int(self.headers["x-up2k-subc"])
-            chash = chashes[0]
-
-            u2sc = self.conn.hsrv.u2sc
-            try:
-                sc_pofs, hasher = u2sc[chash]
-                if not sc_ofs:
-                    t = "client restarted the chunk; forgetting subchunk offset %d"
-                    self.log(t % (sc_pofs,))
-                    raise Exception()
-            except:
-                sc_pofs = 0
-                hasher = hashlib.sha512()
-
-            et = "subchunk protocol error; resetting chunk "
-            if sc_pofs != sc_ofs:
-                u2sc.pop(chash, None)
-                t = "%s[%s]: the expected resume-point was %d, not %d"
-                raise Pebkac(400, t % (et, chash, sc_pofs, sc_ofs))
-            if len(cstarts) > 1:
-                u2sc.pop(chash, None)
-                t = "%s[%s]: only a single subchunk can be uploaded in one request; you are sending %d chunks"
-                raise Pebkac(400, t % (et, chash, len(cstarts)))
-            csize = min(chunksize, fsize - cstart0[0])
-            cstart0[0] += sc_ofs  # also sets cstarts[0][0]
-            sc_next_ofs = sc_ofs + postsize
-            if sc_next_ofs > csize:
-                u2sc.pop(chash, None)
-                t = "%s[%s]: subchunk offset (%d) plus postsize (%d) exceeds chunksize (%d)"
-                raise Pebkac(400, t % (et, chash, sc_ofs, postsize, csize))
-            else:
-                final_subchunk = sc_next_ofs == csize
-                t = "subchunk %s %d:%d/%d %s"
-                zs = "END" if final_subchunk else ""
-                self.log(t % (chash[:15], sc_ofs, sc_next_ofs, csize, zs), 6)
-                if final_subchunk:
-                    u2sc.pop(chash, None)
-                else:
-                    u2sc[chash] = (sc_next_ofs, hasher)
-        else:
-            hasher = None
-            final_subchunk = True
-
         try:
+            if "x-up2k-subc" in self.headers:
+                sc_ofs = int(self.headers["x-up2k-subc"])
+                chash = chashes[0]
+
+                u2sc = self.conn.hsrv.u2sc
+                try:
+                    sc_pofs, hasher = u2sc[chash]
+                    if not sc_ofs:
+                        t = "client restarted the chunk; forgetting subchunk offset %d"
+                        self.log(t % (sc_pofs,))
+                        raise Exception()
+                except:
+                    sc_pofs = 0
+                    hasher = hashlib.sha512()
+
+                et = "subchunk protocol error; resetting chunk "
+                if sc_pofs != sc_ofs:
+                    u2sc.pop(chash, None)
+                    t = "%s[%s]: the expected resume-point was %d, not %d"
+                    raise Pebkac(400, t % (et, chash, sc_pofs, sc_ofs))
+                if len(cstarts) > 1:
+                    u2sc.pop(chash, None)
+                    t = "%s[%s]: only a single subchunk can be uploaded in one request; you are sending %d chunks"
+                    raise Pebkac(400, t % (et, chash, len(cstarts)))
+                csize = min(chunksize, fsize - cstart0[0])
+                cstart0[0] += sc_ofs  # also sets cstarts[0][0]
+                sc_next_ofs = sc_ofs + postsize
+                if sc_next_ofs > csize:
+                    u2sc.pop(chash, None)
+                    t = "%s[%s]: subchunk offset (%d) plus postsize (%d) exceeds chunksize (%d)"
+                    raise Pebkac(400, t % (et, chash, sc_ofs, postsize, csize))
+                else:
+                    final_subchunk = sc_next_ofs == csize
+                    t = "subchunk %s %d:%d/%d %s"
+                    zs = "END" if final_subchunk else ""
+                    self.log(t % (chash[:15], sc_ofs, sc_next_ofs, csize, zs), 6)
+                    if final_subchunk:
+                        u2sc.pop(chash, None)
+                    else:
+                        u2sc[chash] = (sc_next_ofs, hasher)
+            else:
+                hasher = None
+                final_subchunk = True
+
             if self.args.nw:
                 path = os.devnull
 
@@ -2941,7 +2941,9 @@ class HttpCli(object):
                     if now - treport < 1:
                         continue
                     treport = now
-                    x = broker.ask("up2k.fast_confirm_chunks", ptop, wark, written)
+                    x = broker.ask(
+                        "up2k.fast_confirm_chunks", ptop, wark, written, locked
+                    )
                     num_left, t = x.get()
                     if num_left < -1:
                         self.loud_reply(t, status=500)
@@ -6254,7 +6256,7 @@ class HttpCli(object):
 
         add_og = "og" in vn.flags
         if add_og:
-            if "th" in self.uparam or "raw" in self.uparam:
+            if "th" in self.uparam or "raw" in self.uparam or "opds" in self.uparam:
                 add_og = False
             elif vn.flags["og_ua"]:
                 add_og = vn.flags["og_ua"].search(self.ua)
@@ -6459,6 +6461,7 @@ class HttpCli(object):
 
         url_suf = self.urlq({}, ["k"])
         is_ls = "ls" in self.uparam
+        is_opds = "opds" in self.uparam
         is_js = self.args.force_js or self.cookies.get("js") == "y"
 
         if not is_ls and not add_og and self.ua.startswith(("curl/", "fetch")):
@@ -6469,6 +6472,13 @@ class HttpCli(object):
         if "b" in self.uparam:
             tpl = "browser2"
             is_js = False
+        elif is_opds:
+            # Display directory listing as OPDS v1.2 catalog feed
+            if not (self.args.opds or "opds" in self.vn.flags):
+                raise Pebkac(405, "OPDS is disabled in server config")
+            if not self.can_read:
+                raise Pebkac(401, "OPDS requires read permission")
+            is_js = is_ls = False
 
         vf = vn.flags
         ls_ret = {
@@ -6598,10 +6608,17 @@ class HttpCli(object):
         dirs = []
         files = []
         ptn_hr = RE_HR
+        use_abs_url = (
+            not is_opds
+            and not is_ls
+            and not is_js
+            and not self.trailing_slash
+            and vpath
+        )
         for fn in ls_names:
             base = ""
             href = fn
-            if not is_ls and not is_js and not self.trailing_slash and vpath:
+            if use_abs_url:
                 base = "/" + vpath + "/"
                 href = base + fn
 
@@ -6701,6 +6718,7 @@ class HttpCli(object):
             self.cookies.get("idxh") == "y"
             and "ls" not in self.uparam
             and "v" not in self.uparam
+            and not is_opds
         ):
             idx_html = set(["index.htm", "index.html"])
             for item in files:
@@ -6867,6 +6885,48 @@ class HttpCli(object):
             d["name"] += "/"
 
         dirs.sort(key=itemgetter("name"))
+
+        if is_opds:
+            # exclude files which don't match --opds-exts
+            allowed_exts = vf.get("opds_exts") or self.args.opds_exts
+            if allowed_exts:
+                files = [
+                    x for x in files if x["name"].rsplit(".", 1)[-1] in allowed_exts
+                ]
+            for item in dirs:
+                href = item["href"]
+                href += ("&" if "?" in href else "?") + "opds"
+                item["href"] = href
+                item["iso8601"] = "%sZ" % (item["dt"].replace(" ", "T"),)
+
+            for item in files:
+                href = item["href"]
+                href += ("&" if "?" in href else "?") + "dl"
+                item["href"] = href
+                item["iso8601"] = "%sZ" % (item["dt"].replace(" ", "T"),)
+
+                if "rmagic" in self.vn.flags:
+                    ap = "%s/%s" % (fsroot, item["name"])
+                    item["mime"] = guess_mime(item["name"], ap)
+                else:
+                    item["mime"] = guess_mime(item["name"])
+
+                # Make sure we can actually generate JPEG thumbnails
+                if (
+                    not self.args.th_no_jpg
+                    and self.thumbcli
+                    and "dthumb" not in dbv.flags
+                    and "dithumb" not in dbv.flags
+                ):
+                    item["jpeg_thumb_href"] = href + "&th=jf"
+                    item["jpeg_thumb_href_hires"] = item["jpeg_thumb_href"] + "3"
+
+            j2a["files"] = files
+            j2a["dirs"] = dirs
+            html = self.j2s("opds", **j2a)
+            mime = "application/atom+xml;profile=opds-catalog"
+            self.reply(html.encode("utf-8", "replace"), mime=mime)
+            return True
 
         if is_js:
             j2a["ls0"] = cgv["ls0"] = {

@@ -1,7 +1,7 @@
 r'''
 # `newrelic_alert_muting_rule`
 
-Refer to the Terraform Registry for docs: [`newrelic_alert_muting_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule).
+Refer to the Terraform Registry for docs: [`newrelic_alert_muting_rule`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AlertMutingRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.alertMutingRule.AlertMutingRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule newrelic_alert_muting_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule newrelic_alert_muting_rule}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class AlertMutingRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule newrelic_alert_muting_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule newrelic_alert_muting_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#condition AlertMutingRule#condition}
-        :param enabled: Whether the MutingRule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#enabled AlertMutingRule#enabled}
-        :param name: The name of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#name AlertMutingRule#name}
-        :param account_id: The account id of the MutingRule.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#account_id AlertMutingRule#account_id}
-        :param action_on_muting_rule_window_ended: The action when the muting rule window is ended or disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#action_on_muting_rule_window_ended AlertMutingRule#action_on_muting_rule_window_ended}
-        :param description: The description of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#description AlertMutingRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#id AlertMutingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#schedule AlertMutingRule#schedule}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#condition AlertMutingRule#condition}
+        :param enabled: Whether the MutingRule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#enabled AlertMutingRule#enabled}
+        :param name: The name of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#name AlertMutingRule#name}
+        :param account_id: The account id of the MutingRule.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#account_id AlertMutingRule#account_id}
+        :param action_on_muting_rule_window_ended: The action when the muting rule window is ended or disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#action_on_muting_rule_window_ended AlertMutingRule#action_on_muting_rule_window_ended}
+        :param description: The description of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#description AlertMutingRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#id AlertMutingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#schedule AlertMutingRule#schedule}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class AlertMutingRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AlertMutingRule to import.
-        :param import_from_id: The id of the existing AlertMutingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AlertMutingRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AlertMutingRule to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class AlertMutingRule(
         operator: builtins.str,
     ) -> None:
         '''
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#conditions AlertMutingRule#conditions}
-        :param operator: The operator used to combine all the MutingRuleConditions within the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#conditions AlertMutingRule#conditions}
+        :param operator: The operator used to combine all the MutingRuleConditions within the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
         '''
         value = AlertMutingRuleCondition(conditions=conditions, operator=operator)
 
@@ -163,13 +163,13 @@ class AlertMutingRule(
         weekly_repeat_days: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param time_zone: The time zone that applies to the MutingRule schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#time_zone AlertMutingRule#time_zone}
-        :param end_repeat: The datetime stamp when the MutingRule schedule should stop repeating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#end_repeat AlertMutingRule#end_repeat}
-        :param end_time: The datetime stamp representing when the MutingRule should end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#end_time AlertMutingRule#end_time}
-        :param repeat: The frequency the MutingRule schedule repeats. One of [DAILY, WEEKLY, MONTHLY]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#repeat AlertMutingRule#repeat}
-        :param repeat_count: The number of times the MutingRule schedule should repeat. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#repeat_count AlertMutingRule#repeat_count}
-        :param start_time: The datetime stamp representing when the MutingRule should start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#start_time AlertMutingRule#start_time}
-        :param weekly_repeat_days: The day(s) of the week that a MutingRule should repeat when the repeat field is set to WEEKLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#weekly_repeat_days AlertMutingRule#weekly_repeat_days}
+        :param time_zone: The time zone that applies to the MutingRule schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#time_zone AlertMutingRule#time_zone}
+        :param end_repeat: The datetime stamp when the MutingRule schedule should stop repeating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#end_repeat AlertMutingRule#end_repeat}
+        :param end_time: The datetime stamp representing when the MutingRule should end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#end_time AlertMutingRule#end_time}
+        :param repeat: The frequency the MutingRule schedule repeats. One of [DAILY, WEEKLY, MONTHLY]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#repeat AlertMutingRule#repeat}
+        :param repeat_count: The number of times the MutingRule schedule should repeat. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#repeat_count AlertMutingRule#repeat_count}
+        :param start_time: The datetime stamp representing when the MutingRule should start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#start_time AlertMutingRule#start_time}
+        :param weekly_repeat_days: The day(s) of the week that a MutingRule should repeat when the repeat field is set to WEEKLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#weekly_repeat_days AlertMutingRule#weekly_repeat_days}
         '''
         value = AlertMutingRuleSchedule(
             time_zone=time_zone,
@@ -357,8 +357,8 @@ class AlertMutingRuleCondition:
         operator: builtins.str,
     ) -> None:
         '''
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#conditions AlertMutingRule#conditions}
-        :param operator: The operator used to combine all the MutingRuleConditions within the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#conditions AlertMutingRule#conditions}
+        :param operator: The operator used to combine all the MutingRuleConditions within the group. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dd98dc98f01ae80b26c4ac029d5f430720dc0ac872180953a8895612d904102b)
@@ -375,7 +375,7 @@ class AlertMutingRuleCondition:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AlertMutingRuleConditionConditions"]]:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#conditions AlertMutingRule#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#conditions AlertMutingRule#conditions}
         '''
         result = self._values.get("conditions")
         assert result is not None, "Required property 'conditions' is missing"
@@ -385,7 +385,7 @@ class AlertMutingRuleCondition:
     def operator(self) -> builtins.str:
         '''The operator used to combine all the MutingRuleConditions within the group.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -421,9 +421,9 @@ class AlertMutingRuleConditionConditions:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param attribute: The attribute on an incident. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#attribute AlertMutingRule#attribute}
-        :param operator: The operator used to compare the attribute's value with the supplied value(s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
-        :param values: The value(s) to compare against the attribute's value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#values AlertMutingRule#values}
+        :param attribute: The attribute on an incident. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#attribute AlertMutingRule#attribute}
+        :param operator: The operator used to compare the attribute's value with the supplied value(s). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
+        :param values: The value(s) to compare against the attribute's value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#values AlertMutingRule#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8ca093c0cac3cd5291106045e554f8171ec8ad8191031069202247fc142ac4a)
@@ -440,7 +440,7 @@ class AlertMutingRuleConditionConditions:
     def attribute(self) -> builtins.str:
         '''The attribute on an incident.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#attribute AlertMutingRule#attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#attribute AlertMutingRule#attribute}
         '''
         result = self._values.get("attribute")
         assert result is not None, "Required property 'attribute' is missing"
@@ -450,7 +450,7 @@ class AlertMutingRuleConditionConditions:
     def operator(self) -> builtins.str:
         '''The operator used to compare the attribute's value with the supplied value(s).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#operator AlertMutingRule#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -460,7 +460,7 @@ class AlertMutingRuleConditionConditions:
     def values(self) -> typing.List[builtins.str]:
         '''The value(s) to compare against the attribute's value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#values AlertMutingRule#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#values AlertMutingRule#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
@@ -790,14 +790,14 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#condition AlertMutingRule#condition}
-        :param enabled: Whether the MutingRule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#enabled AlertMutingRule#enabled}
-        :param name: The name of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#name AlertMutingRule#name}
-        :param account_id: The account id of the MutingRule.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#account_id AlertMutingRule#account_id}
-        :param action_on_muting_rule_window_ended: The action when the muting rule window is ended or disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#action_on_muting_rule_window_ended AlertMutingRule#action_on_muting_rule_window_ended}
-        :param description: The description of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#description AlertMutingRule#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#id AlertMutingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#schedule AlertMutingRule#schedule}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#condition AlertMutingRule#condition}
+        :param enabled: Whether the MutingRule is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#enabled AlertMutingRule#enabled}
+        :param name: The name of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#name AlertMutingRule#name}
+        :param account_id: The account id of the MutingRule.. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#account_id AlertMutingRule#account_id}
+        :param action_on_muting_rule_window_ended: The action when the muting rule window is ended or disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#action_on_muting_rule_window_ended AlertMutingRule#action_on_muting_rule_window_ended}
+        :param description: The description of the MutingRule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#description AlertMutingRule#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#id AlertMutingRule#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param schedule: schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#schedule AlertMutingRule#schedule}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -920,7 +920,7 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def condition(self) -> AlertMutingRuleCondition:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#condition AlertMutingRule#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#condition AlertMutingRule#condition}
         '''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
@@ -930,7 +930,7 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the MutingRule is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#enabled AlertMutingRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#enabled AlertMutingRule#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -940,7 +940,7 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the MutingRule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#name AlertMutingRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#name AlertMutingRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -950,7 +950,7 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account id of the MutingRule..
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#account_id AlertMutingRule#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#account_id AlertMutingRule#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -959,7 +959,7 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def action_on_muting_rule_window_ended(self) -> typing.Optional[builtins.str]:
         '''The action when the muting rule window is ended or disabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#action_on_muting_rule_window_ended AlertMutingRule#action_on_muting_rule_window_ended}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#action_on_muting_rule_window_ended AlertMutingRule#action_on_muting_rule_window_ended}
         '''
         result = self._values.get("action_on_muting_rule_window_ended")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -968,14 +968,14 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the MutingRule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#description AlertMutingRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#description AlertMutingRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#id AlertMutingRule#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#id AlertMutingRule#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -987,7 +987,7 @@ class AlertMutingRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schedule(self) -> typing.Optional["AlertMutingRuleSchedule"]:
         '''schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#schedule AlertMutingRule#schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#schedule AlertMutingRule#schedule}
         '''
         result = self._values.get("schedule")
         return typing.cast(typing.Optional["AlertMutingRuleSchedule"], result)
@@ -1030,13 +1030,13 @@ class AlertMutingRuleSchedule:
         weekly_repeat_days: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param time_zone: The time zone that applies to the MutingRule schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#time_zone AlertMutingRule#time_zone}
-        :param end_repeat: The datetime stamp when the MutingRule schedule should stop repeating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#end_repeat AlertMutingRule#end_repeat}
-        :param end_time: The datetime stamp representing when the MutingRule should end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#end_time AlertMutingRule#end_time}
-        :param repeat: The frequency the MutingRule schedule repeats. One of [DAILY, WEEKLY, MONTHLY]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#repeat AlertMutingRule#repeat}
-        :param repeat_count: The number of times the MutingRule schedule should repeat. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#repeat_count AlertMutingRule#repeat_count}
-        :param start_time: The datetime stamp representing when the MutingRule should start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#start_time AlertMutingRule#start_time}
-        :param weekly_repeat_days: The day(s) of the week that a MutingRule should repeat when the repeat field is set to WEEKLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#weekly_repeat_days AlertMutingRule#weekly_repeat_days}
+        :param time_zone: The time zone that applies to the MutingRule schedule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#time_zone AlertMutingRule#time_zone}
+        :param end_repeat: The datetime stamp when the MutingRule schedule should stop repeating. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#end_repeat AlertMutingRule#end_repeat}
+        :param end_time: The datetime stamp representing when the MutingRule should end. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#end_time AlertMutingRule#end_time}
+        :param repeat: The frequency the MutingRule schedule repeats. One of [DAILY, WEEKLY, MONTHLY]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#repeat AlertMutingRule#repeat}
+        :param repeat_count: The number of times the MutingRule schedule should repeat. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#repeat_count AlertMutingRule#repeat_count}
+        :param start_time: The datetime stamp representing when the MutingRule should start. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#start_time AlertMutingRule#start_time}
+        :param weekly_repeat_days: The day(s) of the week that a MutingRule should repeat when the repeat field is set to WEEKLY. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#weekly_repeat_days AlertMutingRule#weekly_repeat_days}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a6411425d56d8aeb41c89558fa120864d42b91b654b108c44f191df98a7fec4)
@@ -1067,7 +1067,7 @@ class AlertMutingRuleSchedule:
     def time_zone(self) -> builtins.str:
         '''The time zone that applies to the MutingRule schedule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#time_zone AlertMutingRule#time_zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#time_zone AlertMutingRule#time_zone}
         '''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
@@ -1077,7 +1077,7 @@ class AlertMutingRuleSchedule:
     def end_repeat(self) -> typing.Optional[builtins.str]:
         '''The datetime stamp when the MutingRule schedule should stop repeating.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#end_repeat AlertMutingRule#end_repeat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#end_repeat AlertMutingRule#end_repeat}
         '''
         result = self._values.get("end_repeat")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1086,7 +1086,7 @@ class AlertMutingRuleSchedule:
     def end_time(self) -> typing.Optional[builtins.str]:
         '''The datetime stamp representing when the MutingRule should end.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#end_time AlertMutingRule#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#end_time AlertMutingRule#end_time}
         '''
         result = self._values.get("end_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1095,7 +1095,7 @@ class AlertMutingRuleSchedule:
     def repeat(self) -> typing.Optional[builtins.str]:
         '''The frequency the MutingRule schedule repeats. One of [DAILY, WEEKLY, MONTHLY].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#repeat AlertMutingRule#repeat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#repeat AlertMutingRule#repeat}
         '''
         result = self._values.get("repeat")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1104,7 +1104,7 @@ class AlertMutingRuleSchedule:
     def repeat_count(self) -> typing.Optional[jsii.Number]:
         '''The number of times the MutingRule schedule should repeat.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#repeat_count AlertMutingRule#repeat_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#repeat_count AlertMutingRule#repeat_count}
         '''
         result = self._values.get("repeat_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1113,7 +1113,7 @@ class AlertMutingRuleSchedule:
     def start_time(self) -> typing.Optional[builtins.str]:
         '''The datetime stamp representing when the MutingRule should start.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#start_time AlertMutingRule#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#start_time AlertMutingRule#start_time}
         '''
         result = self._values.get("start_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1122,7 +1122,7 @@ class AlertMutingRuleSchedule:
     def weekly_repeat_days(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The day(s) of the week that a MutingRule should repeat when the repeat field is set to WEEKLY.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/alert_muting_rule#weekly_repeat_days AlertMutingRule#weekly_repeat_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/alert_muting_rule#weekly_repeat_days AlertMutingRule#weekly_repeat_days}
         '''
         result = self._values.get("weekly_repeat_days")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

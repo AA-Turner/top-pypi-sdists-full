@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: aioacaia
-Version: 0.1.15
+Version: 0.1.17
 Summary: An async implementation of PyAcaia
 Author-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
 Maintainer-email: Josef Zweck <24647999+zweckj@users.noreply.github.com>
@@ -13,13 +13,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
-Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: bleak>=0.20.2
+Requires-Dist: bleak-retry-connector>=4.0.0
 Provides-Extra: dev
 Requires-Dist: covdefaults==2.3.0; extra == "dev"
 Requires-Dist: coverage==7.6.7; extra == "dev"
@@ -27,6 +28,7 @@ Requires-Dist: syrupy==4.7.2; extra == "dev"
 Requires-Dist: pytest==8.3.3; extra == "dev"
 Requires-Dist: pytest-asyncio==0.24.0; extra == "dev"
 Requires-Dist: pytest-cov==6.0.0; extra == "dev"
+Dynamic: license-file
 
 # aioacaia
 

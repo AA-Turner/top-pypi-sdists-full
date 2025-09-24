@@ -18,10 +18,10 @@ import trafaret as t
 from trafaret.contrib.rfc_3339 import DateTime
 
 from datarobot.enums import (
+    DEFAULT_MAX_WAIT,
+    ChunkServiceDialect,
     ChunkingPartitionMethod,
     ChunkingStrategy,
-    ChunkServiceDialect,
-    DEFAULT_MAX_WAIT,
     enum_to_list,
 )
 from datarobot.models.api_object import APIObject

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: west
-Version: 1.4.0
+Version: 1.5.0
 Summary: Zephyr RTOS Project meta-tool
 Author-email: Zephyr Project <devel@lists.zephyrproject.org>
 License:                                  Apache License
@@ -298,8 +298,67 @@ source code. See `Extensions
 <https://docs.zephyrproject.org/latest/guides/west/extensions.html>`_ in the
 documentation for details.
 
+
+Hacking on West
+---------------
+
+This section contains notes for getting started developing west itself.
+
+`pip` offers many different ways to (download and) install Python
+software. Below are common ways relevant to `west`; for a complete list
+check `<https://pip.pypa.io/en/stable/topics/>`_
+
+Quick Install
+~~~~~~~~~~~~~
+
+If you are not interested in source code and git history, GitHub offers
+`pip` the ability to download and install a .zip archive of any random
+version with a single command.  This allows testing work in progress
+very quickly. Examples::
+
+  pip3 uninstall west
+  # Pull request 830
+  pip3 install --dry-run https://github.com/zephyrproject-rtos/west/archive/pull/830/head.zip
+  # Release v1.4
+  pip3 install https://github.com/zephyrproject-rtos/west/archive/v1.4-branch.zip
+  # Someone's random version
+  pip3 install https://github.com/someone_you_trust/west/archive/some_branch_or_tag.zip
+
+Warning: never install software from people or locations you do not trust!
+
+Editable Install
+~~~~~~~~~~~~~~~~
+
+To run west "live" from the current source code tree, run this command from the
+top level directory in the west repository::
+
+  pip3 install -e .
+
+This is useful if you are actively working on west and don't want to re-package
+and install a wheel each time you run it.
+
+Creating a wheel package
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can create a wheel package and distribute it to others.
+
+To build the west wheel file::
+
+  pip3 install --upgrade build
+  python -m build
+
+This will create a file named ``dist/west-x.y.z-py3-none-any.whl``,
+where ``x.y.z`` is the current version in setup.py.
+
+To install the wheel::
+
+  pip3 install -U dist/west-x.y.z-py3-none-any.whl
+
+You can ``pip3 uninstall west`` to remove this wheel before re-installing the
+version from PyPI, etc.
+
 Running the Tests
------------------
+~~~~~~~~~~~~~~~~~
 
 First, install tox::
 
@@ -331,39 +390,3 @@ The tests cannot be run with ``pytest`` directly, they require the tox
 environment.
 
 See the tox configuration file, tox.ini, for more details.
-
-Hacking on West
----------------
-
-This section contains notes for getting started developing west itself.
-
-Editable Install
-~~~~~~~~~~~~~~~~
-
-To run west "live" from the current source code tree, run this command from the
-top level directory in the west repository::
-
-  pip3 install -e .
-
-This is useful if you are actively working on west and don't want to re-package
-and install a wheel each time you run it.
-
-Installing from Source
-~~~~~~~~~~~~~~~~~~~~~~
-
-You can create and install a wheel package to install west as well.
-
-To build the west wheel file::
-
-  pip3 install --upgrade build
-  python -m build
-
-This will create a file named ``dist/west-x.y.z-py3-none-any.whl``,
-where ``x.y.z`` is the current version in setup.py.
-
-To install the wheel::
-
-  pip3 install -U dist/west-x.y.z-py3-none-any.whl
-
-You can ``pip3 uninstall west`` to remove this wheel before re-installing the
-version from PyPI, etc.

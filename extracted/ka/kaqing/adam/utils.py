@@ -125,6 +125,19 @@ def deep_merge_dicts(dict1, dict2):
             merged_dict[key] = value
     return merged_dict
 
+def deep_sort_dict(d):
+    """
+    Recursively sorts a dictionary by its keys, and any nested lists by their elements.
+    """
+    if not isinstance(d, (dict, list)):
+        return d
+
+    if isinstance(d, dict):
+        return {k: deep_sort_dict(d[k]) for k in sorted(d)}
+
+    if isinstance(d, list):
+        return sorted([deep_sort_dict(item) for item in d])
+
 def get_deep_keys(d, current_path=""):
     """
     Recursively collects all combined keys (paths) from a deep dictionary.

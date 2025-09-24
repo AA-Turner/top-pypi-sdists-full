@@ -105,4 +105,4 @@ class KubeContext:
         return s or Config().is_debug()
 
     def show_parallelism():
-        return Config().get('debug.show-parallelism', False)
+        return Config().get('debugs.show-parallelism', False)

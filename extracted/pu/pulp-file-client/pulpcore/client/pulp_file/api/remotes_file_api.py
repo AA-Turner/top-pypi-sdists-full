@@ -2336,10 +2336,10 @@ class RemotesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> FileFileRemoteResponse:
         """Update a file remote
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_remote_href: (required)
         :type file_file_remote_href: str
@@ -2380,6 +2380,7 @@ class RemotesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRemoteResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2411,10 +2412,10 @@ class RemotesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[FileFileRemoteResponse]:
         """Update a file remote
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_remote_href: (required)
         :type file_file_remote_href: str
@@ -2455,6 +2456,7 @@ class RemotesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRemoteResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2489,7 +2491,7 @@ class RemotesFileApi:
     ) -> RESTResponseType:
         """Update a file remote
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_remote_href: (required)
         :type file_file_remote_href: str
@@ -2530,6 +2532,7 @@ class RemotesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRemoteResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -3882,10 +3885,10 @@ class RemotesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> FileFileRemoteResponse:
         """Update a file remote
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_remote_href: (required)
         :type file_file_remote_href: str
@@ -3926,6 +3929,7 @@ class RemotesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRemoteResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -3957,10 +3961,10 @@ class RemotesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[FileFileRemoteResponse]:
         """Update a file remote
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_remote_href: (required)
         :type file_file_remote_href: str
@@ -4001,6 +4005,7 @@ class RemotesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRemoteResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -4035,7 +4040,7 @@ class RemotesFileApi:
     ) -> RESTResponseType:
         """Update a file remote
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_remote_href: (required)
         :type file_file_remote_href: str
@@ -4076,6 +4081,7 @@ class RemotesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRemoteResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(

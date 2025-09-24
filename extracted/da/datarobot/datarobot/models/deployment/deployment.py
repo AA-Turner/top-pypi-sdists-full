@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
 from io import IOBase
-from typing import Any, cast, Dict, List, Optional, Tuple, Type, TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 import warnings
 
 import dateutil
@@ -70,7 +70,7 @@ from datarobot.utils.source import parse_source_type
 from datarobot.utils.waiters import wait_for_async_resolution
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class FeatureDict(TypedDict):
         name: str
@@ -2235,7 +2235,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
     def get_service_stats_over_time(
         self,
         metric: Optional[str] = None,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bucket_size: Optional[str] = None,
@@ -2252,7 +2252,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         ----------
         metric : SERVICE_STAT_METRIC, optional
             the service stat metric to retrieve
-        model_id : Optional[str]
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime, optional
             start of the time period
@@ -2457,7 +2457,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
     def get_accuracy(
         self,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         start: Optional[datetime] = None,
@@ -2465,6 +2465,8 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         target_classes: Optional[List[str]] = None,
         segment_attribute: Optional[str] = None,
         segment_value: Optional[str] = None,
+        metric: Optional[str] = None,
+        baseline_model_id: Optional[str] = None,
     ) -> Accuracy:
         """Retrieves values of many accuracy metrics aggregated over a time period.
 
@@ -2472,7 +2474,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         Parameters
         ----------
-        model_id : str
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime
             start of the time period
@@ -2484,6 +2486,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             (New in Version v3.6) the segment attribute
         segment_value : Optional[str]
             (New in Version v3.6) the segment value
+        metric : str
+            (New in Version v3.9) the metric value to retrieve,
+            must be provided when querying for multiple models
+        baseline_model_id : str
+            (New in Version v3.9) the id of the baseline model when calculating percentage change
 
         Returns
         -------
@@ -2506,12 +2513,14 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             target_classes=target_classes,
             segment_attribute=segment_attribute,
             segment_value=segment_value,
+            metric=metric,
+            baseline_model_id=baseline_model_id,
         )
 
     def get_accuracy_over_time(
         self,
         metric: Optional[ACCURACY_METRIC] = None,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bucket_size: Optional[str] = None,
@@ -2527,7 +2536,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         ----------
         metric : ACCURACY_METRIC
             the accuracy metric to retrieve
-        model_id : str
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime
             start of the time period
@@ -3569,6 +3578,12 @@ class DeploymentListFilters:
         is one of those provided. See ``datarobot.enums.DEPLOYMENT_IMPORTANCE``
         for allowed values. Supports comma-separated lists. Note that Approval Workflows must
         be enabled for your account to use this filter, otherwise the API will return a 403.
+    tag_keys : List[str]
+        List of tag keys to filter for. If multiple values are specified, deployments with tags
+        that match any of the values will be returned. Supports comma-separated lists.
+    tag_values : List[str]
+        List of tag values to filter for. If multiple values are specified, deployments with tags
+        that match any of the values will be returned. Supports comma-separated lists."
 
     Examples
     --------
@@ -3629,6 +3644,8 @@ class DeploymentListFilters:
         accuracy_health: Optional[List[str]] = None,
         execution_environment_type: Optional[List[str]] = None,
         importance: Optional[List[str]] = None,
+        tag_keys: Optional[List[str]] = None,
+        tag_values: Optional[List[str]] = None,
     ) -> None:
 
         self.role = _check(String(), role)
@@ -3637,6 +3654,8 @@ class DeploymentListFilters:
         self.accuracy_health = _check(t.List(String()), accuracy_health)
         self.execution_environment_type = _check(t.List(String()), execution_environment_type)
         self.importance = _check(t.List(String()), importance)
+        self.tag_keys = _check(t.List(String()), tag_keys)
+        self.tag_values = _check(t.List(String()), tag_values)
 
     def construct_query_args(self) -> Dict[str, str]:  # pylint: disable=missing-function-docstring
         query_args = {}
@@ -3657,6 +3676,10 @@ class DeploymentListFilters:
             )
         if self.importance:
             query_args["importance"] = self._list_to_comma_separated_string(self.importance)
+        if self.tag_keys:
+            query_args["tagKeys"] = self._list_to_comma_separated_string(self.tag_keys)
+        if self.tag_values:
+            query_args["tagValues"] = self._list_to_comma_separated_string(self.tag_values)
 
         return query_args
 

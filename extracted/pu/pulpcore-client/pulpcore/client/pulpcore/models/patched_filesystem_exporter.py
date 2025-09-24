@@ -29,7 +29,7 @@ class PatchedFilesystemExporter(BaseModel):
     """
     Serializer for FilesystemExporters.
     """ # noqa: E501
-    name: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="Unique name of the file system exporter.")
+    name: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="Unique name of the exporter.")
     path: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="File system location to export to.")
     method: Optional[MethodEnum] = Field(default=None, description="Method of exporting  * `write` - Export by writing * `hardlink` - Export by hardlinking * `symlink` - Export by symlinking")
     __properties: ClassVar[List[str]] = ["name", "path", "method"]

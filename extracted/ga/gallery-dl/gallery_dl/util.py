@@ -542,6 +542,7 @@ def language_to_code(lang, default=None):
 CODES = {
     "ar": "Arabic",
     "bg": "Bulgarian",
+    "bn": "Bengali",
     "ca": "Catalan",
     "cs": "Czech",
     "da": "Danish",
@@ -549,9 +550,11 @@ CODES = {
     "el": "Greek",
     "en": "English",
     "es": "Spanish",
+    "fa": "Persian",
     "fi": "Finnish",
     "fr": "French",
     "he": "Hebrew",
+    "hi": "Hindi",
     "hu": "Hungarian",
     "id": "Indonesian",
     "it": "Italian",
@@ -564,9 +567,13 @@ CODES = {
     "pt": "Portuguese",
     "ro": "Romanian",
     "ru": "Russian",
+    "sk": "Slovak",
+    "sl": "Slovenian",
+    "sr": "Serbian",
     "sv": "Swedish",
     "th": "Thai",
     "tr": "Turkish",
+    "uk": "Ukrainian",
     "vi": "Vietnamese",
     "zh": "Chinese",
 }
@@ -633,6 +640,12 @@ class NullResponse():
     def __init__(self, url, reason=""):
         self.url = url
         self.reason = str(reason)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
     def __str__(self):
         return "900 " + self.reason

@@ -169,7 +169,7 @@ class ProcedureStepNode(_message.Message):
 class NestedProcedureNode(_message.Message):
     __slots__ = ("id", "title", "description", "steps", "step")
     class NestedStepNode(_message.Message):
-        __slots__ = ("output_id", "is_required", "auto_start", "initial_auto_proceed_config", "success_condition", "completion_action_configs", "form", "start_ingest")
+        __slots__ = ("output_id", "is_required", "auto_start", "initial_auto_proceed_config", "success_condition", "completion_action_configs", "form", "start_ingest", "select_or_create_asset")
         OUTPUT_ID_FIELD_NUMBER: _ClassVar[int]
         IS_REQUIRED_FIELD_NUMBER: _ClassVar[int]
         AUTO_START_FIELD_NUMBER: _ClassVar[int]
@@ -178,6 +178,7 @@ class NestedProcedureNode(_message.Message):
         COMPLETION_ACTION_CONFIGS_FIELD_NUMBER: _ClassVar[int]
         FORM_FIELD_NUMBER: _ClassVar[int]
         START_INGEST_FIELD_NUMBER: _ClassVar[int]
+        SELECT_OR_CREATE_ASSET_FIELD_NUMBER: _ClassVar[int]
         output_id: str
         is_required: bool
         auto_start: AutoStartConfig
@@ -186,7 +187,8 @@ class NestedProcedureNode(_message.Message):
         completion_action_configs: _containers.RepeatedCompositeFieldContainer[CompletionActionConfig]
         form: FormStep
         start_ingest: StartIngestStep
-        def __init__(self, output_id: _Optional[str] = ..., is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ..., form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ...) -> None: ...
+        select_or_create_asset: SelectOrCreateAssetStep
+        def __init__(self, output_id: _Optional[str] = ..., is_required: bool = ..., auto_start: _Optional[_Union[AutoStartConfig, _Mapping]] = ..., initial_auto_proceed_config: _Optional[_Union[AutoProceedConfig, _Mapping]] = ..., success_condition: _Optional[_Union[SuccessCondition, _Mapping]] = ..., completion_action_configs: _Optional[_Iterable[_Union[CompletionActionConfig, _Mapping]]] = ..., form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStep, _Mapping]] = ...) -> None: ...
     ID_FIELD_NUMBER: _ClassVar[int]
     TITLE_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
@@ -228,11 +230,13 @@ class AutoProceedConfig(_message.Message):
     def __init__(self, disabled: _Optional[_Union[AutoProceedConfig.Disabled, _Mapping]] = ..., enabled: _Optional[_Union[AutoProceedConfig.Enabled, _Mapping]] = ...) -> None: ...
 
 class SuccessCondition(_message.Message):
-    __slots__ = ("timer",)
+    __slots__ = ("timer", "ingest_job")
     AND_FIELD_NUMBER: _ClassVar[int]
     TIMER_FIELD_NUMBER: _ClassVar[int]
+    INGEST_JOB_FIELD_NUMBER: _ClassVar[int]
     timer: TimerSuccessCondition
-    def __init__(self, timer: _Optional[_Union[TimerSuccessCondition, _Mapping]] = ..., **kwargs) -> None: ...
+    ingest_job: IngestJobSuccessCondition
+    def __init__(self, timer: _Optional[_Union[TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[IngestJobSuccessCondition, _Mapping]] = ..., **kwargs) -> None: ...
 
 class AndSuccessCondition(_message.Message):
     __slots__ = ("conditions",)
@@ -246,11 +250,25 @@ class TimerSuccessCondition(_message.Message):
     duration_seconds: int
     def __init__(self, duration_seconds: _Optional[int] = ...) -> None: ...
 
+class IngestJobSuccessCondition(_message.Message):
+    __slots__ = ("field_id",)
+    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    field_id: str
+    def __init__(self, field_id: _Optional[str] = ...) -> None: ...
+
 class CompletionActionConfig(_message.Message):
-    __slots__ = ("create_event",)
+    __slots__ = ("create_event", "send_notification", "create_run", "apply_workbook_templates", "apply_checklists")
     CREATE_EVENT_FIELD_NUMBER: _ClassVar[int]
+    SEND_NOTIFICATION_FIELD_NUMBER: _ClassVar[int]
+    CREATE_RUN_FIELD_NUMBER: _ClassVar[int]
+    APPLY_WORKBOOK_TEMPLATES_FIELD_NUMBER: _ClassVar[int]
+    APPLY_CHECKLISTS_FIELD_NUMBER: _ClassVar[int]
     create_event: CreateEventConfig
-    def __init__(self, create_event: _Optional[_Union[CreateEventConfig, _Mapping]] = ...) -> None: ...
+    send_notification: SendNotificationConfig
+    create_run: CreateRunConfig
+    apply_workbook_templates: ApplyWorkbookTemplatesConfig
+    apply_checklists: ApplyChecklistsConfig
+    def __init__(self, create_event: _Optional[_Union[CreateEventConfig, _Mapping]] = ..., send_notification: _Optional[_Union[SendNotificationConfig, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunConfig, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesConfig, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsConfig, _Mapping]] = ...) -> None: ...
 
 class CreateEventConfig(_message.Message):
     __slots__ = ("name", "description", "labels", "properties", "asset_field_ids")
@@ -273,13 +291,66 @@ class CreateEventConfig(_message.Message):
     asset_field_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., labels: _Optional[_Iterable[str]] = ..., properties: _Optional[_Mapping[str, str]] = ..., asset_field_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class SendNotificationConfig(_message.Message):
+    __slots__ = ("integrations", "title", "message")
+    INTEGRATIONS_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    integrations: MultiIntegrationReference
+    title: StringReference
+    message: StringReference
+    def __init__(self, integrations: _Optional[_Union[MultiIntegrationReference, _Mapping]] = ..., title: _Optional[_Union[StringReference, _Mapping]] = ..., message: _Optional[_Union[StringReference, _Mapping]] = ...) -> None: ...
+
+class CreateRunConfig(_message.Message):
+    __slots__ = ("run_output_field_id", "assets", "name", "description", "time_range", "labels", "properties")
+    class Property(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: StringReference
+        value: StringReference
+        def __init__(self, key: _Optional[_Union[StringReference, _Mapping]] = ..., value: _Optional[_Union[StringReference, _Mapping]] = ...) -> None: ...
+    RUN_OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSETS_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    TIME_RANGE_FIELD_NUMBER: _ClassVar[int]
+    LABELS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    run_output_field_id: str
+    assets: MultiAssetReference
+    name: StringReference
+    description: StringReference
+    time_range: TimeRangeReference
+    labels: MultiStringReference
+    properties: _containers.RepeatedCompositeFieldContainer[CreateRunConfig.Property]
+    def __init__(self, run_output_field_id: _Optional[str] = ..., assets: _Optional[_Union[MultiAssetReference, _Mapping]] = ..., name: _Optional[_Union[StringReference, _Mapping]] = ..., description: _Optional[_Union[StringReference, _Mapping]] = ..., time_range: _Optional[_Union[TimeRangeReference, _Mapping]] = ..., labels: _Optional[_Union[MultiStringReference, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[CreateRunConfig.Property, _Mapping]]] = ...) -> None: ...
+
+class ApplyWorkbookTemplatesConfig(_message.Message):
+    __slots__ = ("workbook_templates", "runs")
+    WORKBOOK_TEMPLATES_FIELD_NUMBER: _ClassVar[int]
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    workbook_templates: MultiWorkbookTemplateReference
+    runs: MultiRunReference
+    def __init__(self, workbook_templates: _Optional[_Union[MultiWorkbookTemplateReference, _Mapping]] = ..., runs: _Optional[_Union[MultiRunReference, _Mapping]] = ...) -> None: ...
+
+class ApplyChecklistsConfig(_message.Message):
+    __slots__ = ("checklists", "runs")
+    CHECKLISTS_FIELD_NUMBER: _ClassVar[int]
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    checklists: MultiChecklistReference
+    runs: MultiRunReference
+    def __init__(self, checklists: _Optional[_Union[MultiChecklistReference, _Mapping]] = ..., runs: _Optional[_Union[MultiRunReference, _Mapping]] = ...) -> None: ...
+
 class ProcedureStepContent(_message.Message):
-    __slots__ = ("form", "start_ingest")
+    __slots__ = ("form", "start_ingest", "select_or_create_asset")
     FORM_FIELD_NUMBER: _ClassVar[int]
     START_INGEST_FIELD_NUMBER: _ClassVar[int]
+    SELECT_OR_CREATE_ASSET_FIELD_NUMBER: _ClassVar[int]
     form: FormStep
     start_ingest: StartIngestStep
-    def __init__(self, form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ...) -> None: ...
+    select_or_create_asset: SelectOrCreateAssetStep
+    def __init__(self, form: _Optional[_Union[FormStep, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStep, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStep, _Mapping]] = ...) -> None: ...
 
 class FormStep(_message.Message):
     __slots__ = ("fields",)
@@ -288,12 +359,7 @@ class FormStep(_message.Message):
     def __init__(self, fields: _Optional[_Iterable[_Union[FormField, _Mapping]]] = ...) -> None: ...
 
 class StartIngestStep(_message.Message):
-    __slots__ = ("asset", "data_scope", "ingest_type_config", "output_field_id")
-    class DataScopeReference(_message.Message):
-        __slots__ = ("constant",)
-        CONSTANT_FIELD_NUMBER: _ClassVar[int]
-        constant: str
-        def __init__(self, constant: _Optional[str] = ...) -> None: ...
+    __slots__ = ("asset", "ref_name", "ingest_type_config", "ingest_job_output_field_id")
     class IngestTypeConfig(_message.Message):
         __slots__ = ("containerized_extractor",)
         class ContainerizedExtractorIngestConfig(_message.Message):
@@ -305,14 +371,198 @@ class StartIngestStep(_message.Message):
         containerized_extractor: StartIngestStep.IngestTypeConfig.ContainerizedExtractorIngestConfig
         def __init__(self, containerized_extractor: _Optional[_Union[StartIngestStep.IngestTypeConfig.ContainerizedExtractorIngestConfig, _Mapping]] = ...) -> None: ...
     ASSET_FIELD_NUMBER: _ClassVar[int]
-    DATA_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    REF_NAME_FIELD_NUMBER: _ClassVar[int]
     INGEST_TYPE_CONFIG_FIELD_NUMBER: _ClassVar[int]
-    OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    INGEST_JOB_OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
     asset: AssetReference
-    data_scope: StartIngestStep.DataScopeReference
+    ref_name: StringReference
     ingest_type_config: StartIngestStep.IngestTypeConfig
-    output_field_id: str
-    def __init__(self, asset: _Optional[_Union[AssetReference, _Mapping]] = ..., data_scope: _Optional[_Union[StartIngestStep.DataScopeReference, _Mapping]] = ..., ingest_type_config: _Optional[_Union[StartIngestStep.IngestTypeConfig, _Mapping]] = ..., output_field_id: _Optional[str] = ...) -> None: ...
+    ingest_job_output_field_id: str
+    def __init__(self, asset: _Optional[_Union[AssetReference, _Mapping]] = ..., ref_name: _Optional[_Union[StringReference, _Mapping]] = ..., ingest_type_config: _Optional[_Union[StartIngestStep.IngestTypeConfig, _Mapping]] = ..., ingest_job_output_field_id: _Optional[str] = ...) -> None: ...
+
+class SelectOrCreateAssetStep(_message.Message):
+    __slots__ = ("asset_output_field_id", "create_asset_parameters", "preset_options")
+    class CreateAssetParameters(_message.Message):
+        __slots__ = ("description", "labels", "properties", "data_scopes")
+        class DataScopesEntry(_message.Message):
+            __slots__ = ("key", "value")
+            KEY_FIELD_NUMBER: _ClassVar[int]
+            VALUE_FIELD_NUMBER: _ClassVar[int]
+            key: str
+            value: SelectOrCreateAssetStep.CreateAssetParameters.DataScopeParameter
+            def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters.DataScopeParameter, _Mapping]] = ...) -> None: ...
+        class DescriptionParameter(_message.Message):
+            __slots__ = ("constant",)
+            CONSTANT_FIELD_NUMBER: _ClassVar[int]
+            constant: str
+            def __init__(self, constant: _Optional[str] = ...) -> None: ...
+        class LabelsParameter(_message.Message):
+            __slots__ = ("constant", "user_input")
+            class UserInputOptions(_message.Message):
+                __slots__ = ()
+                def __init__(self) -> None: ...
+            CONSTANT_FIELD_NUMBER: _ClassVar[int]
+            USER_INPUT_FIELD_NUMBER: _ClassVar[int]
+            constant: _containers.RepeatedScalarFieldContainer[str]
+            user_input: SelectOrCreateAssetStep.CreateAssetParameters.LabelsParameter.UserInputOptions
+            def __init__(self, constant: _Optional[_Iterable[str]] = ..., user_input: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters.LabelsParameter.UserInputOptions, _Mapping]] = ...) -> None: ...
+        class PropertiesParameter(_message.Message):
+            __slots__ = ("constant", "user_input")
+            class ConstantEntry(_message.Message):
+                __slots__ = ("key", "value")
+                KEY_FIELD_NUMBER: _ClassVar[int]
+                VALUE_FIELD_NUMBER: _ClassVar[int]
+                key: str
+                value: str
+                def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+            class UserInputOptions(_message.Message):
+                __slots__ = ("required_keys", "suggested_keys")
+                REQUIRED_KEYS_FIELD_NUMBER: _ClassVar[int]
+                SUGGESTED_KEYS_FIELD_NUMBER: _ClassVar[int]
+                required_keys: _containers.RepeatedScalarFieldContainer[str]
+                suggested_keys: _containers.RepeatedScalarFieldContainer[str]
+                def __init__(self, required_keys: _Optional[_Iterable[str]] = ..., suggested_keys: _Optional[_Iterable[str]] = ...) -> None: ...
+            CONSTANT_FIELD_NUMBER: _ClassVar[int]
+            USER_INPUT_FIELD_NUMBER: _ClassVar[int]
+            constant: _containers.ScalarMap[str, str]
+            user_input: SelectOrCreateAssetStep.CreateAssetParameters.PropertiesParameter.UserInputOptions
+            def __init__(self, constant: _Optional[_Mapping[str, str]] = ..., user_input: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters.PropertiesParameter.UserInputOptions, _Mapping]] = ...) -> None: ...
+        class DataScopeParameter(_message.Message):
+            __slots__ = ("new_dataset",)
+            class NewDataset(_message.Message):
+                __slots__ = ()
+                def __init__(self) -> None: ...
+            NEW_DATASET_FIELD_NUMBER: _ClassVar[int]
+            new_dataset: SelectOrCreateAssetStep.CreateAssetParameters.DataScopeParameter.NewDataset
+            def __init__(self, new_dataset: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters.DataScopeParameter.NewDataset, _Mapping]] = ...) -> None: ...
+        DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+        LABELS_FIELD_NUMBER: _ClassVar[int]
+        PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+        DATA_SCOPES_FIELD_NUMBER: _ClassVar[int]
+        description: SelectOrCreateAssetStep.CreateAssetParameters.DescriptionParameter
+        labels: SelectOrCreateAssetStep.CreateAssetParameters.LabelsParameter
+        properties: SelectOrCreateAssetStep.CreateAssetParameters.PropertiesParameter
+        data_scopes: _containers.MessageMap[str, SelectOrCreateAssetStep.CreateAssetParameters.DataScopeParameter]
+        def __init__(self, description: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters.DescriptionParameter, _Mapping]] = ..., labels: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters.LabelsParameter, _Mapping]] = ..., properties: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters.PropertiesParameter, _Mapping]] = ..., data_scopes: _Optional[_Mapping[str, SelectOrCreateAssetStep.CreateAssetParameters.DataScopeParameter]] = ...) -> None: ...
+    ASSET_OUTPUT_FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATE_ASSET_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    PRESET_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    asset_output_field_id: str
+    create_asset_parameters: SelectOrCreateAssetStep.CreateAssetParameters
+    preset_options: PresetAssetFieldOptions
+    def __init__(self, asset_output_field_id: _Optional[str] = ..., create_asset_parameters: _Optional[_Union[SelectOrCreateAssetStep.CreateAssetParameters, _Mapping]] = ..., preset_options: _Optional[_Union[PresetAssetFieldOptions, _Mapping]] = ...) -> None: ...
+
+class MultiStringReference(_message.Message):
+    __slots__ = ("field_id",)
+    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    field_id: str
+    def __init__(self, field_id: _Optional[str] = ...) -> None: ...
+
+class StringReference(_message.Message):
+    __slots__ = ("constant", "field_id")
+    CONSTANT_FIELD_NUMBER: _ClassVar[int]
+    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    constant: str
+    field_id: str
+    def __init__(self, constant: _Optional[str] = ..., field_id: _Optional[str] = ...) -> None: ...
+
+class MultiAssetReference(_message.Message):
+    __slots__ = ("list",)
+    class AssetReferenceList(_message.Message):
+        __slots__ = ("references",)
+        REFERENCES_FIELD_NUMBER: _ClassVar[int]
+        references: _containers.RepeatedCompositeFieldContainer[AssetReference]
+        def __init__(self, references: _Optional[_Iterable[_Union[AssetReference, _Mapping]]] = ...) -> None: ...
+    LIST_FIELD_NUMBER: _ClassVar[int]
+    list: MultiAssetReference.AssetReferenceList
+    def __init__(self, list: _Optional[_Union[MultiAssetReference.AssetReferenceList, _Mapping]] = ...) -> None: ...
+
+class AssetReference(_message.Message):
+    __slots__ = ("rid", "field_id")
+    RID_FIELD_NUMBER: _ClassVar[int]
+    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    field_id: str
+    def __init__(self, rid: _Optional[str] = ..., field_id: _Optional[str] = ...) -> None: ...
+
+class TimeRangeReference(_message.Message):
+    __slots__ = ("from_ingest_jobs",)
+    class IngestJobList(_message.Message):
+        __slots__ = ("field_ids",)
+        FIELD_IDS_FIELD_NUMBER: _ClassVar[int]
+        field_ids: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(self, field_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    FROM_INGEST_JOBS_FIELD_NUMBER: _ClassVar[int]
+    from_ingest_jobs: TimeRangeReference.IngestJobList
+    def __init__(self, from_ingest_jobs: _Optional[_Union[TimeRangeReference.IngestJobList, _Mapping]] = ...) -> None: ...
+
+class MultiRunReference(_message.Message):
+    __slots__ = ("list",)
+    class RunReferenceList(_message.Message):
+        __slots__ = ("references",)
+        REFERENCES_FIELD_NUMBER: _ClassVar[int]
+        references: _containers.RepeatedCompositeFieldContainer[RunReference]
+        def __init__(self, references: _Optional[_Iterable[_Union[RunReference, _Mapping]]] = ...) -> None: ...
+    LIST_FIELD_NUMBER: _ClassVar[int]
+    list: MultiRunReference.RunReferenceList
+    def __init__(self, list: _Optional[_Union[MultiRunReference.RunReferenceList, _Mapping]] = ...) -> None: ...
+
+class RunReference(_message.Message):
+    __slots__ = ("field_id",)
+    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
+    field_id: str
+    def __init__(self, field_id: _Optional[str] = ...) -> None: ...
+
+class MultiWorkbookTemplateReference(_message.Message):
+    __slots__ = ("list",)
+    class WorkbookTemplateReferenceList(_message.Message):
+        __slots__ = ("references",)
+        REFERENCES_FIELD_NUMBER: _ClassVar[int]
+        references: _containers.RepeatedCompositeFieldContainer[WorkbookTemplateReference]
+        def __init__(self, references: _Optional[_Iterable[_Union[WorkbookTemplateReference, _Mapping]]] = ...) -> None: ...
+    LIST_FIELD_NUMBER: _ClassVar[int]
+    list: MultiWorkbookTemplateReference.WorkbookTemplateReferenceList
+    def __init__(self, list: _Optional[_Union[MultiWorkbookTemplateReference.WorkbookTemplateReferenceList, _Mapping]] = ...) -> None: ...
+
+class WorkbookTemplateReference(_message.Message):
+    __slots__ = ("rid",)
+    RID_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    def __init__(self, rid: _Optional[str] = ...) -> None: ...
+
+class MultiChecklistReference(_message.Message):
+    __slots__ = ("list",)
+    class ChecklistReferenceList(_message.Message):
+        __slots__ = ("references",)
+        REFERENCES_FIELD_NUMBER: _ClassVar[int]
+        references: _containers.RepeatedCompositeFieldContainer[ChecklistReference]
+        def __init__(self, references: _Optional[_Iterable[_Union[ChecklistReference, _Mapping]]] = ...) -> None: ...
+    LIST_FIELD_NUMBER: _ClassVar[int]
+    list: MultiChecklistReference.ChecklistReferenceList
+    def __init__(self, list: _Optional[_Union[MultiChecklistReference.ChecklistReferenceList, _Mapping]] = ...) -> None: ...
+
+class ChecklistReference(_message.Message):
+    __slots__ = ("rid",)
+    RID_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    def __init__(self, rid: _Optional[str] = ...) -> None: ...
+
+class MultiIntegrationReference(_message.Message):
+    __slots__ = ("list",)
+    class IntegrationReferenceList(_message.Message):
+        __slots__ = ("references",)
+        REFERENCES_FIELD_NUMBER: _ClassVar[int]
+        references: _containers.RepeatedCompositeFieldContainer[IntegrationReference]
+        def __init__(self, references: _Optional[_Iterable[_Union[IntegrationReference, _Mapping]]] = ...) -> None: ...
+    LIST_FIELD_NUMBER: _ClassVar[int]
+    list: MultiIntegrationReference.IntegrationReferenceList
+    def __init__(self, list: _Optional[_Union[MultiIntegrationReference.IntegrationReferenceList, _Mapping]] = ...) -> None: ...
+
+class IntegrationReference(_message.Message):
+    __slots__ = ("rid",)
+    RID_FIELD_NUMBER: _ClassVar[int]
+    rid: str
+    def __init__(self, rid: _Optional[str] = ...) -> None: ...
 
 class FormField(_message.Message):
     __slots__ = ("id", "asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum")
@@ -333,14 +583,6 @@ class FormField(_message.Message):
     single_enum: SingleEnumField
     multi_enum: MultiEnumField
     def __init__(self, id: _Optional[str] = ..., asset: _Optional[_Union[AssetField, _Mapping]] = ..., checkbox: _Optional[_Union[CheckboxField, _Mapping]] = ..., text: _Optional[_Union[TextField, _Mapping]] = ..., int: _Optional[_Union[IntField, _Mapping]] = ..., double: _Optional[_Union[DoubleField, _Mapping]] = ..., single_enum: _Optional[_Union[SingleEnumField, _Mapping]] = ..., multi_enum: _Optional[_Union[MultiEnumField, _Mapping]] = ...) -> None: ...
-
-class AssetReference(_message.Message):
-    __slots__ = ("rid", "field_id")
-    RID_FIELD_NUMBER: _ClassVar[int]
-    FIELD_ID_FIELD_NUMBER: _ClassVar[int]
-    rid: str
-    field_id: str
-    def __init__(self, rid: _Optional[str] = ..., field_id: _Optional[str] = ...) -> None: ...
 
 class PresetAssetFieldOptions(_message.Message):
     __slots__ = ("options", "default_option")

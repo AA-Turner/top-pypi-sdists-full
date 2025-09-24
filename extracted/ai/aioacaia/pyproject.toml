@@ -1,6 +1,6 @@
 [project]
 name = "aioacaia"
-version = "0.1.15"
+version = "0.1.17"
 license = { text = "GPL-3.0-only" }
 description = "An async implementation of PyAcaia"
 readme = "README.md"
@@ -16,11 +16,11 @@ classifiers = [
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "Natural Language :: English",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = ["bleak >= 0.20.2"]
+dependencies = ["bleak >= 0.20.2", "bleak-retry-connector >= 4.0.0"]
 requires-python = ">= 3.12"
 
 [project.urls]

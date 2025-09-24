@@ -12,7 +12,7 @@ class CassandraNodes:
         try:
             user, pw = Secrets.get_user_pass(pod_name, ns)
             command = f'echo "SELECT host_id FROM system.local; exit" | cqlsh --no-color -u {user} -p {pw}'
-            result: PodExecResult = CassandraNodes.exec(pod_name, ns, command, show_out=Config().get('debug.trace', False))
+            result: PodExecResult = CassandraNodes.exec(pod_name, ns, command, show_out=Config().is_debug())
             next = False
             for line in result.stdout.splitlines():
                 if next:

@@ -1,7 +1,7 @@
 r'''
 # `data_newrelic_user`
 
-Refer to the Terraform Registry for docs: [`data_newrelic_user`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user).
+Refer to the Terraform Registry for docs: [`data_newrelic_user`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataNewrelicUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.dataNewrelicUser.DataNewrelicUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user newrelic_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user newrelic_user}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class DataNewrelicUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user newrelic_user} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user newrelic_user} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param authentication_domain_id: The ID of the Authentication Domain the user being queried would belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#authentication_domain_id DataNewrelicUser#authentication_domain_id}
-        :param email_id: The email ID of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#email_id DataNewrelicUser#email_id}
-        :param name: The name of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#name DataNewrelicUser#name}
+        :param authentication_domain_id: The ID of the Authentication Domain the user being queried would belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#authentication_domain_id DataNewrelicUser#authentication_domain_id}
+        :param email_id: The email ID of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#email_id DataNewrelicUser#email_id}
+        :param name: The name of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#name DataNewrelicUser#name}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class DataNewrelicUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataNewrelicUser to import.
-        :param import_from_id: The id of the existing DataNewrelicUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataNewrelicUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataNewrelicUser to import is found.
         '''
         if __debug__:
@@ -237,9 +237,9 @@ class DataNewrelicUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param authentication_domain_id: The ID of the Authentication Domain the user being queried would belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#authentication_domain_id DataNewrelicUser#authentication_domain_id}
-        :param email_id: The email ID of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#email_id DataNewrelicUser#email_id}
-        :param name: The name of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#name DataNewrelicUser#name}
+        :param authentication_domain_id: The ID of the Authentication Domain the user being queried would belong to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#authentication_domain_id DataNewrelicUser#authentication_domain_id}
+        :param email_id: The email ID of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#email_id DataNewrelicUser#email_id}
+        :param name: The name of the user to be queried. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#name DataNewrelicUser#name}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -345,7 +345,7 @@ class DataNewrelicUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def authentication_domain_id(self) -> builtins.str:
         '''The ID of the Authentication Domain the user being queried would belong to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#authentication_domain_id DataNewrelicUser#authentication_domain_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#authentication_domain_id DataNewrelicUser#authentication_domain_id}
         '''
         result = self._values.get("authentication_domain_id")
         assert result is not None, "Required property 'authentication_domain_id' is missing"
@@ -355,7 +355,7 @@ class DataNewrelicUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def email_id(self) -> typing.Optional[builtins.str]:
         '''The email ID of the user to be queried.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#email_id DataNewrelicUser#email_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#email_id DataNewrelicUser#email_id}
         '''
         result = self._values.get("email_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -364,7 +364,7 @@ class DataNewrelicUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> typing.Optional[builtins.str]:
         '''The name of the user to be queried.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/data-sources/user#name DataNewrelicUser#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/data-sources/user#name DataNewrelicUser#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: advertools
-Version: 0.17.0
+Version: 0.17.1
 Summary: Digital Marketing productivity and analysis tools.
 Keywords: seo,marketing,advertising,adwords,bingads,search-engine-marketing,online-marketing,digital-marketing,digital-advertising,keywords
 Author-email: Elias Dabbas <eliasdabbas@gmail.com>
@@ -33,6 +33,7 @@ Project-URL: Repository, https://github.com/eliasdabbas/advertools.git
 .. image:: https://deepwiki.com/badge.svg
         :target: https://deepwiki.com/eliasdabbas/advertools
 
+New release is out v0.17.0, `learn more <https://bit.ly/3FQpQEM>`_
 
 
 ``advertools``: productivity & analysis tools to scale your online marketing

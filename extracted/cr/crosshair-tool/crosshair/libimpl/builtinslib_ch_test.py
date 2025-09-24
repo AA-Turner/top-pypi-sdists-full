@@ -606,9 +606,14 @@ def check_str_endswith(
     string: str, suffix: str, start: Optional[int], end: Optional[int]
 ) -> ResultComparison:
     """post: _"""
+    # crosshair: max_uninteresting_iterations=100
+
+    for i in (len(string), len(suffix), start, end):
+        if i is not None and abs(i) >= 1:
+            pass
+
     return compare_results(
-        lambda s, *a: s.endswith(*a),
-        string,
+        lambda s, *a, **kw: s.endswith(*a, **kw), string, suffix, start, end
     )
 
 
@@ -825,6 +830,11 @@ def check_str_startswith(
     end: Optional[int],
 ) -> ResultComparison:
     """post: _"""
+    # crosshair: max_uninteresting_iterations=100
+
+    for i in (len(string), len(prefix), start, end):
+        if i is not None and abs(i) >= 1:
+            pass
     return compare_results(
         lambda s, *a, **kw: s.startswith(*a, **kw), string, prefix, start, end
     )

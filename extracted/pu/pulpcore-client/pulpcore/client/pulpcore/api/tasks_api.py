@@ -688,8 +688,6 @@ class TasksApi:
         unblocked_at__lte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than or equal to value")] = None,
         unblocked_at__range: Annotated[Optional[List[datetime]], Field(description="Filter results where unblocked_at is between two comma separated values")] = None,
         worker: Optional[StrictStr] = None,
-        worker__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where worker is in a comma-separated list of values")] = None,
-        worker__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where worker has a null value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -821,10 +819,6 @@ class TasksApi:
         :type unblocked_at__range: List[datetime]
         :param worker:
         :type worker: str
-        :param worker__in: Filter results where worker is in a comma-separated list of values
-        :type worker__in: List[str]
-        :param worker__isnull: Filter results where worker has a null value
-        :type worker__isnull: bool
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -908,8 +902,6 @@ class TasksApi:
             unblocked_at__lte=unblocked_at__lte,
             unblocked_at__range=unblocked_at__range,
             worker=worker,
-            worker__in=worker__in,
-            worker__isnull=worker__isnull,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -991,8 +983,6 @@ class TasksApi:
         unblocked_at__lte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than or equal to value")] = None,
         unblocked_at__range: Annotated[Optional[List[datetime]], Field(description="Filter results where unblocked_at is between two comma separated values")] = None,
         worker: Optional[StrictStr] = None,
-        worker__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where worker is in a comma-separated list of values")] = None,
-        worker__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where worker has a null value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1124,10 +1114,6 @@ class TasksApi:
         :type unblocked_at__range: List[datetime]
         :param worker:
         :type worker: str
-        :param worker__in: Filter results where worker is in a comma-separated list of values
-        :type worker__in: List[str]
-        :param worker__isnull: Filter results where worker has a null value
-        :type worker__isnull: bool
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1211,8 +1197,6 @@ class TasksApi:
             unblocked_at__lte=unblocked_at__lte,
             unblocked_at__range=unblocked_at__range,
             worker=worker,
-            worker__in=worker__in,
-            worker__isnull=worker__isnull,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1294,8 +1278,6 @@ class TasksApi:
         unblocked_at__lte: Annotated[Optional[datetime], Field(description="Filter results where unblocked_at is less than or equal to value")] = None,
         unblocked_at__range: Annotated[Optional[List[datetime]], Field(description="Filter results where unblocked_at is between two comma separated values")] = None,
         worker: Optional[StrictStr] = None,
-        worker__in: Annotated[Optional[List[StrictStr]], Field(description="Filter results where worker is in a comma-separated list of values")] = None,
-        worker__isnull: Annotated[Optional[StrictBool], Field(description="Filter results where worker has a null value")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1427,10 +1409,6 @@ class TasksApi:
         :type unblocked_at__range: List[datetime]
         :param worker:
         :type worker: str
-        :param worker__in: Filter results where worker is in a comma-separated list of values
-        :type worker__in: List[str]
-        :param worker__isnull: Filter results where worker has a null value
-        :type worker__isnull: bool
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1514,8 +1492,6 @@ class TasksApi:
             unblocked_at__lte=unblocked_at__lte,
             unblocked_at__range=unblocked_at__range,
             worker=worker,
-            worker__in=worker__in,
-            worker__isnull=worker__isnull,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1592,8 +1568,6 @@ class TasksApi:
         unblocked_at__lte,
         unblocked_at__range,
         worker,
-        worker__in,
-        worker__isnull,
         fields,
         exclude_fields,
         _request_auth,
@@ -1619,7 +1593,6 @@ class TasksApi:
             'started_at__range': 'csv',
             'state__in': 'csv',
             'unblocked_at__range': 'csv',
-            'worker__in': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2034,14 +2007,6 @@ class TasksApi:
         if worker is not None:
             
             _query_params.append(('worker', worker))
-            
-        if worker__in is not None:
-            
-            _query_params.append(('worker__in', worker__in))
-            
-        if worker__isnull is not None:
-            
-            _query_params.append(('worker__isnull', worker__isnull))
             
         if fields is not None:
             

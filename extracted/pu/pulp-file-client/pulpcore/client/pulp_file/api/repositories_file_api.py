@@ -2668,10 +2668,10 @@ class RepositoriesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> FileFileRepositoryResponse:
         """Update a file repository
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
@@ -2712,6 +2712,7 @@ class RepositoriesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRepositoryResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2743,10 +2744,10 @@ class RepositoriesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[FileFileRepositoryResponse]:
         """Update a file repository
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
@@ -2787,6 +2788,7 @@ class RepositoriesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRepositoryResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2821,7 +2823,7 @@ class RepositoriesFileApi:
     ) -> RESTResponseType:
         """Update a file repository
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
@@ -2862,6 +2864,7 @@ class RepositoriesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRepositoryResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -4522,10 +4525,10 @@ class RepositoriesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> FileFileRepositoryResponse:
         """Update a file repository
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
@@ -4566,6 +4569,7 @@ class RepositoriesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRepositoryResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -4597,10 +4601,10 @@ class RepositoriesFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[FileFileRepositoryResponse]:
         """Update a file repository
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
@@ -4641,6 +4645,7 @@ class RepositoriesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRepositoryResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -4675,7 +4680,7 @@ class RepositoriesFileApi:
     ) -> RESTResponseType:
         """Update a file repository
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_repository_href: (required)
         :type file_file_repository_href: str
@@ -4716,6 +4721,7 @@ class RepositoriesFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileRepositoryResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(

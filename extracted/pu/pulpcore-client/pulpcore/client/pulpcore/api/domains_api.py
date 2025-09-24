@@ -1524,10 +1524,10 @@ class DomainsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> DomainResponse:
         """Update a domain
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param domain_href: (required)
         :type domain_href: str
@@ -1568,6 +1568,7 @@ class DomainsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DomainResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -1599,10 +1600,10 @@ class DomainsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[DomainResponse]:
         """Update a domain
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param domain_href: (required)
         :type domain_href: str
@@ -1643,6 +1644,7 @@ class DomainsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DomainResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -1677,7 +1679,7 @@ class DomainsApi:
     ) -> RESTResponseType:
         """Update a domain
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param domain_href: (required)
         :type domain_href: str
@@ -1718,6 +1720,7 @@ class DomainsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DomainResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2762,7 +2765,7 @@ class DomainsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> DomainResponse:
         """Update a domain
 
         Trigger an asynchronous update task
@@ -2806,6 +2809,7 @@ class DomainsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DomainResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2837,7 +2841,7 @@ class DomainsApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[DomainResponse]:
         """Update a domain
 
         Trigger an asynchronous update task
@@ -2881,6 +2885,7 @@ class DomainsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DomainResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2956,6 +2961,7 @@ class DomainsApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DomainResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datafusion
-Version: 49.0.0
+Version: 50.0.0
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -16,12 +16,15 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Rust
-Requires-Dist: pyarrow>=11.0.0
-Requires-Dist: typing-extensions ; python_full_version < '3.13'
+Requires-Dist: pyarrow >=11.0.0
+Requires-Dist: typing-extensions ; python_version < '3.13'
 License-File: LICENSE.txt
 Summary: Build and run queries against data
 Keywords: datafusion,dataframe,rust,query-engine
 Home-Page: https://datafusion.apache.org/python
+Author: Apache DataFusion <dev@datafusion.apache.org>
+Author-email: Apache DataFusion <dev@datafusion.apache.org>
+License: Apache-2.0
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: homepage, https://datafusion.apache.org/python
@@ -71,6 +74,10 @@ DataFusion's Python bindings can be used as a foundation for building new data s
 - Exchange data with Pandas and other DataFrame libraries that support PyArrow.
 - Serialize and deserialize query plans in Substrait format.
 - Experimental support for transpiling SQL queries to DataFrame calls with Polars, Pandas, and cuDF.
+
+For tips on tuning parallelism, see
+[Maximizing CPU Usage](docs/source/user-guide/configuration.rst#maximizing-cpu-usage)
+in the configuration guide.
 
 ## Example Usage
 
@@ -257,7 +264,9 @@ and for `uv run` commands the additional parameter `--no-project`
 ```bash
 # fetch this repo
 git clone git@github.com:apache/datafusion-python.git
-# create the virtual enviornment
+# cd to the repo root
+cd datafusion-python/
+# create the virtual environment
 uv sync --dev --no-install-package datafusion
 # activate the environment
 source .venv/bin/activate
@@ -268,6 +277,8 @@ Bootstrap (`pip`):
 ```bash
 # fetch this repo
 git clone git@github.com:apache/datafusion-python.git
+# cd to the repo root
+cd datafusion-python/
 # prepare development environment (used to build wheel / install in development)
 python3 -m venv .venv
 # activate the venv

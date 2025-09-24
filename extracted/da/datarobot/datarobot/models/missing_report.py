@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, Iterator, List, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List
 
 import trafaret as t
 
@@ -19,7 +19,7 @@ from datarobot._compat import Int, String
 from datarobot.models.api_object import APIObject
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class TaskInfo(TypedDict):
         name: str

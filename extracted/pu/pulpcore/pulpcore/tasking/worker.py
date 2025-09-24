@@ -28,7 +28,7 @@ from pulpcore.constants import (
 )
 from pulpcore.metrics import init_otel_meter
 from pulpcore.app.apps import pulp_plugin_configs
-from pulpcore.app.models import Worker, Task, AppStatus, ApiAppStatus, ContentAppStatus
+from pulpcore.app.models import Task, AppStatus
 from pulpcore.app.util import PGAdvisoryLock
 from pulpcore.exceptions import AdvisoryLockError
 
@@ -142,7 +142,7 @@ class PulpcoreWorker:
             elif notification.payload == TASK_WAKEUP_HANDLE:
                 self.wakeup_handle = True
             else:
-                _logger.warn("Unknown wakeup call recieved. Reason: '%s'", notification.payload)
+                _logger.warning("Unknown wakeup call recieved. Reason: '%s'", notification.payload)
                 # We cannot be sure so assume everything happened.
                 self.wakeup_unblock = not self.auxiliary
                 self.wakeup_handle = True
@@ -188,21 +188,12 @@ class PulpcoreWorker:
             self.ignored_task_ids.remove(pk)
 
     def worker_cleanup(self):
-        qs = AppStatus.objects.older_than(age=timedelta(days=7))
+        qs = AppStatus.objects.missing()
         for app_worker in qs:
-            _logger.info(_("Clean missing %s worker %s."), app_worker.app_type, app_worker.name)
+            _logger.warning(
+                "Cleanup record of missing %s process %s.", app_worker.app_type, app_worker.name
+            )
         qs.delete()
-        with contextlib.suppress(DatabaseError):
-            # By now a migration on a newer release may have deleted these tables already.
-            for cls, cls_name in (
-                (Worker, "pulp"),
-                (ApiAppStatus, "api"),
-                (ContentAppStatus, "content"),
-            ):
-                qs = cls.objects.missing(age=timedelta(days=7))
-                for app_worker in qs:
-                    _logger.info(_("Clean missing %s worker %s."), cls_name, app_worker.name)
-                qs.delete()
 
     def beat(self):
         if self.app_status.last_heartbeat < timezone.now() - self.heartbeat_period:
@@ -330,8 +321,6 @@ class PulpcoreWorker:
                     )
                     task.unblock()
                     count += 1
-                # Don't consider this task's resources as held.
-                continue
 
             elif (
                 task.state == TASK_STATES.WAITING

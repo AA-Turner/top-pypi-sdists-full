@@ -29,6 +29,14 @@ class TestSnowflake(Validator):
         expr.selects[0].assert_is(exp.AggFunc)
         self.assertEqual(expr.sql(dialect="snowflake"), "SELECT APPROX_TOP_K(C4, 3, 5) FROM t")
 
+        self.validate_identity("SELECT BIT_LENGTH('abc')")
+        self.validate_identity("SELECT BIT_LENGTH(x'A1B2')")
+        self.validate_identity("SELECT HEX_DECODE_STRING('48656C6C6F')")
+        self.validate_identity("SELECT HEX_ENCODE('Hello World')")
+        self.validate_identity("SELECT HEX_ENCODE('Hello World', 1)")
+        self.validate_identity("SELECT HEX_ENCODE('Hello World', 0)")
+        self.validate_identity("SELECT CHR(8364)")
+        self.validate_identity("SELECT COMPRESS('Hello World', 'ZLIB')")
         self.validate_identity("SELECT {*} FROM my_table")
         self.validate_identity("SELECT {my_table.*} FROM my_table")
         self.validate_identity("SELECT {* ILIKE 'col1%'} FROM my_table")
@@ -1184,11 +1192,12 @@ class TestSnowflake(Validator):
         self.validate_all(
             "DAYOFWEEKISO(foo)",
             read={
+                "snowflake": "DAYOFWEEKISO(foo)",
                 "presto": "DAY_OF_WEEK(foo)",
                 "trino": "DAY_OF_WEEK(foo)",
             },
             write={
-                "snowflake": "DAYOFWEEKISO(foo)",
+                "duckdb": "ISODOW(foo)",
             },
         )
 
@@ -1197,9 +1206,6 @@ class TestSnowflake(Validator):
             read={
                 "presto": "DOW(foo)",
                 "trino": "DOW(foo)",
-            },
-            write={
-                "snowflake": "DAYOFWEEKISO(foo)",
             },
         )
 
@@ -1319,6 +1325,37 @@ class TestSnowflake(Validator):
             read={
                 "bigquery": "WITH foo AS (SELECT [1] AS arr_1) SELECT (SELECT unnested_arr FROM UNNEST(arr_1) AS unnested_arr) AS f FROM foo",
             },
+        )
+
+        self.validate_identity("SELECT LIKE(col, 'pattern')", "SELECT col LIKE 'pattern'")
+        self.validate_identity("SELECT ILIKE(col, 'pattern')", "SELECT col ILIKE 'pattern'")
+        self.validate_identity(
+            "SELECT LIKE(col, 'pattern', '\\\\')", "SELECT col LIKE 'pattern' ESCAPE '\\\\'"
+        )
+        self.validate_identity(
+            "SELECT ILIKE(col, 'pattern', '\\\\')", "SELECT col ILIKE 'pattern' ESCAPE '\\\\'"
+        )
+        self.validate_identity(
+            "SELECT LIKE(col, 'pattern', '!')", "SELECT col LIKE 'pattern' ESCAPE '!'"
+        )
+        self.validate_identity(
+            "SELECT ILIKE(col, 'pattern', '!')", "SELECT col ILIKE 'pattern' ESCAPE '!'"
+        )
+
+        self.validate_identity("SELECT BASE64_DECODE_BINARY('SGVsbG8=')")
+        self.validate_identity(
+            "SELECT BASE64_DECODE_BINARY('SGVsbG8=', 'ABCDEFGHwxyz0123456789+/')"
+        )
+
+        self.validate_identity("SELECT BASE64_DECODE_STRING('SGVsbG8gV29ybGQ=')")
+        self.validate_identity(
+            "SELECT BASE64_DECODE_STRING('SGVsbG8gV29ybGQ=', 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/')"
+        )
+
+        self.validate_identity("SELECT BASE64_ENCODE('Hello World')")
+        self.validate_identity("SELECT BASE64_ENCODE('Hello World', 76)")
+        self.validate_identity(
+            "SELECT BASE64_ENCODE('Hello World', 76, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/')"
         )
 
     def test_null_treatment(self):

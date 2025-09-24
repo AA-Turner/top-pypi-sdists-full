@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mergepythonclient
-Version: 2.3.1
+Version: 2.3.2
 Summary: 
 Requires-Python: >=3.8,<4.0
 Classifier: Intended Audience :: Developers
@@ -197,7 +197,7 @@ from merge import Merge
 client = Merge(
     ...,
     httpx_client=httpx.Client(
-        proxies="http://my.test.proxy.example.com",
+        proxy="http://my.test.proxy.example.com",
         transport=httpx.HTTPTransport(local_address="0.0.0.0"),
     ),
 )
@@ -254,6 +254,7 @@ while response.next is not None:
         cursor=response.next, 
         created_after="2030-01-01")
 ```
+
 
 
 

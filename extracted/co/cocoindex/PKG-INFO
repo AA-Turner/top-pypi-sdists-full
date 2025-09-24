@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 0.2.11
+Version: 0.2.12
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -29,11 +29,14 @@ Requires-Dist: mypy ; extra == 'dev'
 Requires-Dist: pre-commit ; extra == 'dev'
 Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'embeddings'
 Requires-Dist: colpali-engine ; extra == 'colpali'
+Requires-Dist: lancedb>=0.25.0 ; extra == 'lancedb'
 Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'all'
 Requires-Dist: colpali-engine ; extra == 'all'
+Requires-Dist: lancedb>=0.25.0 ; extra == 'all'
 Provides-Extra: dev
 Provides-Extra: embeddings
 Provides-Extra: colpali
+Provides-Extra: lancedb
 Provides-Extra: all
 License-File: THIRD_PARTY_NOTICES.html
 Summary: With CocoIndex, users declare the transformation, CocoIndex creates & maintains an index, and keeps the derived index up to date based on source update, with minimal computation and changes.

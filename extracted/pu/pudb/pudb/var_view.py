@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 __copyright__ = """
 Copyright (C) 2009-2017 Andreas Kloeckner
 Copyright (C) 2014-2017 Aaron Meurer
@@ -23,26 +26,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
-
 # {{{ constants and imports
 
 import inspect
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sized
-from typing import List, Tuple
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 import urwid
+from typing_extensions import TypeAlias, override
 
 from pudb.lowlevel import ui_log
 from pudb.ui_tools import text_width
 
 
-try:
+if TYPE_CHECKING:
     import numpy
     HAVE_NUMPY = 1
-except ImportError:
-    HAVE_NUMPY = 0
+else:
+    try:
+        import numpy
+        HAVE_NUMPY = 1
+    except ImportError:
+        HAVE_NUMPY = 0
 
 # }}}
 
@@ -73,9 +81,8 @@ class PudbCollection(ABC):  # noqa: B024
             for count, entry in enumerate(collection):
                 yield None, entry, f"[{count:d}]"
         except Exception as error:
-            ui_log.error("Object {l!r} appears to be a collection, but does "
-                         "not behave like one: {m}".format(
-                             l=label, m=error))
+            ui_log.error(f"Object {label!r} appears to be a collection, but does "
+                         f"not behave like one: {error}")
 
     @classmethod
     def length(cls, collection):
@@ -106,9 +113,8 @@ class PudbSequence(ABC):  # noqa: B024
             for count, entry in enumerate(sequence):
                 yield str(count), entry, f"[{count:d}]"
         except Exception as error:
-            ui_log.error("Object {l!r} appears to be a sequence, but does "
-                         "not behave like one: {m}".format(
-                             l=label, m=error))
+            ui_log.error(f"Object {label!r} appears to be a sequence, but does "
+                         f"not behave like one: {error}")
 
     @classmethod
     def length(cls, sequence):
@@ -148,9 +154,8 @@ class PudbMapping(ABC):  # noqa: B024
                 key_repr = cls._safe_key_repr(key)
                 yield (key_repr, mapping[key], f"[{key_repr}]")
         except Exception as error:
-            ui_log.error("Object {l!r} appears to be a mapping, but does "
-                         "not behave like one: {m}".format(
-                             l=label, m=error))
+            ui_log.error(f"Object {label!r} appears to be a mapping, but does "
+                         f"not behave like one: {error}")
 
     @classmethod
     def length(cls, mapping):
@@ -184,7 +189,27 @@ class FrameVarInfo:
                     id_path, InspectInfo())
 
 
+VarAccessLevel: TypeAlias = Literal["private", "public"]
+Stringifier: TypeAlias = Literal[
+    "default",
+    "type",
+    "repr",
+    "str",
+    "id",
+]
+
+IdPath: TypeAlias = "tuple[str, ...]"
+
+
 class InspectInfo:
+    show_detail: bool
+    display_type: Stringifier
+    highlighted: bool
+    repeated_at_top: bool
+    access_level: VarAccessLevel
+    show_methods: bool
+    wrap: bool
+
     def __init__(self):
         # Do not globalize: cyclic import
         from pudb.debugger import CONFIG
@@ -198,9 +223,9 @@ class InspectInfo:
         self.wrap = CONFIG["wrap_variables"]
 
 
+@dataclass(frozen=True)
 class WatchExpression:
-    def __init__(self, expression):
-        self.expression = expression
+    expression: str
 
 
 class WatchEvalError:
@@ -213,12 +238,28 @@ class WatchEvalError:
 # {{{ widget
 
 class VariableWidget(urwid.Widget):
-    _sizing = frozenset([urwid.Sizing.FLOW])
+    _sizing: ClassVar[frozenset[str]] = frozenset([urwid.Sizing.FLOW])
 
-    PREFIX = "| "
+    PREFIX: ClassVar[str] = "| "
 
-    def __init__(self, parent, var_label, value_str, id_path,
-            attr_prefix=None, watch_expr=None, iinfo=None):
+    parent: VariableWidget | None
+    nesting_level: int
+    var_label: str | None
+    value_str: str | None
+    id_path: IdPath
+    attr_prefix: str
+    watch_expr: str | None
+    wrap: bool
+
+    def __init__(self,
+                parent: VariableWidget | None,
+                var_label: str | None,
+                value_str: str | None,
+                id_path: IdPath,
+                attr_prefix: str | None = None,
+                watch_expr: str | None = None,
+                iinfo: InspectInfo | None = None
+            ):
         super().__init__()
 
         assert isinstance(id_path, str)
@@ -239,17 +280,13 @@ class VariableWidget(urwid.Widget):
             self.wrap = iinfo.wrap
 
     def __str__(self):
-        return ("VariableWidget: {value_str}, level {nesting_level}, at {id_path}"
-                .format(
-                    value_str=self.value_str,
-                    nesting_level=self.nesting_level,
-                    id_path=self.id_path,
-                ))
+        return (f"VariableWidget: {self.value_str}, level {self.nesting_level}, "
+            f"at {self.id_path}")
 
     def selectable(self):
         return True
 
-    def _get_wrapped_lines(self, maxcol: int) -> List[str]:
+    def _get_wrapped_lines(self, maxcol: int) -> list[str]:
         """
         :param maxcol: the number of columns available to this widget
         :return: list of string lines, including prefixes, wrapped to fit in
@@ -268,7 +305,8 @@ class VariableWidget(urwid.Widget):
             for i in range(fulllines + bool(rest))]
         return [firstline] + [self.prefix + "  " + i for i in restlines]
 
-    def rows(self, size: Tuple[int], focus: bool = False) -> int:
+    @override
+    def rows(self, size: tuple[int], focus: bool = False) -> int:
         """
         :param size: (maxcol,) the number of columns available to this widget
         :param focus: True if this widget or one of its children is in focus
@@ -282,7 +320,8 @@ class VariableWidget(urwid.Widget):
         else:
             return 1
 
-    def render(self, size: Tuple[int], focus: bool = False) -> urwid.Canvas:
+    @override
+    def render(self, size: tuple[int], focus: bool = False) -> urwid.Canvas:
         """
         :param size: (maxcol,) the number of columns available to this widget
         :param focus: True if this widget or one of its children is in focus
@@ -316,12 +355,12 @@ class VariableWidget(urwid.Widget):
                     + 1  # for ":"
                     )
 
-            _attr = [(apfx+"label", labellen), (apfx+"value", totallen - labellen)]
+            attr_ = [(apfx+"label", labellen), (apfx+"value", totallen - labellen)]
             from urwid.util import rle_subseg
 
             fullcols, rem = divmod(totallen, maxcol)
 
-            attr = [rle_subseg(_attr, i*maxcol, (i + 1)*maxcol)
+            attr = [rle_subseg(attr_, i*maxcol, (i + 1)*maxcol)
                 for i in range(fullcols + bool(rem))]
 
             return make_canvas(text, attr, maxcol, apfx+"value")
@@ -354,6 +393,7 @@ class VariableWidget(urwid.Widget):
                         (apfx+"value", text_width(self.value_str)),
                         ]]
         else:
+            assert self.var_label is not None
             text = [self.prefix + self.var_label]
 
             attr = [[(apfx+"label", lprefix + text_width(self.var_label)), ]]
@@ -389,12 +429,15 @@ BASIC_TYPES = (
 def get_str_safe_types():
     import types
 
-    return tuple(getattr(types, s) for s in
-        "BuiltinFunctionType BuiltinMethodType  ClassType "
-        "CodeType FileType FrameType FunctionType GetSetDescriptorType "
-        "LambdaType MemberDescriptorType MethodType ModuleType "
-        "SliceType TypeType TracebackType UnboundMethodType XRangeType".split()
-        if hasattr(types, s)) + (WatchEvalError,)
+    return (
+        *[
+            getattr(types, s)
+            for s in ("BuiltinFunctionType BuiltinMethodType  ClassType "
+                 "CodeType FileType FrameType FunctionType GetSetDescriptorType "
+                 "LambdaType MemberDescriptorType MethodType ModuleType "
+                 "SliceType TypeType TracebackType UnboundMethodType XRangeType"
+            ).split() if hasattr(types, s)],
+         WatchEvalError)
 
 
 STR_SAFE_TYPES = get_str_safe_types()
@@ -402,13 +445,12 @@ STR_SAFE_TYPES = get_str_safe_types()
 # }}}
 
 
-def default_stringifier(value):
+def default_stringifier(value: object):
     if isinstance(value, BASIC_TYPES):
         return repr(value)
 
     if HAVE_NUMPY and isinstance(value, numpy.ndarray):
-        return "%s(%s) %s" % (
-                type(value).__name__, value.dtype, value.shape)
+        return f"{type(value).__name__}({value.dtype}) {value.shape}"
 
     elif HAVE_NUMPY and isinstance(value, numpy.number):
         return str(f"{value} ({value.dtype})")
@@ -419,17 +461,17 @@ def default_stringifier(value):
         except Exception:
             message = "string safe type stringifier failed"
             ui_log.exception(message)
-            return "!! %s !!" % message
+            return f"!! {message} !!"
 
     elif hasattr(type(value), "safely_stringify_for_pudb"):
         try:
             # (E.g.) Mock objects will pretend to have this
             # and return nonsense.
-            result = value.safely_stringify_for_pudb()
+            result = cast("str", value.safely_stringify_for_pudb())  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
         except Exception:
             message = "safely_stringify_for_pudb call failed"
             ui_log.exception(message)
-            result = "!! %s !!" % message
+            result = f"!! {message} !!"
 
         if isinstance(result, str):
             return str(result)
@@ -446,21 +488,21 @@ def default_stringifier(value):
     return str(type(value).__name__)
 
 
-def type_stringifier(value):
+def type_stringifier(value: object):
     return str(type(value).__name__)
 
 
-def id_stringifier(obj):
-    return "{id:#x}".format(id=id(obj))
+def id_stringifier(obj: object):
+    return f"{id(obj):#x}"
 
 
-def error_stringifier(_):
+def error_stringifier(_: object) -> str:
     return "ERROR: Invalid custom stringifier file."
 
 
 custom_stringifier_dict = {}
 
-STRINGIFIERS = {
+STRINGIFIERS: dict[Stringifier, Callable[[object], str]] = {
     "default": default_stringifier,
     "type": type_stringifier,
     "repr": repr,
@@ -469,7 +511,7 @@ STRINGIFIERS = {
 }
 
 
-def get_stringifier(iinfo: InspectInfo) -> Callable:
+def get_stringifier(iinfo: InspectInfo) -> Callable[[object], str]:
     """
     :return: a function that turns an object into a Unicode text object.
     """
@@ -487,8 +529,10 @@ def get_stringifier(iinfo: InspectInfo) -> Callable:
                             custom_stringifier_dict,
                             custom_stringifier_dict)
         except FileNotFoundError:
-            ui_log.error("Unable to locate custom stringifier file {!r}"
-                         .format(iinfo.display_type))
+            ui_log.error(
+                         "Unable to locate custom stringifier file "
+                         f"{iinfo.display_type!r}"
+                         )
             return error_stringifier
         except Exception:
             ui_log.exception("Error when importing custom stringifier")
@@ -543,7 +587,7 @@ class ValueWalker(ABC):
         return False
 
     def walk_container(self, parent: VariableWidget, label: str,
-                       value, id_path: str = None):
+                       value, id_path: str | None = None):
         try:
             container_cls = next(cls for cls in CONTAINER_CLASSES
                                  if isinstance(value, cls))
@@ -599,7 +643,7 @@ class ValueWalker(ABC):
                 attr_value = WatchEvalError()
 
             self.walk_value(parent,
-                    ".%s" % key, attr_value,
+                    f".{key}", attr_value,
                     f"{id_path}.{key}")
 
     def walk_value(self, parent, label, value, id_path=None, attr_prefix=None):
@@ -615,14 +659,14 @@ class ValueWalker(ABC):
             # Unfortunately, anything can happen when calling str() or
             # repr() on a random object.
             displayed_value = type_stringifier(value) \
-                            + " (!! %s error !!)" % iinfo.display_type
+                            + f" (!! {iinfo.display_type} error !!)"
             ui_log.exception("stringifier failed")
 
         if iinfo.show_detail:
             marker = iinfo.access_level[:3]
             if iinfo.show_methods:
                 marker += "+()"
-            displayed_value += " [%s]" % marker
+            displayed_value += f" [{marker}]"
 
         new_parent_item = self.add_item(parent, label, displayed_value,
             id_path, attr_prefix)
@@ -751,10 +795,10 @@ def make_var_view(frame_var_info, locals, globals):
     result = tmv_walker.main_widget_list
 
     if watch_widget_list:
-        result = (watch_widget_list + [SEPARATOR] + result)
+        result = ([*watch_widget_list, SEPARATOR, *result])
 
     if tmv_walker.top_widget_list:
-        result = (tmv_walker.top_widget_list + [SEPARATOR] + result)
+        result = ([*tmv_walker.top_widget_list, SEPARATOR, *result])
 
     if ret_walker.widget_list:
         result = (ret_walker.widget_list + result)
@@ -769,7 +813,7 @@ class FrameVarInfoKeeper:
     def get_frame_var_info(self, read_only, ssid=None):
         if ssid is None:
             # self.debugger set by subclass
-            ssid = self.debugger.get_stack_situation_id()  # noqa: E501 # pylint: disable=no-member
+            ssid = self.debugger.get_stack_situation_id()  # pylint: disable=no-member
         if read_only:
             return self.frame_var_info.get(ssid, FrameVarInfo())
         else:

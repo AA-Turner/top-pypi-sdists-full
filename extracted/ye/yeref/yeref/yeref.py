@@ -13732,6 +13732,63 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
 
 
 # region fun
+async def is_reason(user_id, user_username, user_full_name, ENT_CBAN):
+    result = None
+    try:
+        new_, nousername_, cas_, symbols_, zalgo_ = list(ENT_CBAN)
+
+        if nousername_ == '☑' and not user_username:
+            result = 'no @username'
+            return
+        if new_ == '☑' and user_id > old_tid:
+            result = 'new id'
+            return
+        if cas_ == '☑':
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                              "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Accept": "application/json",
+                "Accept-Language": "en;q=0.9",
+                "Referer": "https://cas.chat/",
+            }
+            async with httpx.AsyncClient(http2=True, headers=headers, timeout=10) as client:
+                url = f"https://api.cas.chat/check?user_id={user_id}"
+                resp = await client.get(url)
+
+                print(f"? JSON: {url}")
+                if resp.status_code == 200 and resp.headers.get("Content-Type", "").startswith("application/json"):
+                    data = resp.json()
+
+                    print(f"? JSON: {data}")
+                    if data.get("ok") is True:
+                        print(f"✅ JSON: {data}")
+                        result = f"cas: {url}"
+                        return
+        if zalgo_ == '☑':
+            # '͞'
+            # arr_zalgo = list(map(chr, range(768, 879)))
+            # if len([item for item in arr_zalgo if item in user_full_name]):
+            if has_zalgo(user_full_name):
+                result = f"zalgo symbols: {user_full_name}"
+                return
+        if symbols_ == '☑':
+            # ؀ , 世 文 , ችግሩ (ethiop)
+            # arr_arab_hier = list(map(chr, range(1536, 1791))) + list(map(chr, range(19968, 40959))) + list(
+            #     map(chr, range(4608, 4991)))
+            # ؀ , 世 文 , ችግሩ (эфиопский)
+            if has_non_european_glyph(user_full_name):
+                result = f"arab/zh symbols: {user_full_name}"
+                return
+    except TelegramRetryAfter as e:
+        logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
+        await asyncio.sleep(e.retry_after + 1)
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    finally:
+        return result
+
+
 def has_non_european_glyph(text):
     if text.isascii(): return False
     return bool(PAT.search(text))
@@ -13911,7 +13968,7 @@ async def get_buttons_main(lz, bot_un, BASE_P):
         else:
             url_share = f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'
         web_app_ = types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')   # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
-        text_like = await read_likes(BASE_P) if random.choice([True, False]) else '⁰⁰⁰'
+        text_like = await read_likes(BASE_P) if random.choice([True, True, True, False]) else '⁰⁰⁰'
 
         result = [
             types.InlineKeyboardButton(text="👩🏽‍💼", url=url_usr),
@@ -13936,6 +13993,16 @@ async def send_request_chat(bot, chat_id, lz, is_group=False):
             # print(f"{is_group=}")
 
             user_administrator_rights = ChatAdministratorRights(is_anonymous=False,  # !
+                                                                can_manage_chat=True, can_delete_messages=True,
+                                                                can_manage_video_chats=True, can_restrict_members=True,
+                                                                can_promote_members=False,  # can_promote_members=True,
+                                                                can_change_info=False, can_invite_users=True,
+                                                                can_post_stories=True, can_edit_stories=False,
+                                                                can_delete_stories=False, can_post_messages=True,
+                                                                can_edit_messages=True, can_pin_messages=True,
+                                                                can_manage_topics=None)
+
+            bot_administrator_rights = ChatAdministratorRights(is_anonymous=True,  # !
                                                                 can_manage_chat=True, can_delete_messages=True,
                                                                 can_manage_video_chats=True, can_restrict_members=True,
                                                                 can_promote_members=False,  # can_promote_members=True,

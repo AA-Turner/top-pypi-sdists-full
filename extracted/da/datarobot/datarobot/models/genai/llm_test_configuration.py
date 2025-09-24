@@ -13,23 +13,23 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
-from datarobot.enums import enum_to_list, LLMTestConfigurationType, PromptSamplingStrategy
+from datarobot._compat import TypedDict
+from datarobot.enums import LLMTestConfigurationType, PromptSamplingStrategy, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.genai.evaluation_dataset_configuration import (
-    evaluation_dataset_configuration_trafaret,
     EvaluationDatasetConfiguration,
+    evaluation_dataset_configuration_trafaret,
 )
 from datarobot.models.genai.insights_configuration import (
-    insight_configuration_trafaret,
     InsightsConfiguration,
     InsightsConfigurationDict,
+    insight_configuration_trafaret,
 )
 from datarobot.models.genai.playground import Playground
 from datarobot.models.use_cases.use_case import UseCase
-from datarobot.models.use_cases.utils import get_use_case_id, resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, get_use_case_id, resolve_use_cases
 from datarobot.utils.pagination import unpaginate
 
 

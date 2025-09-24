@@ -1,18 +1,19 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: referrers
-Version: 0.12.0
+Version: 0.13.1
 Summary: Finds the graph of referrers for a Python object
 License: Apache-2.0
+License-File: LICENSE
 Author: Neil Ferguson
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: networkx (>=2.4)
 Project-URL: Repository, https://github.com/nfergu/referrers
 Description-Content-Type: text/markdown
@@ -40,14 +41,15 @@ my_function()
 Will produce output like:
 
 ```plaintext
-╙── list instance (id=4346564736)
-    ├─╼ dict[a] (id=4347073728)
-    │   └─╼ my_function.d (local) (id=4347073728)
-    └─╼ my_function.a (local) (id=4346564736)
+╙── list (object) (id=4343582848) (target)
+    ├── my_function.a (local) (id=4343582848) (root)
+    └── dict[key=a] (id=4345092160)
+        └── dict (object) (id=4345092160)
+            └── my_function.d (local) (id=4345092160) (root)
 ```
 
 In this case the list instance is referenced directly by a local variable called `a`, and also
-via a dictionary, which is in turn referenced by a local variable called `d`.
+via an entry in a dictionary, which is in turn referenced by a local variable called `d`.
 
 Note: this package is experimental and may not work in all cases. It may also be inefficient
 in certain cases, and should not be used in performance-critical code.
@@ -101,12 +103,11 @@ my_func()
 This will output something like:
 
 ```plaintext
-╙── list instance (id=4514970240)
-    └─╼ ParentClass.member_variable (instance attribute) (id=4513308624)
-        └─╼ my_func.local_variable (local) (id=4513308624)
+╙── list (object) (id=4360191168) (target)
+    └── ParentClass.member_variable (instance attribute) (id=4344740512)
+        └── ParentClass (object) (id=4344740512)
+            └── my_func.local_variable (local) (id=4344740512) (root)
 ```
-
-Although the precise output will vary according to the Python version used.
 
 In this case the list instance is referenced by a member variable of `ParentClass`, which
 is in turn referenced by a local variable in the `my_func` function.
@@ -208,7 +209,7 @@ its `to_networkx` method. This can be useful for visualizing the graph, or for
 performing more complex analysis.
 
 The resulting NetworkX graph consists of nodes of type `ReferrerGraphNode`, with edges
-directed from objects to their referrers.
+directed from referrers to their referents.
 
 For example, to visualize a graph of references to an object using [NetworkX](https://networkx.org/)
 and [Matplotlib](https://matplotlib.org/):
@@ -234,8 +235,7 @@ def my_function():
     other_variable = ContainerClass(local_variable.instance_attribute)
     graph = referrers.get_referrer_graph(local_variable.instance_attribute)
     
-    # Reverse the graph so that arrows point from referrers to referents
-    nx_graph = graph.to_networkx().reverse()
+    nx_graph = graph.to_networkx()
     nx.draw_networkx(
         nx_graph,
         pos=nx.spectral_layout(nx_graph),
@@ -253,7 +253,9 @@ my_function()
 
 This will produce an image like this:
 
-<img width="486" alt="Screenshot 2024-05-18 at 16 41 30" src="https://github.com/nfergu/referrers/assets/1291583/10cd424c-d9a4-4be3-82c4-174fd18c2774">
+<img width="740" height="438" alt="image" src="https://github.com/user-attachments/assets/e1fd9220-e2c9-4a33-a508-3cc5da1876ab" />
+
+
 
 
 ## Multi-threading
@@ -330,9 +332,10 @@ my_func()
 This will output something like:
 
 ```plaintext
-╙── dict instance (id=4483928640)
-    └─╼ ParentClass.member_variable (instance attribute) (id=4482048576)
-        └─╼ my_func.local_variable (local) (id=4482048576)
+╙── dict (object) (id=4374433472) (target)
+    └── ParentClass.member_variable (instance attribute) (id=4381605040)
+        └── ParentClass (object) (id=4381605040)
+            └── my_func.local_variable (local) (id=4381605040) (root)
 ```
 
 ## Source

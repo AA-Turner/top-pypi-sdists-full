@@ -37,4 +37,6 @@ def calculate_reset_at_from_response(
         )
         retry_after = DEFAULT_RETRY_AFTER_SECONDS
 
+    # add 0.5 sec to make sure we do not hit throttling immediately after reset due to rounding effects
+    retry_after += 0.5
     return time.time() + retry_after

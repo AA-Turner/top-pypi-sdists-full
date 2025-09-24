@@ -19,6 +19,7 @@ import tempfile
 from ... import constants, messages, summary
 from ..._typing import Any, Callable, Dict, List, Optional, Point3D
 from ...assets import asset_item
+from ...constants import ASSET_TYPE_ASSET_ITEM
 from . import randomize, thumbnail
 
 LOGGER = logging.getLogger(__name__)
@@ -156,7 +157,7 @@ def log(
 
     log_3d_cloud_message = messages.Log3DCloudMessage(
         scene_name,
-        upload_type="asset-item",
+        upload_type=ASSET_TYPE_ASSET_ITEM,
         items=items,
         thumbnail_path=thumbnail_path,
         metadata=metadata,

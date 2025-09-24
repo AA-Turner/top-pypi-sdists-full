@@ -58583,37 +58583,6 @@ scout_compute_resolved_api_BitOperationSeriesNode.__qualname__ = "BitOperationSe
 scout_compute_resolved_api_BitOperationSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
-class scout_compute_resolved_api_CachedStorageLocator(ConjureBeanType):
-    """A storage locator for data in the legacy global cached datasets table. See SeriesCacheDb.
-    """
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'logical_series': ConjureFieldDefinition('logicalSeries', timeseries_logicalseries_api_LogicalSeries),
-            'type': ConjureFieldDefinition('type', storage_series_api_NominalDataType)
-        }
-
-    __slots__: List[str] = ['_logical_series', '_type']
-
-    def __init__(self, logical_series: "timeseries_logicalseries_api_LogicalSeries", type: "storage_series_api_NominalDataType") -> None:
-        self._logical_series = logical_series
-        self._type = type
-
-    @builtins.property
-    def logical_series(self) -> "timeseries_logicalseries_api_LogicalSeries":
-        return self._logical_series
-
-    @builtins.property
-    def type(self) -> "storage_series_api_NominalDataType":
-        return self._type
-
-
-scout_compute_resolved_api_CachedStorageLocator.__name__ = "CachedStorageLocator"
-scout_compute_resolved_api_CachedStorageLocator.__qualname__ = "CachedStorageLocator"
-scout_compute_resolved_api_CachedStorageLocator.__module__ = "nominal_api.scout_compute_resolved_api"
-
-
 class scout_compute_resolved_api_Cartesian3dBounds(ConjureBeanType):
 
     @builtins.classmethod
@@ -64243,32 +64212,26 @@ scout_compute_resolved_api_StaleRangesNode.__module__ = "nominal_api.scout_compu
 
 
 class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
-    _cached: Optional["scout_compute_resolved_api_CachedStorageLocator"] = None
     _nominal: Optional["scout_compute_resolved_api_NominalStorageLocator"] = None
     _external: Optional["timeseries_logicalseries_api_LogicalSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'cached': ConjureFieldDefinition('cached', scout_compute_resolved_api_CachedStorageLocator),
             'nominal': ConjureFieldDefinition('nominal', scout_compute_resolved_api_NominalStorageLocator),
             'external': ConjureFieldDefinition('external', timeseries_logicalseries_api_LogicalSeries)
         }
 
     def __init__(
             self,
-            cached: Optional["scout_compute_resolved_api_CachedStorageLocator"] = None,
             nominal: Optional["scout_compute_resolved_api_NominalStorageLocator"] = None,
             external: Optional["timeseries_logicalseries_api_LogicalSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (cached is not None) + (nominal is not None) + (external is not None) != 1:
+            if (nominal is not None) + (external is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if cached is not None:
-                self._cached = cached
-                self._type = 'cached'
             if nominal is not None:
                 self._nominal = nominal
                 self._type = 'nominal'
@@ -64276,11 +64239,6 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
                 self._external = external
                 self._type = 'external'
 
-        elif type_of_union == 'cached':
-            if cached is None:
-                raise ValueError('a union value must not be None')
-            self._cached = cached
-            self._type = 'cached'
         elif type_of_union == 'nominal':
             if nominal is None:
                 raise ValueError('a union value must not be None')
@@ -64293,10 +64251,6 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
             self._type = 'external'
 
     @builtins.property
-    def cached(self) -> Optional["scout_compute_resolved_api_CachedStorageLocator"]:
-        return self._cached
-
-    @builtins.property
     def nominal(self) -> Optional["scout_compute_resolved_api_NominalStorageLocator"]:
         return self._nominal
 
@@ -64307,8 +64261,6 @@ class scout_compute_resolved_api_StorageLocator(ConjureUnionType):
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_StorageLocatorVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_StorageLocatorVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'cached' and self.cached is not None:
-            return visitor._cached(self.cached)
         if self._type == 'nominal' and self.nominal is not None:
             return visitor._nominal(self.nominal)
         if self._type == 'external' and self.external is not None:
@@ -64321,10 +64273,6 @@ scout_compute_resolved_api_StorageLocator.__module__ = "nominal_api.scout_comput
 
 
 class scout_compute_resolved_api_StorageLocatorVisitor:
-
-    @abstractmethod
-    def _cached(self, cached: "scout_compute_resolved_api_CachedStorageLocator") -> Any:
-        pass
 
     @abstractmethod
     def _nominal(self, nominal: "scout_compute_resolved_api_NominalStorageLocator") -> Any:
@@ -65086,6 +65034,8 @@ scout_dataexport_api_AllTimestampsForwardFillStrategy.__module__ = "nominal_api.
 
 
 class scout_dataexport_api_Arrow(ConjureBeanType):
+    """Export settings for a stream of arrow-compatible data.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -65120,6 +65070,8 @@ scout_dataexport_api_CompressionFormat.__module__ = "nominal_api.scout_dataexpor
 
 
 class scout_dataexport_api_Csv(ConjureBeanType):
+    """Export settings for a stream of `.csv` data.
+    """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -65295,59 +65247,76 @@ scout_dataexport_api_ExportDataRequest.__module__ = "nominal_api.scout_dataexpor
 
 
 class scout_dataexport_api_ExportFormat(ConjureUnionType):
-    _csv: Optional["scout_dataexport_api_Csv"] = None
     _arrow: Optional["scout_dataexport_api_Arrow"] = None
+    _csv: Optional["scout_dataexport_api_Csv"] = None
+    _matfile: Optional["scout_dataexport_api_Matfile"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'arrow': ConjureFieldDefinition('arrow', scout_dataexport_api_Arrow),
             'csv': ConjureFieldDefinition('csv', scout_dataexport_api_Csv),
-            'arrow': ConjureFieldDefinition('arrow', scout_dataexport_api_Arrow)
+            'matfile': ConjureFieldDefinition('matfile', scout_dataexport_api_Matfile)
         }
 
     def __init__(
             self,
-            csv: Optional["scout_dataexport_api_Csv"] = None,
             arrow: Optional["scout_dataexport_api_Arrow"] = None,
+            csv: Optional["scout_dataexport_api_Csv"] = None,
+            matfile: Optional["scout_dataexport_api_Matfile"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (csv is not None) + (arrow is not None) != 1:
+            if (arrow is not None) + (csv is not None) + (matfile is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if csv is not None:
-                self._csv = csv
-                self._type = 'csv'
             if arrow is not None:
                 self._arrow = arrow
                 self._type = 'arrow'
+            if csv is not None:
+                self._csv = csv
+                self._type = 'csv'
+            if matfile is not None:
+                self._matfile = matfile
+                self._type = 'matfile'
 
-        elif type_of_union == 'csv':
-            if csv is None:
-                raise ValueError('a union value must not be None')
-            self._csv = csv
-            self._type = 'csv'
         elif type_of_union == 'arrow':
             if arrow is None:
                 raise ValueError('a union value must not be None')
             self._arrow = arrow
             self._type = 'arrow'
+        elif type_of_union == 'csv':
+            if csv is None:
+                raise ValueError('a union value must not be None')
+            self._csv = csv
+            self._type = 'csv'
+        elif type_of_union == 'matfile':
+            if matfile is None:
+                raise ValueError('a union value must not be None')
+            self._matfile = matfile
+            self._type = 'matfile'
+
+    @builtins.property
+    def arrow(self) -> Optional["scout_dataexport_api_Arrow"]:
+        return self._arrow
 
     @builtins.property
     def csv(self) -> Optional["scout_dataexport_api_Csv"]:
         return self._csv
 
     @builtins.property
-    def arrow(self) -> Optional["scout_dataexport_api_Arrow"]:
-        return self._arrow
+    def matfile(self) -> Optional["scout_dataexport_api_Matfile"]:
+        return self._matfile
 
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_dataexport_api_ExportFormatVisitor):
             raise ValueError('{} is not an instance of scout_dataexport_api_ExportFormatVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'csv' and self.csv is not None:
-            return visitor._csv(self.csv)
         if self._type == 'arrow' and self.arrow is not None:
             return visitor._arrow(self.arrow)
+        if self._type == 'csv' and self.csv is not None:
+            return visitor._csv(self.csv)
+        if self._type == 'matfile' and self.matfile is not None:
+            return visitor._matfile(self.matfile)
 
 
 scout_dataexport_api_ExportFormat.__name__ = "ExportFormat"
@@ -65358,11 +65327,15 @@ scout_dataexport_api_ExportFormat.__module__ = "nominal_api.scout_dataexport_api
 class scout_dataexport_api_ExportFormatVisitor:
 
     @abstractmethod
+    def _arrow(self, arrow: "scout_dataexport_api_Arrow") -> Any:
+        pass
+
+    @abstractmethod
     def _csv(self, csv: "scout_dataexport_api_Csv") -> Any:
         pass
 
     @abstractmethod
-    def _arrow(self, arrow: "scout_dataexport_api_Arrow") -> Any:
+    def _matfile(self, matfile: "scout_dataexport_api_Matfile") -> Any:
         pass
 
 
@@ -65420,6 +65393,24 @@ class scout_dataexport_api_Iso8601TimestampFormat(ConjureBeanType):
 scout_dataexport_api_Iso8601TimestampFormat.__name__ = "Iso8601TimestampFormat"
 scout_dataexport_api_Iso8601TimestampFormat.__qualname__ = "Iso8601TimestampFormat"
 scout_dataexport_api_Iso8601TimestampFormat.__module__ = "nominal_api.scout_dataexport_api"
+
+
+class scout_dataexport_api_Matfile(ConjureBeanType):
+    """Export settings for a `.mat` file compatible with matlab.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_dataexport_api_Matfile.__name__ = "Matfile"
+scout_dataexport_api_Matfile.__qualname__ = "Matfile"
+scout_dataexport_api_Matfile.__module__ = "nominal_api.scout_dataexport_api"
 
 
 class scout_dataexport_api_MergeTimestampStrategy(ConjureUnionType):
@@ -95165,69 +95156,6 @@ class timeseries_seriescache_SeriesCacheService(Service):
     """The Series Cache service manages internal chunks of data cached by Nominal's backend.
     """
 
-    def batch_get_cached_series(self, auth_header: str, request: "timeseries_seriescache_api_GetCachedSeriesRequest") -> "timeseries_seriescache_api_CachedSeriesResponse":
-        """Fetches information about logical series that are cached in the Nominal time series database.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/timeseries/series-cache/v1/logical-series/get-cached-series'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), timeseries_seriescache_api_CachedSeriesResponse, self._return_none_for_unknown_union_types)
-
-    def create_cached_series(self, auth_header: str, request: "timeseries_seriescache_api_CreateCachedSeriesRequest") -> None:
-        """Records a logical series as cached in the Nominal time series database.
-        """
-        _conjure_encoder = ConjureEncoder()
-
-        _headers: Dict[str, Any] = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': auth_header,
-        }
-
-        _params: Dict[str, Any] = {
-        }
-
-        _path_params: Dict[str, str] = {
-        }
-
-        _json: Any = _conjure_encoder.default(request)
-
-        _path = '/timeseries/series-cache/v1/logical-series/create-cached-series'
-        _path = _path.format(**_path_params)
-
-        _response: Response = self._request(
-            'POST',
-            self._uri + _path,
-            params=_params,
-            headers=_headers,
-            json=_json)
-
-        return
-
     def get_chunks(self, auth_header: str, get_chunks_parameters: "timeseries_seriescache_api_GetChunksParameters", logical_series_rid: str) -> "timeseries_seriescache_api_GetChunksResponse":
         """Fetches "chunks" of series that are stored as Arrow files in S3.
 This endpoint is being deprecated for new series in favor of batchGetCachedSeries
@@ -95362,70 +95290,6 @@ timeseries_seriescache_SeriesCacheService.__qualname__ = "SeriesCacheService"
 timeseries_seriescache_SeriesCacheService.__module__ = "nominal_api.timeseries_seriescache"
 
 
-class timeseries_seriescache_api_CachedSeries(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'logical_series_rid': ConjureFieldDefinition('logicalSeriesRid', api_LogicalSeriesRid),
-            'start_timestamp': ConjureFieldDefinition('startTimestamp', api_Timestamp),
-            'end_timestamp': ConjureFieldDefinition('endTimestamp', api_Timestamp),
-            'series_data_type': ConjureFieldDefinition('seriesDataType', api_SeriesDataType)
-        }
-
-    __slots__: List[str] = ['_logical_series_rid', '_start_timestamp', '_end_timestamp', '_series_data_type']
-
-    def __init__(self, end_timestamp: "api_Timestamp", logical_series_rid: str, series_data_type: "api_SeriesDataType", start_timestamp: "api_Timestamp") -> None:
-        self._logical_series_rid = logical_series_rid
-        self._start_timestamp = start_timestamp
-        self._end_timestamp = end_timestamp
-        self._series_data_type = series_data_type
-
-    @builtins.property
-    def logical_series_rid(self) -> str:
-        return self._logical_series_rid
-
-    @builtins.property
-    def start_timestamp(self) -> "api_Timestamp":
-        return self._start_timestamp
-
-    @builtins.property
-    def end_timestamp(self) -> "api_Timestamp":
-        return self._end_timestamp
-
-    @builtins.property
-    def series_data_type(self) -> "api_SeriesDataType":
-        return self._series_data_type
-
-
-timeseries_seriescache_api_CachedSeries.__name__ = "CachedSeries"
-timeseries_seriescache_api_CachedSeries.__qualname__ = "CachedSeries"
-timeseries_seriescache_api_CachedSeries.__module__ = "nominal_api.timeseries_seriescache_api"
-
-
-class timeseries_seriescache_api_CachedSeriesResponse(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'cached_series': ConjureFieldDefinition('cachedSeries', List[timeseries_seriescache_api_CachedSeries])
-        }
-
-    __slots__: List[str] = ['_cached_series']
-
-    def __init__(self, cached_series: List["timeseries_seriescache_api_CachedSeries"]) -> None:
-        self._cached_series = cached_series
-
-    @builtins.property
-    def cached_series(self) -> List["timeseries_seriescache_api_CachedSeries"]:
-        return self._cached_series
-
-
-timeseries_seriescache_api_CachedSeriesResponse.__name__ = "CachedSeriesResponse"
-timeseries_seriescache_api_CachedSeriesResponse.__qualname__ = "CachedSeriesResponse"
-timeseries_seriescache_api_CachedSeriesResponse.__module__ = "nominal_api.timeseries_seriescache_api"
-
-
 class timeseries_seriescache_api_Chunk(ConjureBeanType):
 
     @builtins.classmethod
@@ -95515,29 +95379,6 @@ class timeseries_seriescache_api_ChunkType(ConjureEnumType):
 timeseries_seriescache_api_ChunkType.__name__ = "ChunkType"
 timeseries_seriescache_api_ChunkType.__qualname__ = "ChunkType"
 timeseries_seriescache_api_ChunkType.__module__ = "nominal_api.timeseries_seriescache_api"
-
-
-class timeseries_seriescache_api_CreateCachedSeriesRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'series_to_cache': ConjureFieldDefinition('seriesToCache', List[timeseries_seriescache_api_CachedSeries])
-        }
-
-    __slots__: List[str] = ['_series_to_cache']
-
-    def __init__(self, series_to_cache: List["timeseries_seriescache_api_CachedSeries"]) -> None:
-        self._series_to_cache = series_to_cache
-
-    @builtins.property
-    def series_to_cache(self) -> List["timeseries_seriescache_api_CachedSeries"]:
-        return self._series_to_cache
-
-
-timeseries_seriescache_api_CreateCachedSeriesRequest.__name__ = "CreateCachedSeriesRequest"
-timeseries_seriescache_api_CreateCachedSeriesRequest.__qualname__ = "CreateCachedSeriesRequest"
-timeseries_seriescache_api_CreateCachedSeriesRequest.__module__ = "nominal_api.timeseries_seriescache_api"
 
 
 class timeseries_seriescache_api_CreateChunk(ConjureBeanType):
@@ -95703,29 +95544,6 @@ class timeseries_seriescache_api_DeleteChunksResponse(ConjureBeanType):
 timeseries_seriescache_api_DeleteChunksResponse.__name__ = "DeleteChunksResponse"
 timeseries_seriescache_api_DeleteChunksResponse.__qualname__ = "DeleteChunksResponse"
 timeseries_seriescache_api_DeleteChunksResponse.__module__ = "nominal_api.timeseries_seriescache_api"
-
-
-class timeseries_seriescache_api_GetCachedSeriesRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'logical_series_rids': ConjureFieldDefinition('logicalSeriesRids', List[api_LogicalSeriesRid])
-        }
-
-    __slots__: List[str] = ['_logical_series_rids']
-
-    def __init__(self, logical_series_rids: List[str]) -> None:
-        self._logical_series_rids = logical_series_rids
-
-    @builtins.property
-    def logical_series_rids(self) -> List[str]:
-        return self._logical_series_rids
-
-
-timeseries_seriescache_api_GetCachedSeriesRequest.__name__ = "GetCachedSeriesRequest"
-timeseries_seriescache_api_GetCachedSeriesRequest.__qualname__ = "GetCachedSeriesRequest"
-timeseries_seriescache_api_GetCachedSeriesRequest.__module__ = "nominal_api.timeseries_seriescache_api"
 
 
 class timeseries_seriescache_api_GetChunksParameters(ConjureBeanType):

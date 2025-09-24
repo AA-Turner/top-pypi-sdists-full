@@ -4,10 +4,10 @@ import inspect
 import os
 from datetime import datetime
 
+from chalk.ml.model_version import ModelVersion
+from chalk.ml.utils import REGISTRY_METADATA_FILE, get_model_spec, model_encoding_from_proto, model_type_from_proto
 from chalk.utils.object_inspect import get_source_object_starting
 from chalk.utils.source_parsing import should_skip_source_code_parsing
-
-DEFAULT_MODEL_PATH = os.getenv("CHALK_MODEL_REGISTRY_ROOT", "/models")
 
 
 class ModelReference:
@@ -18,6 +18,7 @@ class ModelReference:
         version: int | None = None,
         alias: str | None = None,
         as_of_date: datetime | None = None,
+        load_model: bool = False,
     ):
         """Specifies the model version that should be loaded into the deployment.
 
@@ -57,11 +58,11 @@ class ModelReference:
 
         identifier = ""
         if version is not None:
-            identifier = f"version/{version}"
+            identifier = f"version_{version}"
         elif alias is not None:
-            identifier = f"alias/{alias}"
+            identifier = f"alias_{alias}"
         elif as_of_date is not None:
-            identifier = f"asof/{as_of_date.strftime('%Y-%m-%dT%H-%M-%S')}"
+            identifier = f"asof_{int(as_of_date.timestamp())}"
 
         self.name = name
         self.version = version
@@ -85,8 +86,33 @@ class ModelReference:
 
         MODEL_REFERENCE_REGISTRY[(name, identifier)] = self
 
+        # Only load model if the metadata file exists, which only happens in deployed environments
+        if REGISTRY_METADATA_FILE is not None and os.path.exists(REGISTRY_METADATA_FILE):
+            model_artifact_metadata = get_model_spec(model_name=name, identifier=identifier)
+
+            mv = ModelVersion(
+                filename=model_artifact_metadata.model_path,
+                name=name,
+                version=version,
+                as_of_date=as_of_date,
+                model_type=model_type_from_proto(model_artifact_metadata.spec.model_type),
+                model_encoding=model_encoding_from_proto(model_artifact_metadata.spec.model_encoding),
+            )
+
+            if load_model:
+                from chalk.features.hooks import before_all
+
+                def hook():
+                    mv.load_model()
+
+                before_all(hook)
+
+            self.model_version = mv
+        else:
+            self.model_version = ModelVersion(name=name)
+
     @classmethod
-    def as_of(cls, name: str, when: datetime):
+    def as_of(cls, name: str, when: datetime, load_model: bool = False) -> ModelVersion:
         """Creates a ModelReference for a specific point in time.
 
         Parameters
@@ -107,10 +133,12 @@ class ModelReference:
         >>> timestamp = datetime.datetime(2023, 10, 15, 14, 30, 0)
         >>> model = ModelReference.as_of("fraud_model", timestamp)
         """
-        return ModelReference(name=name, as_of_date=when)
+
+        mr = ModelReference(name=name, as_of_date=when, load_model=load_model)
+        return mr.model_version
 
     @classmethod
-    def from_version(cls, name: str, version: int):
+    def from_version(cls, name: str, version: int, load_model: bool = False) -> ModelVersion:
         """Creates a ModelReference using a numeric version identifier.
 
         Parameters
@@ -137,10 +165,11 @@ class ModelReference:
         if version < 0:
             raise ValueError("Version number must be a non-negative integer.")
 
-        return ModelReference(name=name, version=version)
+        mr = ModelReference(name=name, version=version, load_model=load_model)
+        return mr.model_version
 
     @classmethod
-    def from_alias(cls, name: str, alias: str):
+    def from_alias(cls, name: str, alias: str, load_model: bool = False) -> ModelVersion:
         """Creates a ModelReference using an alias identifier.
 
         Parameters
@@ -167,26 +196,8 @@ class ModelReference:
         if not alias:
             raise ValueError("Alias must be a non-empty string.")
 
-        return ModelReference(name=name, alias=alias)
-
-    def get_file(self, file_name: str) -> str:
-        """Returns the file path of the model version.
-
-        Parameters
-        ----------
-        file_name (str):
-            The name of the file to retrieve.
-
-        Returns
-        -------
-        file_path: The file path of the specified file in the model version.
-
-        Examples
-        --------
-        >>> model_version = ModelReference.from_version(name="fraud_model", version=1)
-        >>> file_path = model_version.get_file("model.pkl")
-        """
-        return os.path.join(DEFAULT_MODEL_PATH, self.name, self.identifier, file_name)
+        mr = ModelReference(name=name, alias=alias, load_model=load_model)
+        return mr.model_version
 
 
 MODEL_REFERENCE_REGISTRY: dict[tuple[str, str], ModelReference] = {}

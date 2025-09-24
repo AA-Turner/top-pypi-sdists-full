@@ -1,4 +1,5 @@
 import collections
+import enum
 import gc
 import inspect
 import logging
@@ -41,9 +42,9 @@ _TYPE_GLOBAL = "global"
 _TYPE_OBJECT = "object"
 _TYPE_MODULE_VARIABLE = "module variable"
 
-logging.basicConfig(
-    format="[%(levelname)s] %(asctime)s %(message)s", level=logging.INFO
-)
+_MAX_MAPPING_KEY_LENGTH = 50
+
+logging.basicConfig(format="[%(levelname)s] %(asctime)s %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -71,29 +72,22 @@ class ReferrerGraphNode:
     variable, this would be "local".
     """
 
-    is_cycle: bool = False
+    is_target: bool = False
     """
-    Whether the referrer is part of a cycle in the graph. If this is `True`, the referrer
-    will be the last node in a branch of the graph.
+    Whether this node is a target (the object for which we are trying to find referrers).
+    This attribute is not include in equality comparisons and the hash.
     """
 
     def __str__(self):
-        return f"{self.name} (id={self.id})" + (
-            " (circular ref)" if self.is_cycle else ""
-        )
+        return f"{self.name} (id={self.id})" + (" (target)" if self.is_target else "")
 
-    def __eq__(self, other):
-        return (
-            isinstance(other, ReferrerGraphNode)
-            and self.name == other
-            and self.id == other.id
-        )
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, ReferrerGraphNode):
+            return False
+        return self.name == other.name and self.id == other.id and self.type == other.type
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash((self.name, self.id))
+    def __hash__(self) -> int:
+        return hash((self.name, self.id, self.type))
 
 
 class ReferrerGraph(ABC):
@@ -292,7 +286,7 @@ class _InternalReferrer(ABC):
         raise NotImplementedError("This method should be implemented by subclasses.")
 
 
-@dataclass
+@dataclass(frozen=True)
 class _ClosureDetails(_InternalReferrer):
     function: Any
     variable_name: str
@@ -304,7 +298,7 @@ class _ClosureDetails(_InternalReferrer):
         return f"{self.function.__qualname__}.{self.variable_name} ({_TYPE_CLOSURE})"
 
 
-@dataclass
+@dataclass(frozen=True)
 class _ReferrerLimitReached(_InternalReferrer):
     num: int
     limit: Optional[int]
@@ -316,7 +310,7 @@ class _ReferrerLimitReached(_InternalReferrer):
         return f"Referrer limit of {self.limit} exceeded with {self.num} referrers."
 
 
-@dataclass
+@dataclass(frozen=True)
 class _DepthLimitReached(_InternalReferrer):
     limit: Optional[int]
 
@@ -327,7 +321,7 @@ class _DepthLimitReached(_InternalReferrer):
         return f"Maximum depth of {self.limit} exceeded"
 
 
-@dataclass
+@dataclass(frozen=True)
 class _Timeout(_InternalReferrer):
     time_taken: float
     timeout: Optional[float]
@@ -451,6 +445,78 @@ class GlobalVariableNameFinder(NameFinder):
         return _TYPE_GLOBAL
 
 
+class ReferrerNameType(enum.Enum):
+    """
+    The type of a referrer name.
+    """
+
+    INTERNAL = "INTERNAL"
+    """
+    An internal referrer name (not a real one from the object graph).
+    """
+
+    OBJECT = "OBJECT"
+    """
+    An object. This generally means that we couldn't find a more specific container and so
+    we couldn't determine a more specific referrer name.
+    """
+
+    COLLECTION_MEMBER = "COLLECTION"
+    """
+    A member of a collection (dict, list etc).
+    """
+
+    INSTANCE_ATTRIBUTE_IN_OBJECT = "INSTANCE_ATTRIBUTE_IN_OBJECT"
+    """
+    An instance attribute within an object. This is the way that Python >= 3.11 sometimes
+    presents instance attributes.  
+    """
+
+    INSTANCE_ATTRIBUTE_IN_DICT = "INSTANCE_ATTRIBUTE_IN_DICT"
+    """
+    An instance attribute within a dict that is referred to by an object. This is the way that 
+    Python < 3.11 always presents instance attributes.
+    """
+
+    UNKNOWN = "UNKNOWN"
+    """
+    An unknown type.
+    """
+
+
+@dataclass
+class ReferrerName:
+    """
+    Represents a referrer name, along with some additional information.
+
+    Note: this class is deliberately not frozen (and therefore not hashable) because
+    it contains a reference to the referrer object which we don't want to try and
+    hash.
+    """
+
+    name: str
+    """
+    A friendly name for the referrer.
+    """
+
+    is_container: bool
+    """
+    Whether the referrer is a container. Containers include (some) Python collections
+    like lists and dicts, and objects.
+    
+    Containers can be treated specially because there are potentially multiple interesting
+    things about a collection: the collection itself, and an object's membership of the
+    collection.
+    """
+
+    referrer: Any
+    """
+    The referrer object. This isn't necessarily the parent of the target object, since
+    in some cases targets are referenced indirectly by their grandparents for example.
+    This is the case for some instance attributes, which are referenced indirectly via dicts.
+    """
+
+
 class ReferrerNameFinder(ABC):
     """
     Gets names for an object's referrer.
@@ -460,7 +526,7 @@ class ReferrerNameFinder(ABC):
     """
 
     @abstractmethod
-    def get_names(self, target_object: Any, referrer_object: Any) -> Set[str]:
+    def get_names(self, target_object: Any, referrer_object: Any) -> List[ReferrerName]:
         """
         Returns names for `referrer_object`, where this references `target_object`.
 
@@ -493,14 +559,20 @@ class ObjectNameFinder(ReferrerNameFinder):
         self._single_object_referrer_limit = single_object_referrer_limit
         self._excluded_id_set = excluded_id_set or set()
 
-    def get_names(self, target_object: Any, parent_object: Any) -> Set[str]:
+    def get_names(self, target_object: Any, parent_object: Any) -> List[ReferrerName]:
         if id(parent_object) in self._excluded_id_set:
-            return set()
+            return []
         else:
             # Deal with internal objects as a special case. These generally have a nice
             # string representation that we can use.
             if isinstance(parent_object, _InternalReferrer):
-                return {str(parent_object)}
+                return [
+                    ReferrerName(
+                        name=str(parent_object),
+                        is_container=False,
+                        referrer=parent_object,
+                    )
+                ]
             else:
                 instance_attribute_names = self._get_instance_attribute_names(
                     target_object, parent_object
@@ -512,35 +584,47 @@ class ObjectNameFinder(ReferrerNameFinder):
                 else:
                     return self._get_container_names(target_object, parent_object)
 
-    def _get_instance_attribute_names(self, target_object: Any, parent_object: Any):
-        names = set()
-        # The behaviour here is different between Python versions <=3.10, and > 3.10.
-        # In versions <= 3.10, the parent of an object is a dict, which matches the
+    def _get_instance_attribute_names(
+        self, target_object: Any, parent_object: Any
+    ) -> List[ReferrerName]:
+        names: List[ReferrerName] = []
+        # The behaviour here is different between Python versions <=3.10, and > 3.10,
+        # and also between multiple calls to the referrers of an object's instance
+        # attributes within a single Python version.
+        # Sometimes the parent of an object is a dict, which matches the
         # __dict__ attribute of the grandparent object (which is the actual referring object).
-        # In versions > 3.10, the parent of an object is the referring object itself.
-        if hasattr(parent_object, "__dict__"):
-            # This is the logic for Python > 3.10
+        # Sometimes the parent of an object is the referring object itself.
+        if _safe_hasattr(parent_object, "__dict__"):
+            # This is the logic there the parent of an object is the referring object itself
             matching_keys = {
-                key
-                for key, value in parent_object.__dict__.items()
-                if value is target_object
+                key for key, value in parent_object.__dict__.items() if value is target_object
             }
             for key in matching_keys:
-                names.add(f"{type(parent_object).__name__}.{key} (instance attribute)")
+                names.append(
+                    ReferrerName(
+                        name=f"{type(parent_object).__name__}.{key} (instance attribute)",
+                        is_container=True,
+                        referrer=parent_object,
+                    )
+                )
         else:
             num_referrers = sys.getrefcount(target_object) - 1
-            if _reached_referrer_limit(
-                num_referrers, self._single_object_referrer_limit
-            ):
-                names.add(
-                    str(
-                        _ReferrerLimitReached(
-                            num_referrers, self._single_object_referrer_limit
-                        )
+            if _reached_referrer_limit(num_referrers, self._single_object_referrer_limit):
+                names.append(
+                    ReferrerName(
+                        name=str(
+                            _ReferrerLimitReached(
+                                num_referrers, self._single_object_referrer_limit
+                            )
+                        ),
+                        is_container=False,
+                        referrer=parent_object,
                     )
                 )
             else:
-                # This is the logic for Python <= 3.10
+                # This is the logic where the parent of an object is a dict, which matches the
+                # __dict__ attribute of the grandparent object (which is the actual referring
+                # object)
                 grandparents = gc.get_referrers(parent_object)
                 # If the parent has referrers, we need to check if any of them are classes with
                 # instance attributes that refer to the target object (via their __dict__).
@@ -550,7 +634,7 @@ class ObjectNameFinder(ReferrerNameFinder):
                         # If so the grandparent is referring to the target object via an instance
                         # attribute. This affects the name that we give the target.
                         if (
-                            hasattr(grandparent, "__dict__")
+                            _safe_hasattr(grandparent, "__dict__")
                             and grandparent.__dict__ is parent_object
                         ):
                             matching_keys = {
@@ -559,35 +643,51 @@ class ObjectNameFinder(ReferrerNameFinder):
                                 if value is target_object
                             }
                             for key in matching_keys:
-                                names.add(
-                                    f"{type(grandparent).__name__}.{key} (instance attribute)"
+                                names.append(
+                                    ReferrerName(
+                                        name=f"{type(grandparent).__name__}.{key} (instance "
+                                        "attribute)",
+                                        is_container=True,
+                                        referrer=grandparent,
+                                    )
                                 )
         return names
 
-    def _get_container_names(self, target_object: Any, parent_object: Any) -> Set[str]:
-        names = set()
+    def _get_container_names(
+        self, target_object: Any, parent_object: Any
+    ) -> Set[ReferrerName]:
+        names: List[ReferrerName] = []
         try:
             if isinstance(
                 parent_object, (collections.abc.Mapping, collections.abc.MutableMapping)
             ):
-                names.update(
+                names.extend(
                     _filter_container(
                         parent_object,
                         extractor_func=lambda x: x.items(),
                         filter_func=lambda x: x[1] is target_object,
-                        selector_func=lambda x: f"{type(parent_object).__name__}[{x[0]}]",
+                        selector_func=lambda x: ReferrerName(
+                            name=f"{type(parent_object).__name__}[key="
+                            f"{_safe_str(x[0], truncate_at=_MAX_MAPPING_KEY_LENGTH)}]",
+                            is_container=True,
+                            referrer=parent_object,
+                        ),
                     )
                 )
             elif isinstance(
                 parent_object,
                 (collections.abc.Sequence, collections.abc.MutableSequence),
             ):
-                names.update(
+                names.extend(
                     _filter_container(
                         parent_object,
                         extractor_func=lambda x: enumerate(x),
                         filter_func=lambda x: x[1] is target_object,
-                        selector_func=lambda x: f"{type(parent_object).__name__}[{x[0]}]",
+                        selector_func=lambda x: ReferrerName(
+                            name=f"{type(parent_object).__name__}[index={x[0]}]",
+                            is_container=True,
+                            referrer=parent_object,
+                        ),
                     )
                 )
         except Exception as e:
@@ -602,7 +702,13 @@ class ObjectNameFinder(ReferrerNameFinder):
             pass
         # If we couldn't find any more specific names, fall back to the parent's type name.
         if not names:
-            names.add(f"{type(parent_object).__name__} (object)")
+            names.append(
+                ReferrerName(
+                    name=f"{type(parent_object).__name__} (object)",
+                    is_container=False,
+                    referrer=parent_object,
+                )
+            )
         return names
 
     def get_type(self) -> str:
@@ -630,29 +736,34 @@ class ModuleLevelNameFinder(NameFinder):
             that is not part of the `referrers` package.
         """
         self._modules = [
-            module
-            for name, module in sys.modules.items()
-            if name.startswith(module_prefix)
+            module for name, module in sys.modules.items() if name.startswith(module_prefix)
         ]
         self._global_vars = _get_global_vars()
 
     def get_names(self, target_object: Any) -> Set[str]:
         names = set()
         for module in self._modules:
-            if hasattr(module, "__dict__"):
+            if _safe_hasattr(module, "__dict__"):
                 for var_name, var_value in module.__dict__.items():
                     if (
                         var_value is target_object
                         and _GlobalVariable(var_name, id(var_value), id(module))
                         not in self._global_vars
                     ):
-                        names.add(
-                            f"{module.__name__}.{var_name} ({_TYPE_MODULE_VARIABLE})"
-                        )
+                        names.add(f"{module.__name__}.{var_name} ({_TYPE_MODULE_VARIABLE})")
         return names
 
     def get_type(self) -> str:
         return _TYPE_MODULE_VARIABLE
+
+
+@dataclass(frozen=True)
+class _PrintableGraphNode:
+    unique_id: int
+    display_name: str
+
+    def __str__(self) -> str:
+        return self.display_name
 
 
 class _ReferrerGraph(ReferrerGraph):
@@ -662,12 +773,51 @@ class _ReferrerGraph(ReferrerGraph):
     def __str__(self):
         # Use a copy of the networkx generate_network_text function to avoid depending on
         # a narrow range of networkx versions.
+        printable_graph = self._to_printable_graph()
+        # Use UtfUndirectedGlyphs here. Although the graph is directed, it's a bit confusing
+        # to use the directed glyphs here as the direction is from referents to referrers,
+        # which might be confusing.
         return "\n" + "\n".join(
-            line for line in networkx_copy.generate_network_text(self._graph)
+            line
+            for line in networkx_copy.generate_network_text(
+                printable_graph, override_glyphs=networkx_copy.UtfUndirectedGlyphs
+            )
         )
 
     def to_networkx(self) -> nx.DiGraph:
-        return self._graph
+        # Reverse the graph so that the direction of edges is from referrer to referent.
+        # This is probably what most people would expect.
+        return self._graph.reverse(copy=True)
+
+    def _to_printable_graph(self) -> nx.DiGraph:
+        new_graph = nx.DiGraph()
+        seen: Set[ReferrerGraphNode] = set()
+        unique_id = 0
+        # Make a string representation of the graph, breaking any cycles.
+        for u, v in self._graph.edges():
+            if isinstance(u, ReferrerGraphNode) and isinstance(v, ReferrerGraphNode):
+                u_str = str(u)
+                v_str = str(v)
+                # We deal with cycles and root nodes specially. In particular, we
+                # suffix them with some special text, and we ensure that they are unique
+                # within the graph to break any cycles.
+                if v in seen:
+                    v_str = f"{v_str} (cycle member)"
+                    printable_v = _PrintableGraphNode(unique_id=unique_id, display_name=v_str)
+                    unique_id += 1
+                elif self._graph.out_degree(v) == 0:
+                    v_str = v_str + " (root)"
+                    printable_v = _PrintableGraphNode(unique_id=unique_id, display_name=v_str)
+                    unique_id += 1
+                else:
+                    printable_v = _PrintableGraphNode(unique_id=0, display_name=v_str)
+                printable_u = _PrintableGraphNode(unique_id=0, display_name=u_str)
+                new_graph.add_edge(printable_u, printable_v)
+                seen.add(u)
+                seen.add(v)
+            else:
+                raise ValueError(f"Unexpected type: {type(u)} or {type(v)}")
+        return new_graph
 
 
 class _ReferrerGraphBuilder:
@@ -687,9 +837,7 @@ class _ReferrerGraphBuilder:
             stack_frames = inspect.stack()
             for frame_info in stack_frames:
                 frame_module = inspect.getmodule(frame_info.frame)
-                if frame_module and not frame_module.__name__.startswith(
-                    _PACKAGE_PREFIX
-                ):
+                if frame_module and not frame_module.__name__.startswith(_PACKAGE_PREFIX):
                     # Use the top-level package of the calling code as the module prefix
                     # (with a trailing dot). For example, if the calling code is in a module
                     # called my_module.do_thing, the module prefix would be "my_module.".
@@ -767,9 +915,8 @@ class _ReferrerGraphBuilder:
                 referrer_nodes = self._get_referrer_nodes(
                     target_object=target_object,
                     referrer=timeout_object,
-                    seen=False,
                 )
-                for referrer_graph_node in referrer_nodes:
+                for referrer_graph_node, _ in referrer_nodes:
                     graph.add_edge(target_graph_node, referrer_graph_node)
             elif max_depth is None or depth < max_depth:
 
@@ -786,34 +933,81 @@ class _ReferrerGraphBuilder:
                     single_object_referrer_limit=self._single_object_referrer_limit,
                 ):
                     if not self._is_excluded(referrer_object):
-                        referrer_id = id(referrer_object)
-                        seen = referrer_id in seen_ids
-                        referrer_nodes = self._get_referrer_nodes(
+                        self._process_referrer_object(
+                            referrer_object=referrer_object,
                             target_object=target_object,
-                            referrer=referrer_object,
-                            seen=seen,
+                            target_graph_node=target_graph_node,
+                            graph=graph,
+                            stack=stack,
+                            seen_ids=seen_ids,
+                            current_depth=depth,
                         )
-                        for referrer_graph_node in referrer_nodes:
-                            graph.add_edge(target_graph_node, referrer_graph_node)
-                            # Avoid an infinite loop by only adding referrers that we haven't seen
-                            # before. We still add the relevant edge to the graph so we can see the
-                            # relationship though.
-                            if not seen:
-                                seen_ids.add(referrer_id)
-                                stack.append(
-                                    (referrer_graph_node, referrer_object, depth + 1)
-                                )
             else:
                 limit_exceeded_object = _DepthLimitReached(limit=max_depth)
                 referrer_nodes = self._get_referrer_nodes(
                     target_object=target_object,
                     referrer=limit_exceeded_object,
-                    seen=False,
                 )
-                for referrer_graph_node in referrer_nodes:
+                for referrer_graph_node, _ in referrer_nodes:
                     graph.add_edge(target_graph_node, referrer_graph_node)
 
         return _ReferrerGraph(graph)
+
+    def _process_referrer_object(
+        self,
+        referrer_object: Any,
+        target_object: Any,
+        target_graph_node: ReferrerGraphNode,
+        graph: nx.DiGraph,
+        stack: Deque[Tuple[ReferrerGraphNode, Any, int]],
+        seen_ids: Set[int],
+        current_depth: int,
+    ):
+        """
+        Processes a referrer object. This involves finding the names of the referrer object
+        (in relation to the target object) and adding the appropriate edges to the graph based
+        on the names found.
+
+        The stack is also updated to include the next referrer(s) to process, if they haven't
+        been seen before (based on their presence in `seen_ids`).
+        """
+        referrer_nodes = self._get_referrer_nodes(
+            target_object=target_object,
+            referrer=referrer_object,
+        )
+        for (
+            referrer_graph_node,
+            name_obj,
+        ) in referrer_nodes:
+            actual_referrer = name_obj.referrer
+            is_container = name_obj.is_container
+            graph.add_edge(target_graph_node, referrer_graph_node)
+            # If the referrer is a container, we also add the container itself to
+            # the graph. This makes the graph more readable when, for example,
+            # instance attributes refer to objects that are referenced in other
+            # instance attributes.
+            if is_container:
+                next_node = self._get_object_node(
+                    actual_referrer,
+                    object_id=id(actual_referrer),
+                    is_target=False,
+                )
+                graph.add_edge(referrer_graph_node, next_node)
+                next_depth = current_depth + 2
+            else:
+                next_node = referrer_graph_node
+                next_depth = current_depth + 1
+            actual_referrer_id = id(actual_referrer)
+            # Avoid an infinite loop by only adding referrers that we haven't seen
+            # before. We still add the relevant edge to the graph so we can see the
+            # relationship though.
+            if actual_referrer_id not in seen_ids:
+                seen_ids.add(actual_referrer_id)
+                # Exclude the actual referrer. The original referrer object would have
+                # already been excluded if necessary, but the actual referrer
+                # may be different.
+                if not self._is_excluded(actual_referrer):
+                    stack.append((next_node, actual_referrer, next_depth))
 
     def _reached_timeout(self, start_time: float, timeout: Optional[float]) -> bool:
         if timeout is None:
@@ -826,7 +1020,14 @@ class _ReferrerGraphBuilder:
         # elsewhere (locals global etc), and excluding them speeds things up a lot.
         # We don't want to exclude closures, but they are wrapped in a _ClosureDetails object
         # so they won't be excluded.
-        return inspect.isframe(obj) or inspect.isroutine(obj) or inspect.ismodule(obj)
+        # We also exclude certain internal objects that aren't real referrers even though they
+        # (temporarily) hold a reference to objects.
+        return (
+            inspect.isframe(obj)
+            or inspect.isroutine(obj)
+            or inspect.ismodule(obj)
+            or isinstance(obj, ReferrerName)
+        )
 
     def _get_referrers(
         self, target_object: Any, single_object_referrer_limit: Optional[int]
@@ -842,9 +1043,7 @@ class _ReferrerGraphBuilder:
             # objects have referrers, so we need to eliminate duplicates.
             refs = gc.get_referrers(target_object)
         ref_ids = {id(ref) for ref in refs}
-        for untracked_referrer in self._untracked_objects_referrers.get(
-            id(target_object), []
-        ):
+        for untracked_referrer in self._untracked_objects_referrers.get(id(target_object), []):
             if id(untracked_referrer) not in ref_ids:
                 refs.append(untracked_referrer)
         closures = self._id_to_enclosing_closure.get(id(target_object), [])
@@ -856,27 +1055,36 @@ class _ReferrerGraphBuilder:
     def _get_initial_target_node(
         self, target_object: Any
     ) -> Tuple[ReferrerGraphNode, Any, int]:
-        name = f"{type(target_object).__name__} instance"
         return (
-            ReferrerGraphNode(name=name, id=id(target_object), type="object"),
+            self._get_object_node(target_object, object_id=id(target_object), is_target=True),
             target_object,
             0,
         )
 
+    def _get_object_node(self, target_object: Any, object_id: int, is_target: bool):
+        name = f"{type(target_object).__name__} (object)"
+        return ReferrerGraphNode(name=name, id=object_id, type="object", is_target=is_target)
+
     def _get_referrer_nodes(
-        self, target_object: Any, referrer: Any, seen: bool
-    ) -> Set[ReferrerGraphNode]:
-        nodes = set()
+        self, target_object: Any, referrer: Any
+    ) -> Set[Tuple[ReferrerGraphNode, ReferrerName]]:
+        nodes = list()
+        seen_names: Set[str] = set()
         for finder in self._referrer_name_finders:
-            for name in finder.get_names(target_object, referrer):
-                nodes.add(
-                    ReferrerGraphNode(
-                        name=name,
-                        id=id(referrer),
-                        type=finder.get_type(),
-                        is_cycle=seen,
+            for name_obj in finder.get_names(target_object, referrer):
+                # Filter out duplicate names.
+                if name_obj.name not in seen_names:
+                    nodes.append(
+                        (
+                            ReferrerGraphNode(
+                                name=name_obj.name,
+                                id=id(name_obj.referrer),
+                                type=finder.get_type(),
+                            ),
+                            name_obj,
+                        )
                     )
-                )
+                    seen_names.add(name_obj.name)
         return nodes
 
     def _get_non_referrer_nodes(self, target_object: Any) -> Set[ReferrerGraphNode]:
@@ -887,9 +1095,7 @@ class _ReferrerGraphBuilder:
             # (this is maybe a bit weird?).
             for name in names:
                 nodes.add(
-                    ReferrerGraphNode(
-                        name=name, id=id(target_object), type=finder.get_type()
-                    )
+                    ReferrerGraphNode(name=name, id=id(target_object), type=finder.get_type())
                 )
         return nodes
 
@@ -899,7 +1105,7 @@ class _ReferrerGraphBuilder:
         excluded_id_set: Set[int],
         max_depth: int,
         module_prefixes: Collection[str],
-    ) -> Tuple[Mapping[id, List[Any]], Set[int]]:
+    ) -> Tuple[Mapping[int, List[Any]], Set[int]]:
         """
         Builds a mapping of object IDs to referrers for objects that are not tracked by the
         garbage collector, and returns this along with extra IDs to exclude.
@@ -1050,7 +1256,7 @@ class _ReferrerGraphBuilder:
             if self._matches_prefixes(name, module_prefixes)
         ]
         for module in self._modules:
-            if hasattr(module, "__dict__"):
+            if _safe_hasattr(module, "__dict__"):
                 for var_name, var_value in module.__dict__.items():
                     if (
                         self._contains_untracked_objects(var_value)
@@ -1066,9 +1272,9 @@ class _ReferrerGraphBuilder:
     def _get_closure_functions(
         self,
     ) -> Dict[int, List[_ClosureDetails]]:
-        id_to_enclosing_closure: Dict[
-            int, List[_ClosureDetails]
-        ] = collections.defaultdict(list)
+        id_to_enclosing_closure: Dict[int, List[_ClosureDetails]] = collections.defaultdict(
+            list
+        )
         all_closure_ids = set()
         for possible_function in gc.get_objects():
             try:
@@ -1152,9 +1358,7 @@ def _get_global_vars() -> Set[_GlobalVariable]:
             for var_name, var_value in global_tuples:
                 module = inspect.getmodule(var_value)
                 if module:
-                    global_vars.add(
-                        _GlobalVariable(var_name, id(var_value), id(module))
-                    )
+                    global_vars.add(_GlobalVariable(var_name, id(var_value), id(module)))
                 else:
                     global_vars.add(_GlobalVariable(var_name, id(var_value), None))
     return global_vars
@@ -1198,11 +1402,7 @@ def _filter_container(
     :return: The selected items.
     """
     try:
-        return [
-            selector_func(item)
-            for item in extractor_func(container)
-            if filter_func(item)
-        ]
+        return [selector_func(item) for item in extractor_func(container) if filter_func(item)]
     except RuntimeError as e:
         # If we get a RuntimeError, it's likely that the iterable is being modified while
         # we're iterating over it. In this case we make a copy of the container and try again.
@@ -1239,3 +1439,24 @@ def _is_probably_immortal(referrer_count: int):
     There does not seem to be any better way to determine if an object is immortal at the moment.
     """
     return referrer_count > IMMORTAL_OBJECT_REFCOUNT
+
+
+def _safe_str(obj: Any, truncate_at: int) -> str:
+    try:
+        str_repr = str(obj)
+        if len(str_repr) > truncate_at:  # pragma: no cover
+            str_repr = (
+                str_repr[:truncate_at] + f" … ({len(str_repr) - truncate_at} more chars)"
+            )
+        return str_repr
+    except Exception as e:
+        # Some things don't like their string representation being obtained.
+        return f"<Error when getting string representation: {str(e)}>"
+
+
+def _safe_hasattr(obj: Any, attr_name: str) -> bool:
+    try:
+        return hasattr(obj, attr_name)
+    except Exception:
+        # Some things don't like hasattr being called on them.
+        return False

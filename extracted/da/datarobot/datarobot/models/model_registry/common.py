@@ -9,9 +9,11 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from typing import Optional
 
-from mypy_extensions import TypedDict
+from datarobot._compat import TypedDict
 
 
 class UserMetadata(TypedDict):

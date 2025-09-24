@@ -92,65 +92,46 @@ class FileUploadManager(object):
             file_size=options.estimated_size,
         )
 
-    def upload_file_thread(
-        self, options: FileUploadOptions, critical: bool = False
-    ) -> None:
+    def upload_file_thread(self, options: FileUploadOptions) -> None:
 
         if self._use_s3_direct_upload(options):
             self._initiate_upload(
                 options=options,
-                critical=critical,
                 uploader=upload_s3_multipart_file,
                 s3_multipart=True,
                 use_limits_guard=False,
             )
         else:
-            self._initiate_upload(
-                options=options, critical=critical, uploader=upload_file
-            )
+            self._initiate_upload(options=options, uploader=upload_file)
 
-    def upload_file_like_thread(
-        self, options: FileLikeUploadOptions, critical: bool = False
-    ) -> None:
+    def upload_file_like_thread(self, options: FileLikeUploadOptions) -> None:
         if self._use_s3_direct_upload(options):
             self._initiate_upload(
                 options=options,
-                critical=critical,
                 uploader=upload_s3_multipart_file_like,
                 s3_multipart=True,
                 use_limits_guard=False,
             )
         else:
-            self._initiate_upload(
-                options=options, critical=critical, uploader=upload_file_like
-            )
+            self._initiate_upload(options=options, uploader=upload_file_like)
 
-    def upload_asset_item_thread(
-        self, options: AssetItemUploadOptions, critical: bool = False
-    ) -> None:
+    def upload_asset_item_thread(self, options: AssetItemUploadOptions) -> None:
         self._initiate_upload(
             options=options,
-            critical=critical,
             uploader=upload_asset_item,
             use_limits_guard=False,
         )
 
-    def upload_thumbnail_thread(
-        self, options: ThumbnailUploadOptions, critical: bool = False
-    ) -> None:
+    def upload_thumbnail_thread(self, options: ThumbnailUploadOptions) -> None:
         self._initiate_upload(
             options=options,
-            critical=critical,
             uploader=upload_thumbnail,
             use_limits_guard=False,
         )
 
-    def upload_remote_asset_thread(
-        self, options: RemoteAssetsUploadOptions, critical: bool = False
-    ) -> None:
+    def upload_remote_asset_thread(self, options: RemoteAssetsUploadOptions) -> None:
         self._initiate_upload(
             options=options,
-            critical=critical,
             uploader=upload_remote_asset,
             use_limits_guard=False,
         )
@@ -158,7 +139,6 @@ class FileUploadManager(object):
     def _initiate_upload(
         self,
         options: UploadOptions,
-        critical: bool,
         uploader: Callable,
         s3_multipart: bool = False,
         use_limits_guard: bool = True,
@@ -179,7 +159,9 @@ class FileUploadManager(object):
             kwargs["upload_limits_guard"] = self.limits_guard
 
         future = self._executor.submit(uploader, **kwargs)
-        async_result = UploadResult(future=future, critical=critical, monitor=monitor)
+        async_result = UploadResult(
+            future=future, critical=options.critical, monitor=monitor
+        )
         self.upload_results.append(async_result)
 
     def all_done(self) -> bool:

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import abc
 from datetime import datetime
-from typing import Any, cast, Dict, List, NoReturn, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, NoReturn, Optional, cast
 
 import pandas as pd
 import trafaret as t
@@ -60,7 +60,7 @@ __all__ = (
 )
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class FeatureSettingsPayload(TypedDict, total=False):
         feature_name: str
@@ -102,7 +102,7 @@ def get_class(
         )
 
 
-class PartitioningMethod(object, metaclass=abc.ABCMeta):  # pylint: disable=missing-class-docstring
+class PartitioningMethod(metaclass=abc.ABCMeta):  # pylint: disable=missing-class-docstring
     @abc.abstractmethod
     def collect_payload(self) -> Dict[str, Any]:
         """Set up the dict that should be sent to the server when setting the target
@@ -114,14 +114,14 @@ class PartitioningMethod(object, metaclass=abc.ABCMeta):  # pylint: disable=miss
         return {}
 
     @abc.abstractmethod
-    def prep_payload(self, project_id: str, max_wait: int = DEFAULT_MAX_WAIT):
+    def prep_payload(self, project_id: str, max_wait: int = DEFAULT_MAX_WAIT) -> None:
         """Run any necessary validation and prep of the payload, including async operations
 
         Mainly used for the datetime partitioning spec but implemented in general for consistency
         """
 
     @abc.abstractmethod
-    def update(self, **kwargs):
+    def update(self, **kwargs: Any) -> None:
         """Update this instance, matching attributes to kwargs
 
         Mainly used for the datetime partitioning spec but implemented in general for consistency
@@ -189,7 +189,7 @@ class BasePartitioningMethod(PartitioningMethod):
         other_params = {key: value for key, value in data.items() if key not in cls._static_fields}
         return get_class(cv_method, validation_type)(**other_params)
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: Any) -> NoReturn:
         raise InvalidUsageError
 
 
@@ -1324,7 +1324,7 @@ class DatetimePartitioningSpecification(PartitioningMethod, UpdateAttributesMixi
                 )
                 raise InvalidUsageError(msg)
 
-    def update(self, **kwargs) -> None:
+    def update(self, **kwargs: Any) -> None:
         try:
             self._update_attributes(**kwargs)
         except UpdateAttributesError as err:
@@ -1747,7 +1747,13 @@ class DatetimePartitioning:
         will_remove_version="v3.3",
         message="Please use DatetimePartitioning.generate_optimized instead.",
     )
-    def generate(cls, project_id, spec, max_wait=DEFAULT_MAX_WAIT, target=None):
+    def generate(
+        cls,
+        project_id: str,
+        spec: DatetimePartitioningSpecification,
+        max_wait: int = DEFAULT_MAX_WAIT,
+        target: Optional[str] = None,
+    ) -> "DatetimePartitioning":
         """Preview the full partitioning determined by a DatetimePartitioningSpecification
 
         Based on the project dataset and the partitioning specification, inspect the full
@@ -1758,7 +1764,7 @@ class DatetimePartitioning:
         ----------
         project_id : str
             the id of the project
-        spec : DatetimePartitioningSpec
+        spec : DatetimePartitioningSpecification
             the desired partitioning
         max_wait : Optional[int]
             For some settings (e.g. generating a partitioning preview for a multiseries project for
@@ -1864,7 +1870,9 @@ class DatetimePartitioning:
         return response_with_partition_id
 
     @classmethod
-    def get_optimized(cls, project_id: str, datetime_partitioning_id) -> "DatetimePartitioning":
+    def get_optimized(
+        cls, project_id: str, datetime_partitioning_id: str
+    ) -> "DatetimePartitioning":
         """Retrieve an Optimized DatetimePartitioning from a project for the specified
         datetime_partitioning_id. A datetime_partitioning_id is created by using the
         :meth:`generate_optimized<datarobot.DatetimePartitioning.generate_optimized>` function.
@@ -1890,7 +1898,7 @@ class DatetimePartitioning:
     @classmethod
     def feature_log_list(
         cls, project_id: str, offset: Optional[int] = None, limit: Optional[int] = None
-    ):
+    ) -> Any:
         """Retrieve the feature derivation log content and log length for a time series project.
 
         The Time Series Feature Log provides details about the feature generation process for a
@@ -2163,10 +2171,7 @@ class DatetimePartitioning:
             project_id, datetime_partitioning_id
         )
         response = cls._client.get(url)
-        return DatetimePartitioningSpecification.from_server_data(
-            # type: ignore[no-untyped-call, no-any-return]
-            response.json()
-        )
+        return DatetimePartitioningSpecification.from_server_data(response.json())
 
 
 class DatetimePartitioningId(PartitioningMethod):

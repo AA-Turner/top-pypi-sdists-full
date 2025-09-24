@@ -28,7 +28,7 @@ class PulpExporter(BaseModel):
     """
     Serializer for pulp exporters.
     """ # noqa: E501
-    name: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Unique name of the file system exporter.")
+    name: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Unique name of the exporter.")
     path: Annotated[str, Field(min_length=1, strict=True)] = Field(description="File system directory to store exported tar.gzs.")
     repositories: List[StrictStr]
     last_export: Optional[StrictStr] = Field(default=None, description="Last attempted export for this PulpExporter")

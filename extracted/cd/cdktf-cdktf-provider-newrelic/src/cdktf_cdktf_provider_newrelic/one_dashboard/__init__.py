@@ -1,7 +1,7 @@
 r'''
 # `newrelic_one_dashboard`
 
-Refer to the Terraform Registry for docs: [`newrelic_one_dashboard`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard).
+Refer to the Terraform Registry for docs: [`newrelic_one_dashboard`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OneDashboard(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.oneDashboard.OneDashboard",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard newrelic_one_dashboard}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard newrelic_one_dashboard}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class OneDashboard(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard newrelic_one_dashboard} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard newrelic_one_dashboard} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#page OneDashboard#page}
-        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
-        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#description OneDashboard#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#id OneDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#permissions OneDashboard#permissions}
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#variable OneDashboard#variable}
+        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#page OneDashboard#page}
+        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#description OneDashboard#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#id OneDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#permissions OneDashboard#permissions}
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#variable OneDashboard#variable}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class OneDashboard(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OneDashboard to import.
-        :param import_from_id: The id of the existing OneDashboard that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OneDashboard that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OneDashboard to import is found.
         '''
         if __debug__:
@@ -358,13 +358,13 @@ class OneDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#page OneDashboard#page}
-        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
-        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#description OneDashboard#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#id OneDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#permissions OneDashboard#permissions}
-        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#variable OneDashboard#variable}
+        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#page OneDashboard#page}
+        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#description OneDashboard#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#id OneDashboard#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#permissions OneDashboard#permissions}
+        :param variable: variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#variable OneDashboard#variable}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -481,7 +481,7 @@ class OneDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The dashboard's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -493,7 +493,7 @@ class OneDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPage"]]:
         '''page block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#page OneDashboard#page}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#page OneDashboard#page}
         '''
         result = self._values.get("page")
         assert result is not None, "Required property 'page' is missing"
@@ -503,7 +503,7 @@ class OneDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The New Relic account ID where you want to create the dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -512,14 +512,14 @@ class OneDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The dashboard's description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#description OneDashboard#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#description OneDashboard#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#id OneDashboard#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#id OneDashboard#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -531,7 +531,7 @@ class OneDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def permissions(self) -> typing.Optional[builtins.str]:
         '''Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#permissions OneDashboard#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#permissions OneDashboard#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -542,7 +542,7 @@ class OneDashboardConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardVariable"]]]:
         '''variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#variable OneDashboard#variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#variable OneDashboard#variable}
         '''
         result = self._values.get("variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardVariable"]]], result)
@@ -603,22 +603,22 @@ class OneDashboardPage:
         widget_table: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetTable", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: The dashboard page's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param description: The dashboard page's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#description OneDashboard#description}
-        :param widget_area: widget_area block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_area OneDashboard#widget_area}
-        :param widget_bar: widget_bar block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_bar OneDashboard#widget_bar}
-        :param widget_billboard: widget_billboard block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_billboard OneDashboard#widget_billboard}
-        :param widget_bullet: widget_bullet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_bullet OneDashboard#widget_bullet}
-        :param widget_funnel: widget_funnel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_funnel OneDashboard#widget_funnel}
-        :param widget_heatmap: widget_heatmap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_heatmap OneDashboard#widget_heatmap}
-        :param widget_histogram: widget_histogram block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_histogram OneDashboard#widget_histogram}
-        :param widget_json: widget_json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_json OneDashboard#widget_json}
-        :param widget_line: widget_line block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_line OneDashboard#widget_line}
-        :param widget_log_table: widget_log_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_log_table OneDashboard#widget_log_table}
-        :param widget_markdown: widget_markdown block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_markdown OneDashboard#widget_markdown}
-        :param widget_pie: widget_pie block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_pie OneDashboard#widget_pie}
-        :param widget_stacked_bar: widget_stacked_bar block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_stacked_bar OneDashboard#widget_stacked_bar}
-        :param widget_table: widget_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_table OneDashboard#widget_table}
+        :param name: The dashboard page's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param description: The dashboard page's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#description OneDashboard#description}
+        :param widget_area: widget_area block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_area OneDashboard#widget_area}
+        :param widget_bar: widget_bar block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_bar OneDashboard#widget_bar}
+        :param widget_billboard: widget_billboard block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_billboard OneDashboard#widget_billboard}
+        :param widget_bullet: widget_bullet block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_bullet OneDashboard#widget_bullet}
+        :param widget_funnel: widget_funnel block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_funnel OneDashboard#widget_funnel}
+        :param widget_heatmap: widget_heatmap block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_heatmap OneDashboard#widget_heatmap}
+        :param widget_histogram: widget_histogram block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_histogram OneDashboard#widget_histogram}
+        :param widget_json: widget_json block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_json OneDashboard#widget_json}
+        :param widget_line: widget_line block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_line OneDashboard#widget_line}
+        :param widget_log_table: widget_log_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_log_table OneDashboard#widget_log_table}
+        :param widget_markdown: widget_markdown block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_markdown OneDashboard#widget_markdown}
+        :param widget_pie: widget_pie block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_pie OneDashboard#widget_pie}
+        :param widget_stacked_bar: widget_stacked_bar block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_stacked_bar OneDashboard#widget_stacked_bar}
+        :param widget_table: widget_table block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_table OneDashboard#widget_table}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ad90e159424eaeeb508b02cde06a6c3bdd8561b00435df1ce2dd2ebbbbb7fe6)
@@ -676,7 +676,7 @@ class OneDashboardPage:
     def name(self) -> builtins.str:
         '''The dashboard page's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -686,7 +686,7 @@ class OneDashboardPage:
     def description(self) -> typing.Optional[builtins.str]:
         '''The dashboard page's description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#description OneDashboard#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#description OneDashboard#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -697,7 +697,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetArea"]]]:
         '''widget_area block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_area OneDashboard#widget_area}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_area OneDashboard#widget_area}
         '''
         result = self._values.get("widget_area")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetArea"]]], result)
@@ -708,7 +708,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBar"]]]:
         '''widget_bar block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_bar OneDashboard#widget_bar}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_bar OneDashboard#widget_bar}
         '''
         result = self._values.get("widget_bar")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBar"]]], result)
@@ -719,7 +719,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboard"]]]:
         '''widget_billboard block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_billboard OneDashboard#widget_billboard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_billboard OneDashboard#widget_billboard}
         '''
         result = self._values.get("widget_billboard")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboard"]]], result)
@@ -730,7 +730,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBullet"]]]:
         '''widget_bullet block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_bullet OneDashboard#widget_bullet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_bullet OneDashboard#widget_bullet}
         '''
         result = self._values.get("widget_bullet")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBullet"]]], result)
@@ -741,7 +741,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnel"]]]:
         '''widget_funnel block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_funnel OneDashboard#widget_funnel}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_funnel OneDashboard#widget_funnel}
         '''
         result = self._values.get("widget_funnel")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnel"]]], result)
@@ -752,7 +752,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmap"]]]:
         '''widget_heatmap block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_heatmap OneDashboard#widget_heatmap}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_heatmap OneDashboard#widget_heatmap}
         '''
         result = self._values.get("widget_heatmap")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmap"]]], result)
@@ -763,7 +763,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogram"]]]:
         '''widget_histogram block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_histogram OneDashboard#widget_histogram}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_histogram OneDashboard#widget_histogram}
         '''
         result = self._values.get("widget_histogram")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogram"]]], result)
@@ -774,7 +774,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJson"]]]:
         '''widget_json block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_json OneDashboard#widget_json}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_json OneDashboard#widget_json}
         '''
         result = self._values.get("widget_json")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJson"]]], result)
@@ -785,7 +785,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLine"]]]:
         '''widget_line block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_line OneDashboard#widget_line}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_line OneDashboard#widget_line}
         '''
         result = self._values.get("widget_line")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLine"]]], result)
@@ -796,7 +796,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTable"]]]:
         '''widget_log_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_log_table OneDashboard#widget_log_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_log_table OneDashboard#widget_log_table}
         '''
         result = self._values.get("widget_log_table")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTable"]]], result)
@@ -807,7 +807,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdown"]]]:
         '''widget_markdown block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_markdown OneDashboard#widget_markdown}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_markdown OneDashboard#widget_markdown}
         '''
         result = self._values.get("widget_markdown")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdown"]]], result)
@@ -818,7 +818,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPie"]]]:
         '''widget_pie block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_pie OneDashboard#widget_pie}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_pie OneDashboard#widget_pie}
         '''
         result = self._values.get("widget_pie")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPie"]]], result)
@@ -829,7 +829,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBar"]]]:
         '''widget_stacked_bar block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_stacked_bar OneDashboard#widget_stacked_bar}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_stacked_bar OneDashboard#widget_stacked_bar}
         '''
         result = self._values.get("widget_stacked_bar")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBar"]]], result)
@@ -840,7 +840,7 @@ class OneDashboardPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTable"]]]:
         '''widget_table block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#widget_table OneDashboard#widget_table}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#widget_table OneDashboard#widget_table}
         '''
         result = self._values.get("widget_table")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTable"]]], result)
@@ -1488,24 +1488,24 @@ class OneDashboardPageWidgetArea:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param tooltip: tooltip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param tooltip: tooltip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetAreaInitialSorting(**initial_sorting)
@@ -1568,7 +1568,7 @@ class OneDashboardPageWidgetArea:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -1579,7 +1579,7 @@ class OneDashboardPageWidgetArea:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -1587,7 +1587,7 @@ class OneDashboardPageWidgetArea:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -1596,7 +1596,7 @@ class OneDashboardPageWidgetArea:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -1608,7 +1608,7 @@ class OneDashboardPageWidgetArea:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaColors"]]], result)
@@ -1619,7 +1619,7 @@ class OneDashboardPageWidgetArea:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaDataFormat"]]], result)
@@ -1628,13 +1628,13 @@ class OneDashboardPageWidgetArea:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1642,7 +1642,7 @@ class OneDashboardPageWidgetArea:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1652,7 +1652,7 @@ class OneDashboardPageWidgetArea:
     ) -> typing.Optional["OneDashboardPageWidgetAreaInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetAreaInitialSorting"], result)
@@ -1661,7 +1661,7 @@ class OneDashboardPageWidgetArea:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1671,14 +1671,14 @@ class OneDashboardPageWidgetArea:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1686,7 +1686,7 @@ class OneDashboardPageWidgetArea:
     def tooltip(self) -> typing.Optional["OneDashboardPageWidgetAreaTooltip"]:
         '''tooltip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
         '''
         result = self._values.get("tooltip")
         return typing.cast(typing.Optional["OneDashboardPageWidgetAreaTooltip"], result)
@@ -1697,26 +1697,26 @@ class OneDashboardPageWidgetArea:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1745,8 +1745,8 @@ class OneDashboardPageWidgetAreaColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetAreaColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bcde2bbbd6c60f70ed165b29178a70e473261f24d48e814c2b6248986f812456)
@@ -1760,7 +1760,7 @@ class OneDashboardPageWidgetAreaColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1770,7 +1770,7 @@ class OneDashboardPageWidgetAreaColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaColorsSeriesOverrides"]]], result)
@@ -1987,8 +1987,8 @@ class OneDashboardPageWidgetAreaColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a40643434653583074b319196bb4b1e4762ee21ed4b9abd16c321810ad652af)
@@ -2004,7 +2004,7 @@ class OneDashboardPageWidgetAreaColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2013,7 +2013,7 @@ class OneDashboardPageWidgetAreaColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2229,10 +2229,10 @@ class OneDashboardPageWidgetAreaDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e86ce9edb6a4e0038bbe056d1e6620ad65fe3a71e35b05e9b0f92bb617d04caf)
@@ -2253,7 +2253,7 @@ class OneDashboardPageWidgetAreaDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2263,7 +2263,7 @@ class OneDashboardPageWidgetAreaDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -2273,7 +2273,7 @@ class OneDashboardPageWidgetAreaDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2282,7 +2282,7 @@ class OneDashboardPageWidgetAreaDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2520,8 +2520,8 @@ class OneDashboardPageWidgetAreaDataFormatOutputReference(
 class OneDashboardPageWidgetAreaInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fcf6e35a1c677038f2c1c73e004aa85694243559c8dd3168fa8d454486a53e76)
@@ -2536,7 +2536,7 @@ class OneDashboardPageWidgetAreaInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -2546,7 +2546,7 @@ class OneDashboardPageWidgetAreaInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2739,8 +2739,8 @@ class OneDashboardPageWidgetAreaNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__957a77ef06d2b06a5ed740f10df5fea7f9c08a538f37ef5435446df7ab99fd05)
@@ -2756,7 +2756,7 @@ class OneDashboardPageWidgetAreaNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -2768,7 +2768,7 @@ class OneDashboardPageWidgetAreaNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2973,8 +2973,8 @@ class OneDashboardPageWidgetAreaNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetAreaNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15ab7a3327e3ea4bb35348c811fdccf4fe12310fbf78dee835979df76cea801b)
@@ -2988,7 +2988,7 @@ class OneDashboardPageWidgetAreaNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2998,7 +2998,7 @@ class OneDashboardPageWidgetAreaNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaNullValuesSeriesOverrides"]]], result)
@@ -3217,8 +3217,8 @@ class OneDashboardPageWidgetAreaNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e4f71e7e387dfb72b27a97f1b243b1717f6f60960dac09bc318c8f3ed42618e)
@@ -3234,7 +3234,7 @@ class OneDashboardPageWidgetAreaNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3243,7 +3243,7 @@ class OneDashboardPageWidgetAreaNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3499,8 +3499,8 @@ class OneDashboardPageWidgetAreaOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetAreaInitialSorting(
             direction=direction, name=name
@@ -3537,7 +3537,7 @@ class OneDashboardPageWidgetAreaOutputReference(
     @jsii.member(jsii_name="putTooltip")
     def put_tooltip(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         value = OneDashboardPageWidgetAreaTooltip(mode=mode)
 
@@ -3935,7 +3935,7 @@ class OneDashboardPageWidgetAreaOutputReference(
 class OneDashboardPageWidgetAreaTooltip:
     def __init__(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2374021dc435945953c1e4e676ee002eb0041d6e48fad8543f59aeb91dbbea6e)
@@ -3948,7 +3948,7 @@ class OneDashboardPageWidgetAreaTooltip:
     def mode(self) -> builtins.str:
         '''Tooltip display mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -4032,8 +4032,8 @@ class OneDashboardPageWidgetAreaUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d86dffcfa8d9f42238ff2b604bbf94364bf7c8f140e684b6c6c77759efd9f16)
@@ -4051,14 +4051,14 @@ class OneDashboardPageWidgetAreaUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetAreaUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4274,8 +4274,8 @@ class OneDashboardPageWidgetAreaUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47ac549b38f315b81980d80569a9aa8648c9f2cbfdd9c0652d23dad5b1d7c786)
@@ -4291,7 +4291,7 @@ class OneDashboardPageWidgetAreaUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4300,7 +4300,7 @@ class OneDashboardPageWidgetAreaUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4546,25 +4546,25 @@ class OneDashboardPageWidgetBar:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetBarInitialSorting(**initial_sorting)
@@ -4628,7 +4628,7 @@ class OneDashboardPageWidgetBar:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -4639,7 +4639,7 @@ class OneDashboardPageWidgetBar:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -4647,7 +4647,7 @@ class OneDashboardPageWidgetBar:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -4656,7 +4656,7 @@ class OneDashboardPageWidgetBar:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -4668,7 +4668,7 @@ class OneDashboardPageWidgetBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarColors"]]], result)
@@ -4679,7 +4679,7 @@ class OneDashboardPageWidgetBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarDataFormat"]]], result)
@@ -4688,7 +4688,7 @@ class OneDashboardPageWidgetBar:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4698,14 +4698,14 @@ class OneDashboardPageWidgetBar:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use this item to filter the current dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
         '''
         result = self._values.get("filter_current_dashboard")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4713,7 +4713,7 @@ class OneDashboardPageWidgetBar:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4723,7 +4723,7 @@ class OneDashboardPageWidgetBar:
     ) -> typing.Optional["OneDashboardPageWidgetBarInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetBarInitialSorting"], result)
@@ -4732,7 +4732,7 @@ class OneDashboardPageWidgetBar:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4740,7 +4740,7 @@ class OneDashboardPageWidgetBar:
     def linked_entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Related entities. Currently only supports Dashboard entities, but may allow other cases in the future.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
         '''
         result = self._values.get("linked_entity_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -4751,14 +4751,14 @@ class OneDashboardPageWidgetBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4768,26 +4768,26 @@ class OneDashboardPageWidgetBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4816,8 +4816,8 @@ class OneDashboardPageWidgetBarColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetBarColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64ac8537d731a60f182d1ecc3b1634067f44a0dce9e97ce01f5bd84044e599ea)
@@ -4831,7 +4831,7 @@ class OneDashboardPageWidgetBarColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4841,7 +4841,7 @@ class OneDashboardPageWidgetBarColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarColorsSeriesOverrides"]]], result)
@@ -5058,8 +5058,8 @@ class OneDashboardPageWidgetBarColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f94cb1a288ab14c6cd50f60ca7dbfc58bbdc11ff2b244d66e8658c512d9b7533)
@@ -5075,7 +5075,7 @@ class OneDashboardPageWidgetBarColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5084,7 +5084,7 @@ class OneDashboardPageWidgetBarColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5300,10 +5300,10 @@ class OneDashboardPageWidgetBarDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44c2dfd8474768f75024a4a2e8df89763b9a228e30e321ec6701de1cef0a084f)
@@ -5324,7 +5324,7 @@ class OneDashboardPageWidgetBarDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5334,7 +5334,7 @@ class OneDashboardPageWidgetBarDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -5344,7 +5344,7 @@ class OneDashboardPageWidgetBarDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -5353,7 +5353,7 @@ class OneDashboardPageWidgetBarDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -5591,8 +5591,8 @@ class OneDashboardPageWidgetBarDataFormatOutputReference(
 class OneDashboardPageWidgetBarInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__213726c4d55ff4cf70abbab6fc48b4ccc6752142483f453feb61571c3b8bf389)
@@ -5607,7 +5607,7 @@ class OneDashboardPageWidgetBarInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -5617,7 +5617,7 @@ class OneDashboardPageWidgetBarInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -5810,8 +5810,8 @@ class OneDashboardPageWidgetBarNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__06a9443b6c0754224b7df09b9601b83e2dffe0f14164ac765f119d65d6812dd2)
@@ -5827,7 +5827,7 @@ class OneDashboardPageWidgetBarNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -5839,7 +5839,7 @@ class OneDashboardPageWidgetBarNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6044,8 +6044,8 @@ class OneDashboardPageWidgetBarNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetBarNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b7eee22f0978da030e8d5d2452155792faf50ec2c00ca07908902f22728741e)
@@ -6059,7 +6059,7 @@ class OneDashboardPageWidgetBarNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6069,7 +6069,7 @@ class OneDashboardPageWidgetBarNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarNullValuesSeriesOverrides"]]], result)
@@ -6288,8 +6288,8 @@ class OneDashboardPageWidgetBarNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4391bcf3a68715de9736d8ad561c40c983e08a80084cf298bdf7f37cddb71fba)
@@ -6305,7 +6305,7 @@ class OneDashboardPageWidgetBarNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6314,7 +6314,7 @@ class OneDashboardPageWidgetBarNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -6570,8 +6570,8 @@ class OneDashboardPageWidgetBarOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetBarInitialSorting(direction=direction, name=name)
 
@@ -7033,8 +7033,8 @@ class OneDashboardPageWidgetBarUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da8cc09bd4768056cfc55325aff9851e79273344eff99d6db58cc1eb31e3f0f5)
@@ -7052,14 +7052,14 @@ class OneDashboardPageWidgetBarUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBarUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7275,8 +7275,8 @@ class OneDashboardPageWidgetBarUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__989e6c10dc239615a9a0626664585620ffcbf159db493ebe6a2e94095905dc2e)
@@ -7292,7 +7292,7 @@ class OneDashboardPageWidgetBarUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7301,7 +7301,7 @@ class OneDashboardPageWidgetBarUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7547,25 +7547,25 @@ class OneDashboardPageWidgetBillboard:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param critical: The critical threshold value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#critical OneDashboard#critical}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param warning: The warning threshold value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#warning OneDashboard#warning}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param critical: The critical threshold value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#critical OneDashboard#critical}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param warning: The warning threshold value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#warning OneDashboard#warning}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetBillboardInitialSorting(**initial_sorting)
@@ -7629,7 +7629,7 @@ class OneDashboardPageWidgetBillboard:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -7640,7 +7640,7 @@ class OneDashboardPageWidgetBillboard:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -7648,7 +7648,7 @@ class OneDashboardPageWidgetBillboard:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -7657,7 +7657,7 @@ class OneDashboardPageWidgetBillboard:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -7669,7 +7669,7 @@ class OneDashboardPageWidgetBillboard:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardColors"]]], result)
@@ -7678,7 +7678,7 @@ class OneDashboardPageWidgetBillboard:
     def critical(self) -> typing.Optional[builtins.str]:
         '''The critical threshold value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#critical OneDashboard#critical}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#critical OneDashboard#critical}
         '''
         result = self._values.get("critical")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -7689,7 +7689,7 @@ class OneDashboardPageWidgetBillboard:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardDataFormat"]]], result)
@@ -7698,13 +7698,13 @@ class OneDashboardPageWidgetBillboard:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7712,7 +7712,7 @@ class OneDashboardPageWidgetBillboard:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7722,7 +7722,7 @@ class OneDashboardPageWidgetBillboard:
     ) -> typing.Optional["OneDashboardPageWidgetBillboardInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetBillboardInitialSorting"], result)
@@ -7731,7 +7731,7 @@ class OneDashboardPageWidgetBillboard:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -7741,14 +7741,14 @@ class OneDashboardPageWidgetBillboard:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7758,7 +7758,7 @@ class OneDashboardPageWidgetBillboard:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardUnits"]]], result)
@@ -7767,26 +7767,26 @@ class OneDashboardPageWidgetBillboard:
     def warning(self) -> typing.Optional[builtins.str]:
         '''The warning threshold value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#warning OneDashboard#warning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#warning OneDashboard#warning}
         '''
         result = self._values.get("warning")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7815,8 +7815,8 @@ class OneDashboardPageWidgetBillboardColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetBillboardColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b4eaff1c8f37c5283e965a9efdbdfb0946eacfb41338b3a32733c31dfbc40da8)
@@ -7830,7 +7830,7 @@ class OneDashboardPageWidgetBillboardColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7840,7 +7840,7 @@ class OneDashboardPageWidgetBillboardColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardColorsSeriesOverrides"]]], result)
@@ -8059,8 +8059,8 @@ class OneDashboardPageWidgetBillboardColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ec55abb7e614c49f79c9631f50029f5bba4fa28ba786b3b31adc052c881b120)
@@ -8076,7 +8076,7 @@ class OneDashboardPageWidgetBillboardColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8085,7 +8085,7 @@ class OneDashboardPageWidgetBillboardColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8301,10 +8301,10 @@ class OneDashboardPageWidgetBillboardDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cfe173c251a262aa652fe6b0b5af365608f0142fdc29d04fc3f4a6ab4e86a275)
@@ -8325,7 +8325,7 @@ class OneDashboardPageWidgetBillboardDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8335,7 +8335,7 @@ class OneDashboardPageWidgetBillboardDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -8345,7 +8345,7 @@ class OneDashboardPageWidgetBillboardDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8354,7 +8354,7 @@ class OneDashboardPageWidgetBillboardDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -8592,8 +8592,8 @@ class OneDashboardPageWidgetBillboardDataFormatOutputReference(
 class OneDashboardPageWidgetBillboardInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f806648c315d97e695ec1b44e9461dd6271b6e8de51ddf455d33b36aa9c80ff3)
@@ -8608,7 +8608,7 @@ class OneDashboardPageWidgetBillboardInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -8618,7 +8618,7 @@ class OneDashboardPageWidgetBillboardInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -8814,8 +8814,8 @@ class OneDashboardPageWidgetBillboardNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aafa3074e861e1d5ebf2e8c4077b3dfa1f545d4b2db6d102bae2a908189a3598)
@@ -8831,7 +8831,7 @@ class OneDashboardPageWidgetBillboardNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -8843,7 +8843,7 @@ class OneDashboardPageWidgetBillboardNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9048,8 +9048,8 @@ class OneDashboardPageWidgetBillboardNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetBillboardNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a43a0e0883fc4855f2f335e405a8b15ddc90af57df4a64789821fe7d2d9e8fac)
@@ -9063,7 +9063,7 @@ class OneDashboardPageWidgetBillboardNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -9073,7 +9073,7 @@ class OneDashboardPageWidgetBillboardNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardNullValuesSeriesOverrides"]]], result)
@@ -9292,8 +9292,8 @@ class OneDashboardPageWidgetBillboardNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb885c72e3ee92c95c6cd188be7c2bde4733167f7637e50e2281277d3f545014)
@@ -9309,7 +9309,7 @@ class OneDashboardPageWidgetBillboardNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9318,7 +9318,7 @@ class OneDashboardPageWidgetBillboardNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -9574,8 +9574,8 @@ class OneDashboardPageWidgetBillboardOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetBillboardInitialSorting(
             direction=direction, name=name
@@ -10034,8 +10034,8 @@ class OneDashboardPageWidgetBillboardUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0cfdbd0aabaca23d5099d2b4da61a9e5c4fe0e847d6b4f594397740bbb05dd4b)
@@ -10053,14 +10053,14 @@ class OneDashboardPageWidgetBillboardUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBillboardUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10278,8 +10278,8 @@ class OneDashboardPageWidgetBillboardUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b44fed7dfcee18274198ba6b40753ecc16a654ac2d89829fdd1ff693fff7671)
@@ -10295,7 +10295,7 @@ class OneDashboardPageWidgetBillboardUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10304,7 +10304,7 @@ class OneDashboardPageWidgetBillboardUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10548,24 +10548,24 @@ class OneDashboardPageWidgetBullet:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param limit: The maximum value for the visualization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#limit OneDashboard#limit}
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param limit: The maximum value for the visualization. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#limit OneDashboard#limit}
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetBulletInitialSorting(**initial_sorting)
@@ -10625,7 +10625,7 @@ class OneDashboardPageWidgetBullet:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -10634,7 +10634,7 @@ class OneDashboardPageWidgetBullet:
     def limit(self) -> jsii.Number:
         '''The maximum value for the visualization.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#limit OneDashboard#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#limit OneDashboard#limit}
         '''
         result = self._values.get("limit")
         assert result is not None, "Required property 'limit' is missing"
@@ -10646,7 +10646,7 @@ class OneDashboardPageWidgetBullet:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -10654,7 +10654,7 @@ class OneDashboardPageWidgetBullet:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -10663,7 +10663,7 @@ class OneDashboardPageWidgetBullet:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -10675,7 +10675,7 @@ class OneDashboardPageWidgetBullet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletColors"]]], result)
@@ -10686,7 +10686,7 @@ class OneDashboardPageWidgetBullet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletDataFormat"]]], result)
@@ -10695,13 +10695,13 @@ class OneDashboardPageWidgetBullet:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -10709,7 +10709,7 @@ class OneDashboardPageWidgetBullet:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -10719,7 +10719,7 @@ class OneDashboardPageWidgetBullet:
     ) -> typing.Optional["OneDashboardPageWidgetBulletInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetBulletInitialSorting"], result)
@@ -10728,7 +10728,7 @@ class OneDashboardPageWidgetBullet:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -10738,14 +10738,14 @@ class OneDashboardPageWidgetBullet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10755,26 +10755,26 @@ class OneDashboardPageWidgetBullet:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -10803,8 +10803,8 @@ class OneDashboardPageWidgetBulletColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetBulletColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__375c3180949bf03ae6af872b4f7d9ddb2920a0f7d58d1704c7ef57cca8cebfdd)
@@ -10818,7 +10818,7 @@ class OneDashboardPageWidgetBulletColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10828,7 +10828,7 @@ class OneDashboardPageWidgetBulletColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletColorsSeriesOverrides"]]], result)
@@ -11047,8 +11047,8 @@ class OneDashboardPageWidgetBulletColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53c8428bad0a7bdda56f8b89ee97e39a38b7edc7662bfec4b4114726ae3e4c6c)
@@ -11064,7 +11064,7 @@ class OneDashboardPageWidgetBulletColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11073,7 +11073,7 @@ class OneDashboardPageWidgetBulletColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11289,10 +11289,10 @@ class OneDashboardPageWidgetBulletDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2b11e2e988a8733056dc589231471720af0ff1399a100011fbc54947dc00a662)
@@ -11313,7 +11313,7 @@ class OneDashboardPageWidgetBulletDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -11323,7 +11323,7 @@ class OneDashboardPageWidgetBulletDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -11333,7 +11333,7 @@ class OneDashboardPageWidgetBulletDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11342,7 +11342,7 @@ class OneDashboardPageWidgetBulletDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -11580,8 +11580,8 @@ class OneDashboardPageWidgetBulletDataFormatOutputReference(
 class OneDashboardPageWidgetBulletInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80f6d93267f173c962f1b1a9b059a4dd6013c6cbe7433f0f8f9243d8771d0911)
@@ -11596,7 +11596,7 @@ class OneDashboardPageWidgetBulletInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -11606,7 +11606,7 @@ class OneDashboardPageWidgetBulletInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -11799,8 +11799,8 @@ class OneDashboardPageWidgetBulletNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__830407ff9c790892d7f3d865d2e12e4b5e33ea3848217ae530bfcb329328e5e2)
@@ -11816,7 +11816,7 @@ class OneDashboardPageWidgetBulletNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -11828,7 +11828,7 @@ class OneDashboardPageWidgetBulletNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12033,8 +12033,8 @@ class OneDashboardPageWidgetBulletNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetBulletNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__78923789ee09ea534c17f58cae525ecc43b59da42804d939b6a15d3795a492be)
@@ -12048,7 +12048,7 @@ class OneDashboardPageWidgetBulletNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -12058,7 +12058,7 @@ class OneDashboardPageWidgetBulletNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletNullValuesSeriesOverrides"]]], result)
@@ -12277,8 +12277,8 @@ class OneDashboardPageWidgetBulletNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9688324f769486db222ce4e4256d2ed930d82e968693182cb31653b37b4d0a62)
@@ -12294,7 +12294,7 @@ class OneDashboardPageWidgetBulletNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12303,7 +12303,7 @@ class OneDashboardPageWidgetBulletNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12559,8 +12559,8 @@ class OneDashboardPageWidgetBulletOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetBulletInitialSorting(
             direction=direction, name=name
@@ -12994,8 +12994,8 @@ class OneDashboardPageWidgetBulletUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27a8f9e2d01f4532b25526a4a4a66641badff393ce77706d63282d2eedd43914)
@@ -13013,14 +13013,14 @@ class OneDashboardPageWidgetBulletUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetBulletUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -13238,8 +13238,8 @@ class OneDashboardPageWidgetBulletUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5056f7723301000acbd4b53965de4363bc9a8412cae2d8b911b78ce43a4cc3a8)
@@ -13255,7 +13255,7 @@ class OneDashboardPageWidgetBulletUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13264,7 +13264,7 @@ class OneDashboardPageWidgetBulletUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13506,23 +13506,23 @@ class OneDashboardPageWidgetFunnel:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetFunnelInitialSorting(**initial_sorting)
@@ -13580,7 +13580,7 @@ class OneDashboardPageWidgetFunnel:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -13591,7 +13591,7 @@ class OneDashboardPageWidgetFunnel:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -13599,7 +13599,7 @@ class OneDashboardPageWidgetFunnel:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -13608,7 +13608,7 @@ class OneDashboardPageWidgetFunnel:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -13620,7 +13620,7 @@ class OneDashboardPageWidgetFunnel:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelColors"]]], result)
@@ -13631,7 +13631,7 @@ class OneDashboardPageWidgetFunnel:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelDataFormat"]]], result)
@@ -13640,13 +13640,13 @@ class OneDashboardPageWidgetFunnel:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -13654,7 +13654,7 @@ class OneDashboardPageWidgetFunnel:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -13664,7 +13664,7 @@ class OneDashboardPageWidgetFunnel:
     ) -> typing.Optional["OneDashboardPageWidgetFunnelInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetFunnelInitialSorting"], result)
@@ -13673,7 +13673,7 @@ class OneDashboardPageWidgetFunnel:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -13683,14 +13683,14 @@ class OneDashboardPageWidgetFunnel:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -13700,26 +13700,26 @@ class OneDashboardPageWidgetFunnel:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -13748,8 +13748,8 @@ class OneDashboardPageWidgetFunnelColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetFunnelColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7f44355ee859935555ac21c58f63cc9044d18894f46233b486f6f447f9a2ca6)
@@ -13763,7 +13763,7 @@ class OneDashboardPageWidgetFunnelColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -13773,7 +13773,7 @@ class OneDashboardPageWidgetFunnelColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelColorsSeriesOverrides"]]], result)
@@ -13992,8 +13992,8 @@ class OneDashboardPageWidgetFunnelColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__286a9225b03b83d5212800b22a8081a4f9f5a90ca3794632b10f68a1be1d1ff1)
@@ -14009,7 +14009,7 @@ class OneDashboardPageWidgetFunnelColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14018,7 +14018,7 @@ class OneDashboardPageWidgetFunnelColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14234,10 +14234,10 @@ class OneDashboardPageWidgetFunnelDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1cb9f7d17d25b6918bf1f9d0f0899927552e6ac9c3b253082bd4b1ebf1dd25db)
@@ -14258,7 +14258,7 @@ class OneDashboardPageWidgetFunnelDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -14268,7 +14268,7 @@ class OneDashboardPageWidgetFunnelDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -14278,7 +14278,7 @@ class OneDashboardPageWidgetFunnelDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14287,7 +14287,7 @@ class OneDashboardPageWidgetFunnelDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -14525,8 +14525,8 @@ class OneDashboardPageWidgetFunnelDataFormatOutputReference(
 class OneDashboardPageWidgetFunnelInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55a2a35c8d5d11e0986c58dab280e28dc73044f4b5dede7884c2b748bd9df052)
@@ -14541,7 +14541,7 @@ class OneDashboardPageWidgetFunnelInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -14551,7 +14551,7 @@ class OneDashboardPageWidgetFunnelInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -14744,8 +14744,8 @@ class OneDashboardPageWidgetFunnelNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c18599d442fc91055a62517eda1609f83a90bff913719ef9f7be06aff0640fa5)
@@ -14761,7 +14761,7 @@ class OneDashboardPageWidgetFunnelNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -14773,7 +14773,7 @@ class OneDashboardPageWidgetFunnelNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14978,8 +14978,8 @@ class OneDashboardPageWidgetFunnelNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetFunnelNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__beb2ddccb7811601f8c64a0bb2383e16e9591169bf812cd39910823382269871)
@@ -14993,7 +14993,7 @@ class OneDashboardPageWidgetFunnelNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -15003,7 +15003,7 @@ class OneDashboardPageWidgetFunnelNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelNullValuesSeriesOverrides"]]], result)
@@ -15222,8 +15222,8 @@ class OneDashboardPageWidgetFunnelNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89458db9a02086eb56aa3df45d2ac2f06afdb7e50c70999408d91e2e8a491686)
@@ -15239,7 +15239,7 @@ class OneDashboardPageWidgetFunnelNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -15248,7 +15248,7 @@ class OneDashboardPageWidgetFunnelNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -15504,8 +15504,8 @@ class OneDashboardPageWidgetFunnelOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetFunnelInitialSorting(
             direction=direction, name=name
@@ -15922,8 +15922,8 @@ class OneDashboardPageWidgetFunnelUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f53fbd080c870c0ee8ffc537b87d7dfdc90b11a70569df24622c57e31628298a)
@@ -15941,14 +15941,14 @@ class OneDashboardPageWidgetFunnelUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetFunnelUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -16166,8 +16166,8 @@ class OneDashboardPageWidgetFunnelUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fbe38e22b0413db8a372dc0a95855290e623f8495a4aa6ee17c3945cc9dfd8b)
@@ -16183,7 +16183,7 @@ class OneDashboardPageWidgetFunnelUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16192,7 +16192,7 @@ class OneDashboardPageWidgetFunnelUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16438,25 +16438,25 @@ class OneDashboardPageWidgetHeatmap:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetHeatmapInitialSorting(**initial_sorting)
@@ -16520,7 +16520,7 @@ class OneDashboardPageWidgetHeatmap:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -16531,7 +16531,7 @@ class OneDashboardPageWidgetHeatmap:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -16539,7 +16539,7 @@ class OneDashboardPageWidgetHeatmap:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -16548,7 +16548,7 @@ class OneDashboardPageWidgetHeatmap:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -16560,7 +16560,7 @@ class OneDashboardPageWidgetHeatmap:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapColors"]]], result)
@@ -16571,7 +16571,7 @@ class OneDashboardPageWidgetHeatmap:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapDataFormat"]]], result)
@@ -16580,7 +16580,7 @@ class OneDashboardPageWidgetHeatmap:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -16590,14 +16590,14 @@ class OneDashboardPageWidgetHeatmap:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use this item to filter the current dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
         '''
         result = self._values.get("filter_current_dashboard")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -16605,7 +16605,7 @@ class OneDashboardPageWidgetHeatmap:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -16615,7 +16615,7 @@ class OneDashboardPageWidgetHeatmap:
     ) -> typing.Optional["OneDashboardPageWidgetHeatmapInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetHeatmapInitialSorting"], result)
@@ -16624,7 +16624,7 @@ class OneDashboardPageWidgetHeatmap:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -16632,7 +16632,7 @@ class OneDashboardPageWidgetHeatmap:
     def linked_entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Related entities. Currently only supports Dashboard entities, but may allow other cases in the future.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
         '''
         result = self._values.get("linked_entity_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -16643,14 +16643,14 @@ class OneDashboardPageWidgetHeatmap:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -16660,26 +16660,26 @@ class OneDashboardPageWidgetHeatmap:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -16708,8 +16708,8 @@ class OneDashboardPageWidgetHeatmapColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetHeatmapColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bfb2a129b94eb23d499b2ef28c1358f0a7cdb05e17df928d13c5cf89c26cf686)
@@ -16723,7 +16723,7 @@ class OneDashboardPageWidgetHeatmapColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -16733,7 +16733,7 @@ class OneDashboardPageWidgetHeatmapColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapColorsSeriesOverrides"]]], result)
@@ -16952,8 +16952,8 @@ class OneDashboardPageWidgetHeatmapColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e0dbdc4def8653f566450428803e91cbe421c8d2fcd8f0c48a83468aa974db45)
@@ -16969,7 +16969,7 @@ class OneDashboardPageWidgetHeatmapColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -16978,7 +16978,7 @@ class OneDashboardPageWidgetHeatmapColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -17194,10 +17194,10 @@ class OneDashboardPageWidgetHeatmapDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__610c215581e402011d33fd14ccb62ae3e624d701a912b0806abd966c7dd2110f)
@@ -17218,7 +17218,7 @@ class OneDashboardPageWidgetHeatmapDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -17228,7 +17228,7 @@ class OneDashboardPageWidgetHeatmapDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -17238,7 +17238,7 @@ class OneDashboardPageWidgetHeatmapDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -17247,7 +17247,7 @@ class OneDashboardPageWidgetHeatmapDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -17485,8 +17485,8 @@ class OneDashboardPageWidgetHeatmapDataFormatOutputReference(
 class OneDashboardPageWidgetHeatmapInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a18dea5b9006233a85f336326f4b63b099a066f4cb7796fb3991f4263a3e593)
@@ -17501,7 +17501,7 @@ class OneDashboardPageWidgetHeatmapInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -17511,7 +17511,7 @@ class OneDashboardPageWidgetHeatmapInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -17704,8 +17704,8 @@ class OneDashboardPageWidgetHeatmapNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48f6ea791b34a1fab69ea90cc7a764d46c48a5859ac6aee2d122e71d1a6e0b49)
@@ -17721,7 +17721,7 @@ class OneDashboardPageWidgetHeatmapNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -17733,7 +17733,7 @@ class OneDashboardPageWidgetHeatmapNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -17938,8 +17938,8 @@ class OneDashboardPageWidgetHeatmapNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetHeatmapNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__862bf6a34be0de448cac39d3040702b0adba33928654dca21724a4cb5f837438)
@@ -17953,7 +17953,7 @@ class OneDashboardPageWidgetHeatmapNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -17963,7 +17963,7 @@ class OneDashboardPageWidgetHeatmapNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapNullValuesSeriesOverrides"]]], result)
@@ -18182,8 +18182,8 @@ class OneDashboardPageWidgetHeatmapNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ef81b97765258e72f1f3eb9c2b35174e8f5662a887bde24971bc271538266e6)
@@ -18199,7 +18199,7 @@ class OneDashboardPageWidgetHeatmapNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -18208,7 +18208,7 @@ class OneDashboardPageWidgetHeatmapNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -18464,8 +18464,8 @@ class OneDashboardPageWidgetHeatmapOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetHeatmapInitialSorting(
             direction=direction, name=name
@@ -18931,8 +18931,8 @@ class OneDashboardPageWidgetHeatmapUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__736abe77f4ceca8106db75de1a9db5a382276dd3a29f8446aabc45c80425f2f9)
@@ -18950,14 +18950,14 @@ class OneDashboardPageWidgetHeatmapUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHeatmapUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -19175,8 +19175,8 @@ class OneDashboardPageWidgetHeatmapUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2dc70c068462444eea504e9b5f5cb070e066f89af107521d8edee6ceebf9af2b)
@@ -19192,7 +19192,7 @@ class OneDashboardPageWidgetHeatmapUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19201,7 +19201,7 @@ class OneDashboardPageWidgetHeatmapUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19443,23 +19443,23 @@ class OneDashboardPageWidgetHistogram:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetHistogramInitialSorting(**initial_sorting)
@@ -19517,7 +19517,7 @@ class OneDashboardPageWidgetHistogram:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -19528,7 +19528,7 @@ class OneDashboardPageWidgetHistogram:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -19536,7 +19536,7 @@ class OneDashboardPageWidgetHistogram:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -19545,7 +19545,7 @@ class OneDashboardPageWidgetHistogram:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -19557,7 +19557,7 @@ class OneDashboardPageWidgetHistogram:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramColors"]]], result)
@@ -19568,7 +19568,7 @@ class OneDashboardPageWidgetHistogram:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramDataFormat"]]], result)
@@ -19577,13 +19577,13 @@ class OneDashboardPageWidgetHistogram:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -19591,7 +19591,7 @@ class OneDashboardPageWidgetHistogram:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -19601,7 +19601,7 @@ class OneDashboardPageWidgetHistogram:
     ) -> typing.Optional["OneDashboardPageWidgetHistogramInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetHistogramInitialSorting"], result)
@@ -19610,7 +19610,7 @@ class OneDashboardPageWidgetHistogram:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -19620,14 +19620,14 @@ class OneDashboardPageWidgetHistogram:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -19637,26 +19637,26 @@ class OneDashboardPageWidgetHistogram:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -19685,8 +19685,8 @@ class OneDashboardPageWidgetHistogramColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetHistogramColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e74ce41a93874810262a455b1e253d1dbced3eff2d058ccf1177ba898515884e)
@@ -19700,7 +19700,7 @@ class OneDashboardPageWidgetHistogramColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -19710,7 +19710,7 @@ class OneDashboardPageWidgetHistogramColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramColorsSeriesOverrides"]]], result)
@@ -19929,8 +19929,8 @@ class OneDashboardPageWidgetHistogramColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8afc9ac0de5e6410873792fa2a8576f17a62fe7032fdcaca4aa54a19ada7e2fa)
@@ -19946,7 +19946,7 @@ class OneDashboardPageWidgetHistogramColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -19955,7 +19955,7 @@ class OneDashboardPageWidgetHistogramColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -20171,10 +20171,10 @@ class OneDashboardPageWidgetHistogramDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2e8079a03ba37e06f9def80fd4014140a599ca1bedde16eb92c5f36c328b0a7)
@@ -20195,7 +20195,7 @@ class OneDashboardPageWidgetHistogramDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -20205,7 +20205,7 @@ class OneDashboardPageWidgetHistogramDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -20215,7 +20215,7 @@ class OneDashboardPageWidgetHistogramDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -20224,7 +20224,7 @@ class OneDashboardPageWidgetHistogramDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -20462,8 +20462,8 @@ class OneDashboardPageWidgetHistogramDataFormatOutputReference(
 class OneDashboardPageWidgetHistogramInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e52c3d30b5bf2db650fd875b8d4b6f6add489ff228f52765e763ea2825f66309)
@@ -20478,7 +20478,7 @@ class OneDashboardPageWidgetHistogramInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -20488,7 +20488,7 @@ class OneDashboardPageWidgetHistogramInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -20684,8 +20684,8 @@ class OneDashboardPageWidgetHistogramNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0960a9b185a5c7ab276087057011e25a6b3569b169865dc93219771e6db56e0a)
@@ -20701,7 +20701,7 @@ class OneDashboardPageWidgetHistogramNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -20713,7 +20713,7 @@ class OneDashboardPageWidgetHistogramNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -20918,8 +20918,8 @@ class OneDashboardPageWidgetHistogramNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetHistogramNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b34d21ae929b3e238a130d183cba7e12dd46e0d02532ab9b5ef0b6429b1aa757)
@@ -20933,7 +20933,7 @@ class OneDashboardPageWidgetHistogramNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -20943,7 +20943,7 @@ class OneDashboardPageWidgetHistogramNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramNullValuesSeriesOverrides"]]], result)
@@ -21162,8 +21162,8 @@ class OneDashboardPageWidgetHistogramNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bbef4c58750e47a03aba36016145a32578f170f93ec496a9624e7985e9493f2)
@@ -21179,7 +21179,7 @@ class OneDashboardPageWidgetHistogramNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -21188,7 +21188,7 @@ class OneDashboardPageWidgetHistogramNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -21444,8 +21444,8 @@ class OneDashboardPageWidgetHistogramOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetHistogramInitialSorting(
             direction=direction, name=name
@@ -21862,8 +21862,8 @@ class OneDashboardPageWidgetHistogramUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__067e48839e9387e42c86ba6880f10a42f5521a25b9a8db65130ad154a7cec15d)
@@ -21881,14 +21881,14 @@ class OneDashboardPageWidgetHistogramUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetHistogramUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -22106,8 +22106,8 @@ class OneDashboardPageWidgetHistogramUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0570dd1a5e4b75d3f655cb593af661d345575af0f8df7f0519d1a6d37ad43dd)
@@ -22123,7 +22123,7 @@ class OneDashboardPageWidgetHistogramUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -22132,7 +22132,7 @@ class OneDashboardPageWidgetHistogramUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -22374,23 +22374,23 @@ class OneDashboardPageWidgetJson:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetJsonInitialSorting(**initial_sorting)
@@ -22448,7 +22448,7 @@ class OneDashboardPageWidgetJson:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -22459,7 +22459,7 @@ class OneDashboardPageWidgetJson:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -22467,7 +22467,7 @@ class OneDashboardPageWidgetJson:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -22476,7 +22476,7 @@ class OneDashboardPageWidgetJson:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -22488,7 +22488,7 @@ class OneDashboardPageWidgetJson:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonColors"]]], result)
@@ -22499,7 +22499,7 @@ class OneDashboardPageWidgetJson:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonDataFormat"]]], result)
@@ -22508,13 +22508,13 @@ class OneDashboardPageWidgetJson:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -22522,7 +22522,7 @@ class OneDashboardPageWidgetJson:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -22532,7 +22532,7 @@ class OneDashboardPageWidgetJson:
     ) -> typing.Optional["OneDashboardPageWidgetJsonInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetJsonInitialSorting"], result)
@@ -22541,7 +22541,7 @@ class OneDashboardPageWidgetJson:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -22551,14 +22551,14 @@ class OneDashboardPageWidgetJson:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -22568,26 +22568,26 @@ class OneDashboardPageWidgetJson:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -22616,8 +22616,8 @@ class OneDashboardPageWidgetJsonColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetJsonColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__42bf75611fb44e50e9c8c33324af190dc1138afbabe3cdba6e38a4e8853e4541)
@@ -22631,7 +22631,7 @@ class OneDashboardPageWidgetJsonColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -22641,7 +22641,7 @@ class OneDashboardPageWidgetJsonColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonColorsSeriesOverrides"]]], result)
@@ -22858,8 +22858,8 @@ class OneDashboardPageWidgetJsonColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75fba15526d974a96afba8a780099ecd17b69da5e4e76ee456e80b772cd78e42)
@@ -22875,7 +22875,7 @@ class OneDashboardPageWidgetJsonColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -22884,7 +22884,7 @@ class OneDashboardPageWidgetJsonColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -23100,10 +23100,10 @@ class OneDashboardPageWidgetJsonDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a40a9ef01ababd4f15b0832162e698b02e0d0d8c98a2c984793d8558ef75e39)
@@ -23124,7 +23124,7 @@ class OneDashboardPageWidgetJsonDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -23134,7 +23134,7 @@ class OneDashboardPageWidgetJsonDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -23144,7 +23144,7 @@ class OneDashboardPageWidgetJsonDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -23153,7 +23153,7 @@ class OneDashboardPageWidgetJsonDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -23391,8 +23391,8 @@ class OneDashboardPageWidgetJsonDataFormatOutputReference(
 class OneDashboardPageWidgetJsonInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46edace2b69bcc7eae737ff4d5bce58822541fb52e7c2195ee9c15b8015c440a)
@@ -23407,7 +23407,7 @@ class OneDashboardPageWidgetJsonInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -23417,7 +23417,7 @@ class OneDashboardPageWidgetJsonInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -23610,8 +23610,8 @@ class OneDashboardPageWidgetJsonNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b644b5c3d27e0e7c4665fd93b743ac4856e0f6baf4cad80991b9a524dc07258)
@@ -23627,7 +23627,7 @@ class OneDashboardPageWidgetJsonNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -23639,7 +23639,7 @@ class OneDashboardPageWidgetJsonNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -23844,8 +23844,8 @@ class OneDashboardPageWidgetJsonNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetJsonNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85c10232417d48233773b0c50a84462debc514753d8c184f5258dfa22e781adb)
@@ -23859,7 +23859,7 @@ class OneDashboardPageWidgetJsonNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -23869,7 +23869,7 @@ class OneDashboardPageWidgetJsonNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonNullValuesSeriesOverrides"]]], result)
@@ -24088,8 +24088,8 @@ class OneDashboardPageWidgetJsonNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da3b816a92ae284ebdc569698be11dc40a2c171167f89d2e5c7e9e33f9cc6e8b)
@@ -24105,7 +24105,7 @@ class OneDashboardPageWidgetJsonNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -24114,7 +24114,7 @@ class OneDashboardPageWidgetJsonNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -24370,8 +24370,8 @@ class OneDashboardPageWidgetJsonOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetJsonInitialSorting(
             direction=direction, name=name
@@ -24788,8 +24788,8 @@ class OneDashboardPageWidgetJsonUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07df4c09e5bde1f1b664ec383317ed298ed43485009192fdf72bcffba2b5d106)
@@ -24807,14 +24807,14 @@ class OneDashboardPageWidgetJsonUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetJsonUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -25030,8 +25030,8 @@ class OneDashboardPageWidgetJsonUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1bc2ec0e51ad6a5cdaaf6747399a964310babc26736ae6ea30c58633d2bc70bb)
@@ -25047,7 +25047,7 @@ class OneDashboardPageWidgetJsonUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -25056,7 +25056,7 @@ class OneDashboardPageWidgetJsonUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -25308,28 +25308,28 @@ class OneDashboardPageWidgetLine:
         y_axis_right: typing.Optional[typing.Union["OneDashboardPageWidgetLineYAxisRight", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param is_label_visible: Specified if the label should be visible in the graph created when specified with thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#is_label_visible OneDashboard#is_label_visible}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param threshold: threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#threshold OneDashboard#threshold}
-        :param tooltip: tooltip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
-        :param y_axis_left_zero: Specifies if the values on the graph to be rendered need to be fit to scale, or printed within the specified range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_zero OneDashboard#y_axis_left_zero}
-        :param y_axis_right: y_axis_right block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right OneDashboard#y_axis_right}
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param is_label_visible: Specified if the label should be visible in the graph created when specified with thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#is_label_visible OneDashboard#is_label_visible}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param threshold: threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#threshold OneDashboard#threshold}
+        :param tooltip: tooltip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param y_axis_left_zero: Specifies if the values on the graph to be rendered need to be fit to scale, or printed within the specified range. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_zero OneDashboard#y_axis_left_zero}
+        :param y_axis_right: y_axis_right block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right OneDashboard#y_axis_right}
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetLineInitialSorting(**initial_sorting)
@@ -25406,7 +25406,7 @@ class OneDashboardPageWidgetLine:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -25417,7 +25417,7 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -25425,7 +25425,7 @@ class OneDashboardPageWidgetLine:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -25434,7 +25434,7 @@ class OneDashboardPageWidgetLine:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -25446,7 +25446,7 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineColors"]]], result)
@@ -25457,7 +25457,7 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineDataFormat"]]], result)
@@ -25466,13 +25466,13 @@ class OneDashboardPageWidgetLine:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -25480,7 +25480,7 @@ class OneDashboardPageWidgetLine:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -25490,7 +25490,7 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional["OneDashboardPageWidgetLineInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetLineInitialSorting"], result)
@@ -25501,7 +25501,7 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specified if the label should be visible in the graph created when specified with thresholds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#is_label_visible OneDashboard#is_label_visible}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#is_label_visible OneDashboard#is_label_visible}
         '''
         result = self._values.get("is_label_visible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -25510,7 +25510,7 @@ class OneDashboardPageWidgetLine:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -25520,14 +25520,14 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -25537,7 +25537,7 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineThreshold"]]]:
         '''threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#threshold OneDashboard#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#threshold OneDashboard#threshold}
         '''
         result = self._values.get("threshold")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineThreshold"]]], result)
@@ -25546,7 +25546,7 @@ class OneDashboardPageWidgetLine:
     def tooltip(self) -> typing.Optional["OneDashboardPageWidgetLineTooltip"]:
         '''tooltip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
         '''
         result = self._values.get("tooltip")
         return typing.cast(typing.Optional["OneDashboardPageWidgetLineTooltip"], result)
@@ -25557,26 +25557,26 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -25586,7 +25586,7 @@ class OneDashboardPageWidgetLine:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Specifies if the values on the graph to be rendered need to be fit to scale, or printed within the specified range.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_zero OneDashboard#y_axis_left_zero}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_zero OneDashboard#y_axis_left_zero}
         '''
         result = self._values.get("y_axis_left_zero")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -25595,7 +25595,7 @@ class OneDashboardPageWidgetLine:
     def y_axis_right(self) -> typing.Optional["OneDashboardPageWidgetLineYAxisRight"]:
         '''y_axis_right block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right OneDashboard#y_axis_right}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right OneDashboard#y_axis_right}
         '''
         result = self._values.get("y_axis_right")
         return typing.cast(typing.Optional["OneDashboardPageWidgetLineYAxisRight"], result)
@@ -25625,8 +25625,8 @@ class OneDashboardPageWidgetLineColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetLineColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d20e409d528bd2fc7baf74f8dbe5f556f95fe15e29f16538a3cd274326ffeac2)
@@ -25640,7 +25640,7 @@ class OneDashboardPageWidgetLineColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -25650,7 +25650,7 @@ class OneDashboardPageWidgetLineColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineColorsSeriesOverrides"]]], result)
@@ -25867,8 +25867,8 @@ class OneDashboardPageWidgetLineColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8122d0c0d82d3e9d7787f1c8bc8280a39f6e48fc29259146b6c531734a2fcb9)
@@ -25884,7 +25884,7 @@ class OneDashboardPageWidgetLineColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -25893,7 +25893,7 @@ class OneDashboardPageWidgetLineColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -26109,10 +26109,10 @@ class OneDashboardPageWidgetLineDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a776492d23b1b96db3ed58abc5f0f44d580251da2ed4c56720d434c26679cd34)
@@ -26133,7 +26133,7 @@ class OneDashboardPageWidgetLineDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -26143,7 +26143,7 @@ class OneDashboardPageWidgetLineDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -26153,7 +26153,7 @@ class OneDashboardPageWidgetLineDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -26162,7 +26162,7 @@ class OneDashboardPageWidgetLineDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -26400,8 +26400,8 @@ class OneDashboardPageWidgetLineDataFormatOutputReference(
 class OneDashboardPageWidgetLineInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e993d07c5e9e86b9c9c603f75b33aae7c929bc297e517920461dda0d1d52ed73)
@@ -26416,7 +26416,7 @@ class OneDashboardPageWidgetLineInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -26426,7 +26426,7 @@ class OneDashboardPageWidgetLineInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -26619,8 +26619,8 @@ class OneDashboardPageWidgetLineNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2e04d2773849871dc2fd8ae87adb5ff5bd10960506c1f80c01980b6f125a9aa)
@@ -26636,7 +26636,7 @@ class OneDashboardPageWidgetLineNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -26648,7 +26648,7 @@ class OneDashboardPageWidgetLineNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -26853,8 +26853,8 @@ class OneDashboardPageWidgetLineNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetLineNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b6ac923eeea7fbfa0a8a142a00a37bbdd40080d04a086dc0b500081fa1a3388)
@@ -26868,7 +26868,7 @@ class OneDashboardPageWidgetLineNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -26878,7 +26878,7 @@ class OneDashboardPageWidgetLineNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineNullValuesSeriesOverrides"]]], result)
@@ -27097,8 +27097,8 @@ class OneDashboardPageWidgetLineNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de91c6819553ae81133c3df60a19c2dd87bfe97d40f9e886dc7ebf9403cbfe55)
@@ -27114,7 +27114,7 @@ class OneDashboardPageWidgetLineNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -27123,7 +27123,7 @@ class OneDashboardPageWidgetLineNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -27379,8 +27379,8 @@ class OneDashboardPageWidgetLineOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetLineInitialSorting(
             direction=direction, name=name
@@ -27430,7 +27430,7 @@ class OneDashboardPageWidgetLineOutputReference(
     @jsii.member(jsii_name="putTooltip")
     def put_tooltip(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         value = OneDashboardPageWidgetLineTooltip(mode=mode)
 
@@ -27459,10 +27459,10 @@ class OneDashboardPageWidgetLineOutputReference(
         y_axis_right_zero: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param y_axis_right_max: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_max OneDashboard#y_axis_right_max}
-        :param y_axis_right_min: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_min OneDashboard#y_axis_right_min}
-        :param y_axis_right_series: A set of series that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_series OneDashboard#y_axis_right_series}
-        :param y_axis_right_zero: An attribute that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_zero OneDashboard#y_axis_right_zero}
+        :param y_axis_right_max: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_max OneDashboard#y_axis_right_max}
+        :param y_axis_right_min: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_min OneDashboard#y_axis_right_min}
+        :param y_axis_right_series: A set of series that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_series OneDashboard#y_axis_right_series}
+        :param y_axis_right_zero: An attribute that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_zero OneDashboard#y_axis_right_zero}
         '''
         value = OneDashboardPageWidgetLineYAxisRight(
             y_axis_right_max=y_axis_right_max,
@@ -27947,10 +27947,10 @@ class OneDashboardPageWidgetLineThreshold:
         to: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param from_: The number from which the range starts in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#from OneDashboard#from}
-        :param name: Name of the threshold created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param severity: Severity of the threshold, which would reflect in the widget, in the range of the threshold specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#severity OneDashboard#severity}
-        :param to: The number at which the range ends in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#to OneDashboard#to}
+        :param from_: The number from which the range starts in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#from OneDashboard#from}
+        :param name: Name of the threshold created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param severity: Severity of the threshold, which would reflect in the widget, in the range of the threshold specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#severity OneDashboard#severity}
+        :param to: The number at which the range ends in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#to OneDashboard#to}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d4a09cd5e72d84fdfa16d24667eca96775ee29708d9b80f511f7cce2e21eadd)
@@ -27972,7 +27972,7 @@ class OneDashboardPageWidgetLineThreshold:
     def from_(self) -> typing.Optional[builtins.str]:
         '''The number from which the range starts in thresholds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#from OneDashboard#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#from OneDashboard#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -27981,7 +27981,7 @@ class OneDashboardPageWidgetLineThreshold:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of the threshold created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -27990,7 +27990,7 @@ class OneDashboardPageWidgetLineThreshold:
     def severity(self) -> typing.Optional[builtins.str]:
         '''Severity of the threshold, which would reflect in the widget, in the range of the threshold specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#severity OneDashboard#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#severity OneDashboard#severity}
         '''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -27999,7 +27999,7 @@ class OneDashboardPageWidgetLineThreshold:
     def to(self) -> typing.Optional[builtins.str]:
         '''The number at which the range ends in thresholds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#to OneDashboard#to}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#to OneDashboard#to}
         '''
         result = self._values.get("to")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -28245,7 +28245,7 @@ class OneDashboardPageWidgetLineThresholdOutputReference(
 class OneDashboardPageWidgetLineTooltip:
     def __init__(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__be1daed1f6dd98e22376cedfa5618aed68233e1feaf346d954197200e2837492)
@@ -28258,7 +28258,7 @@ class OneDashboardPageWidgetLineTooltip:
     def mode(self) -> builtins.str:
         '''Tooltip display mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -28342,8 +28342,8 @@ class OneDashboardPageWidgetLineUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__03c5cc00186a6bbb6289bc511ef790c0c0f6336b72d111fad1d244df632baeac)
@@ -28361,14 +28361,14 @@ class OneDashboardPageWidgetLineUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLineUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -28584,8 +28584,8 @@ class OneDashboardPageWidgetLineUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e0ca61077d235b0bfe428f1c8d992970056e9027545af4a7541e5f8f22c404b)
@@ -28601,7 +28601,7 @@ class OneDashboardPageWidgetLineUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -28610,7 +28610,7 @@ class OneDashboardPageWidgetLineUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -28826,10 +28826,10 @@ class OneDashboardPageWidgetLineYAxisRight:
         y_axis_right_zero: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param y_axis_right_max: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_max OneDashboard#y_axis_right_max}
-        :param y_axis_right_min: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_min OneDashboard#y_axis_right_min}
-        :param y_axis_right_series: A set of series that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_series OneDashboard#y_axis_right_series}
-        :param y_axis_right_zero: An attribute that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_zero OneDashboard#y_axis_right_zero}
+        :param y_axis_right_max: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_max OneDashboard#y_axis_right_max}
+        :param y_axis_right_min: Minimum value of the range to be specified with the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_min OneDashboard#y_axis_right_min}
+        :param y_axis_right_series: A set of series that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_series OneDashboard#y_axis_right_series}
+        :param y_axis_right_zero: An attribute that helps specify the Y-Axis on the right of the line widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_zero OneDashboard#y_axis_right_zero}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d8f195c7f4acd73b15d680d16b7f5be07e70adc15ea46609ca2ba46089989084)
@@ -28851,7 +28851,7 @@ class OneDashboardPageWidgetLineYAxisRight:
     def y_axis_right_max(self) -> typing.Optional[jsii.Number]:
         '''Minimum value of the range to be specified with the Y-Axis on the right of the line widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_max OneDashboard#y_axis_right_max}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_max OneDashboard#y_axis_right_max}
         '''
         result = self._values.get("y_axis_right_max")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -28860,7 +28860,7 @@ class OneDashboardPageWidgetLineYAxisRight:
     def y_axis_right_min(self) -> typing.Optional[jsii.Number]:
         '''Minimum value of the range to be specified with the Y-Axis on the right of the line widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_min OneDashboard#y_axis_right_min}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_min OneDashboard#y_axis_right_min}
         '''
         result = self._values.get("y_axis_right_min")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -28869,7 +28869,7 @@ class OneDashboardPageWidgetLineYAxisRight:
     def y_axis_right_series(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A set of series that helps specify the Y-Axis on the right of the line widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_series OneDashboard#y_axis_right_series}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_series OneDashboard#y_axis_right_series}
         '''
         result = self._values.get("y_axis_right_series")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -28880,7 +28880,7 @@ class OneDashboardPageWidgetLineYAxisRight:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''An attribute that helps specify the Y-Axis on the right of the line widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_right_zero OneDashboard#y_axis_right_zero}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_right_zero OneDashboard#y_axis_right_zero}
         '''
         result = self._values.get("y_axis_right_zero")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -29070,23 +29070,23 @@ class OneDashboardPageWidgetLogTable:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetLogTableInitialSorting(**initial_sorting)
@@ -29144,7 +29144,7 @@ class OneDashboardPageWidgetLogTable:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -29155,7 +29155,7 @@ class OneDashboardPageWidgetLogTable:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -29163,7 +29163,7 @@ class OneDashboardPageWidgetLogTable:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -29172,7 +29172,7 @@ class OneDashboardPageWidgetLogTable:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -29184,7 +29184,7 @@ class OneDashboardPageWidgetLogTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableColors"]]], result)
@@ -29195,7 +29195,7 @@ class OneDashboardPageWidgetLogTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableDataFormat"]]], result)
@@ -29204,13 +29204,13 @@ class OneDashboardPageWidgetLogTable:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -29218,7 +29218,7 @@ class OneDashboardPageWidgetLogTable:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -29228,7 +29228,7 @@ class OneDashboardPageWidgetLogTable:
     ) -> typing.Optional["OneDashboardPageWidgetLogTableInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetLogTableInitialSorting"], result)
@@ -29237,7 +29237,7 @@ class OneDashboardPageWidgetLogTable:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -29247,14 +29247,14 @@ class OneDashboardPageWidgetLogTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -29264,26 +29264,26 @@ class OneDashboardPageWidgetLogTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -29312,8 +29312,8 @@ class OneDashboardPageWidgetLogTableColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetLogTableColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b037e6df80f16f767af06d55baae1a52571e8ddf578b1ff78d2aaf8b2ee3fee4)
@@ -29327,7 +29327,7 @@ class OneDashboardPageWidgetLogTableColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -29337,7 +29337,7 @@ class OneDashboardPageWidgetLogTableColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableColorsSeriesOverrides"]]], result)
@@ -29556,8 +29556,8 @@ class OneDashboardPageWidgetLogTableColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b55f82c957abbe2259f7d8cb23676caca51bb3ec35b7e3a14235217d43ce4aed)
@@ -29573,7 +29573,7 @@ class OneDashboardPageWidgetLogTableColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -29582,7 +29582,7 @@ class OneDashboardPageWidgetLogTableColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -29798,10 +29798,10 @@ class OneDashboardPageWidgetLogTableDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27ebd278c2de7030ff596ade83c2ae70aded579678da2906e9802c20ac5bdc00)
@@ -29822,7 +29822,7 @@ class OneDashboardPageWidgetLogTableDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -29832,7 +29832,7 @@ class OneDashboardPageWidgetLogTableDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -29842,7 +29842,7 @@ class OneDashboardPageWidgetLogTableDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -29851,7 +29851,7 @@ class OneDashboardPageWidgetLogTableDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -30089,8 +30089,8 @@ class OneDashboardPageWidgetLogTableDataFormatOutputReference(
 class OneDashboardPageWidgetLogTableInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41f75063285276350f90e9c2771df9c6f816d3063d00807f850e53560868c748)
@@ -30105,7 +30105,7 @@ class OneDashboardPageWidgetLogTableInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -30115,7 +30115,7 @@ class OneDashboardPageWidgetLogTableInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -30311,8 +30311,8 @@ class OneDashboardPageWidgetLogTableNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0faeb7a4013b88c959a6bd72f125b3b0b4610529ba148f3aa09e3c66d1151d6c)
@@ -30328,7 +30328,7 @@ class OneDashboardPageWidgetLogTableNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -30340,7 +30340,7 @@ class OneDashboardPageWidgetLogTableNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -30545,8 +30545,8 @@ class OneDashboardPageWidgetLogTableNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetLogTableNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7940e0d251a6fd9e3f4c068b204daa73dafd26985132bc7300b43a25d5327a4d)
@@ -30560,7 +30560,7 @@ class OneDashboardPageWidgetLogTableNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -30570,7 +30570,7 @@ class OneDashboardPageWidgetLogTableNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableNullValuesSeriesOverrides"]]], result)
@@ -30789,8 +30789,8 @@ class OneDashboardPageWidgetLogTableNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__081c8e3f42d1851ce7f44287156b6ef2869b760e4f60070a995ed6ba04a53707)
@@ -30806,7 +30806,7 @@ class OneDashboardPageWidgetLogTableNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -30815,7 +30815,7 @@ class OneDashboardPageWidgetLogTableNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -31071,8 +31071,8 @@ class OneDashboardPageWidgetLogTableOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetLogTableInitialSorting(
             direction=direction, name=name
@@ -31489,8 +31489,8 @@ class OneDashboardPageWidgetLogTableUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a998e63aa8ac392c3a33283a4baca6d57a445a5bdcdfb5d33ecbda0c4a55ac2f)
@@ -31508,14 +31508,14 @@ class OneDashboardPageWidgetLogTableUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetLogTableUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -31733,8 +31733,8 @@ class OneDashboardPageWidgetLogTableUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b1bbabf6e06c28ec9db5204f9c4f8ee77d0b1c5d1660bde75e082b9f06268c2c)
@@ -31750,7 +31750,7 @@ class OneDashboardPageWidgetLogTableUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -31759,7 +31759,7 @@ class OneDashboardPageWidgetLogTableUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -32001,23 +32001,23 @@ class OneDashboardPageWidgetMarkdown:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#text OneDashboard#text}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#text OneDashboard#text}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetMarkdownInitialSorting(**initial_sorting)
@@ -32075,21 +32075,21 @@ class OneDashboardPageWidgetMarkdown:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#text OneDashboard#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#text OneDashboard#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
@@ -32098,7 +32098,7 @@ class OneDashboardPageWidgetMarkdown:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -32110,7 +32110,7 @@ class OneDashboardPageWidgetMarkdown:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownColors"]]], result)
@@ -32121,7 +32121,7 @@ class OneDashboardPageWidgetMarkdown:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownDataFormat"]]], result)
@@ -32130,13 +32130,13 @@ class OneDashboardPageWidgetMarkdown:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -32144,7 +32144,7 @@ class OneDashboardPageWidgetMarkdown:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -32154,7 +32154,7 @@ class OneDashboardPageWidgetMarkdown:
     ) -> typing.Optional["OneDashboardPageWidgetMarkdownInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetMarkdownInitialSorting"], result)
@@ -32163,7 +32163,7 @@ class OneDashboardPageWidgetMarkdown:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -32173,14 +32173,14 @@ class OneDashboardPageWidgetMarkdown:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -32190,26 +32190,26 @@ class OneDashboardPageWidgetMarkdown:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -32238,8 +32238,8 @@ class OneDashboardPageWidgetMarkdownColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetMarkdownColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8efca0fcfe71fac2a9019336f71da85c0d0273e5a7dcc85021996a1545f7257e)
@@ -32253,7 +32253,7 @@ class OneDashboardPageWidgetMarkdownColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -32263,7 +32263,7 @@ class OneDashboardPageWidgetMarkdownColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownColorsSeriesOverrides"]]], result)
@@ -32482,8 +32482,8 @@ class OneDashboardPageWidgetMarkdownColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2e701b3af8481de5deb8f9ee9e259e6dff55b25f9f983d56e8a7f1cfc0a49aa2)
@@ -32499,7 +32499,7 @@ class OneDashboardPageWidgetMarkdownColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -32508,7 +32508,7 @@ class OneDashboardPageWidgetMarkdownColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -32724,10 +32724,10 @@ class OneDashboardPageWidgetMarkdownDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d5b684ba4184efffe829146e8c539809fa4cd12763b67ff0bf9788f120c1568)
@@ -32748,7 +32748,7 @@ class OneDashboardPageWidgetMarkdownDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -32758,7 +32758,7 @@ class OneDashboardPageWidgetMarkdownDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -32768,7 +32768,7 @@ class OneDashboardPageWidgetMarkdownDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -32777,7 +32777,7 @@ class OneDashboardPageWidgetMarkdownDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -33015,8 +33015,8 @@ class OneDashboardPageWidgetMarkdownDataFormatOutputReference(
 class OneDashboardPageWidgetMarkdownInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4886cc152f0cd0f627af477971fce8cfc90e4f875ea039f330995efbaeff512f)
@@ -33031,7 +33031,7 @@ class OneDashboardPageWidgetMarkdownInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -33041,7 +33041,7 @@ class OneDashboardPageWidgetMarkdownInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -33237,8 +33237,8 @@ class OneDashboardPageWidgetMarkdownNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetMarkdownNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__347ada2d0c180cc0d5ce4b621555cc4a7686ad472155ea0a79d7ffc2900a400e)
@@ -33252,7 +33252,7 @@ class OneDashboardPageWidgetMarkdownNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -33262,7 +33262,7 @@ class OneDashboardPageWidgetMarkdownNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownNullValuesSeriesOverrides"]]], result)
@@ -33481,8 +33481,8 @@ class OneDashboardPageWidgetMarkdownNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e1bc3387355924a024575b26ce419c49b2468eb0706c795211ab6aa52f63a32)
@@ -33498,7 +33498,7 @@ class OneDashboardPageWidgetMarkdownNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -33507,7 +33507,7 @@ class OneDashboardPageWidgetMarkdownNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -33763,8 +33763,8 @@ class OneDashboardPageWidgetMarkdownOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetMarkdownInitialSorting(
             direction=direction, name=name
@@ -34173,8 +34173,8 @@ class OneDashboardPageWidgetMarkdownUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d0ae4871b35f7020c54b116ea3938717e6afdd7d8327f813cb17505e06ff927)
@@ -34192,14 +34192,14 @@ class OneDashboardPageWidgetMarkdownUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetMarkdownUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -34417,8 +34417,8 @@ class OneDashboardPageWidgetMarkdownUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5799ff88f7998babea174ccddf76c5e70e2b6b7eb4a8b113644dfe3f20c659e3)
@@ -34434,7 +34434,7 @@ class OneDashboardPageWidgetMarkdownUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -34443,7 +34443,7 @@ class OneDashboardPageWidgetMarkdownUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -34689,25 +34689,25 @@ class OneDashboardPageWidgetPie:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetPieInitialSorting(**initial_sorting)
@@ -34771,7 +34771,7 @@ class OneDashboardPageWidgetPie:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -34782,7 +34782,7 @@ class OneDashboardPageWidgetPie:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -34790,7 +34790,7 @@ class OneDashboardPageWidgetPie:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -34799,7 +34799,7 @@ class OneDashboardPageWidgetPie:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -34811,7 +34811,7 @@ class OneDashboardPageWidgetPie:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieColors"]]], result)
@@ -34822,7 +34822,7 @@ class OneDashboardPageWidgetPie:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieDataFormat"]]], result)
@@ -34831,7 +34831,7 @@ class OneDashboardPageWidgetPie:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -34841,14 +34841,14 @@ class OneDashboardPageWidgetPie:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use this item to filter the current dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
         '''
         result = self._values.get("filter_current_dashboard")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -34856,7 +34856,7 @@ class OneDashboardPageWidgetPie:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -34866,7 +34866,7 @@ class OneDashboardPageWidgetPie:
     ) -> typing.Optional["OneDashboardPageWidgetPieInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetPieInitialSorting"], result)
@@ -34875,7 +34875,7 @@ class OneDashboardPageWidgetPie:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -34883,7 +34883,7 @@ class OneDashboardPageWidgetPie:
     def linked_entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Related entities. Currently only supports Dashboard entities, but may allow other cases in the future.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
         '''
         result = self._values.get("linked_entity_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -34894,14 +34894,14 @@ class OneDashboardPageWidgetPie:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -34911,26 +34911,26 @@ class OneDashboardPageWidgetPie:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -34959,8 +34959,8 @@ class OneDashboardPageWidgetPieColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetPieColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3f1d2fb598d057334470c27ffc26f399c52623d77ed9b739557ca4db6561eae)
@@ -34974,7 +34974,7 @@ class OneDashboardPageWidgetPieColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -34984,7 +34984,7 @@ class OneDashboardPageWidgetPieColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieColorsSeriesOverrides"]]], result)
@@ -35201,8 +35201,8 @@ class OneDashboardPageWidgetPieColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95aca5a29fdf8904a031e7ef9f4d39740623152df7cd5207461062b4e7301360)
@@ -35218,7 +35218,7 @@ class OneDashboardPageWidgetPieColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -35227,7 +35227,7 @@ class OneDashboardPageWidgetPieColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -35443,10 +35443,10 @@ class OneDashboardPageWidgetPieDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b239ea4b34287e46debde26f1e17a058903e373e2a0e05ea06b3dc9772d827ff)
@@ -35467,7 +35467,7 @@ class OneDashboardPageWidgetPieDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -35477,7 +35477,7 @@ class OneDashboardPageWidgetPieDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -35487,7 +35487,7 @@ class OneDashboardPageWidgetPieDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -35496,7 +35496,7 @@ class OneDashboardPageWidgetPieDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -35734,8 +35734,8 @@ class OneDashboardPageWidgetPieDataFormatOutputReference(
 class OneDashboardPageWidgetPieInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6f61990625768ec35606f5ef406cd56f9be9b1aad665b4b8857a7d1776becab)
@@ -35750,7 +35750,7 @@ class OneDashboardPageWidgetPieInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -35760,7 +35760,7 @@ class OneDashboardPageWidgetPieInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -35953,8 +35953,8 @@ class OneDashboardPageWidgetPieNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__daf8bc34fee0d55fbee5733825bd4b8bdb1e4a6ea87c37c6f111f4aa2d2e30ce)
@@ -35970,7 +35970,7 @@ class OneDashboardPageWidgetPieNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -35982,7 +35982,7 @@ class OneDashboardPageWidgetPieNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -36187,8 +36187,8 @@ class OneDashboardPageWidgetPieNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetPieNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6679ca725b91e25bb545a7f8d0020cecafa37fced5659dd600847fef28953048)
@@ -36202,7 +36202,7 @@ class OneDashboardPageWidgetPieNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -36212,7 +36212,7 @@ class OneDashboardPageWidgetPieNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieNullValuesSeriesOverrides"]]], result)
@@ -36431,8 +36431,8 @@ class OneDashboardPageWidgetPieNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7afbe4a5dd7c794623aca47e553c6ae8882e1b7dbefb0e794e73ec3342998b81)
@@ -36448,7 +36448,7 @@ class OneDashboardPageWidgetPieNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -36457,7 +36457,7 @@ class OneDashboardPageWidgetPieNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -36713,8 +36713,8 @@ class OneDashboardPageWidgetPieOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetPieInitialSorting(direction=direction, name=name)
 
@@ -37176,8 +37176,8 @@ class OneDashboardPageWidgetPieUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1da60083a7a2c86cbf3017b4abae2e8e51923e8f45f972a8386c060db0ef2028)
@@ -37195,14 +37195,14 @@ class OneDashboardPageWidgetPieUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetPieUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -37418,8 +37418,8 @@ class OneDashboardPageWidgetPieUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb0bc17853bf6ca3e015226b3b64ee670f9ff5d020a809d92603b0aa69009efc)
@@ -37435,7 +37435,7 @@ class OneDashboardPageWidgetPieUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -37444,7 +37444,7 @@ class OneDashboardPageWidgetPieUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -37688,24 +37688,24 @@ class OneDashboardPageWidgetStackedBar:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param tooltip: tooltip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param tooltip: tooltip block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetStackedBarInitialSorting(**initial_sorting)
@@ -37768,7 +37768,7 @@ class OneDashboardPageWidgetStackedBar:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -37779,7 +37779,7 @@ class OneDashboardPageWidgetStackedBar:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -37787,7 +37787,7 @@ class OneDashboardPageWidgetStackedBar:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -37796,7 +37796,7 @@ class OneDashboardPageWidgetStackedBar:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -37808,7 +37808,7 @@ class OneDashboardPageWidgetStackedBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarColors"]]], result)
@@ -37819,7 +37819,7 @@ class OneDashboardPageWidgetStackedBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarDataFormat"]]], result)
@@ -37828,13 +37828,13 @@ class OneDashboardPageWidgetStackedBar:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -37842,7 +37842,7 @@ class OneDashboardPageWidgetStackedBar:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -37852,7 +37852,7 @@ class OneDashboardPageWidgetStackedBar:
     ) -> typing.Optional["OneDashboardPageWidgetStackedBarInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetStackedBarInitialSorting"], result)
@@ -37861,7 +37861,7 @@ class OneDashboardPageWidgetStackedBar:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -37871,14 +37871,14 @@ class OneDashboardPageWidgetStackedBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -37886,7 +37886,7 @@ class OneDashboardPageWidgetStackedBar:
     def tooltip(self) -> typing.Optional["OneDashboardPageWidgetStackedBarTooltip"]:
         '''tooltip block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#tooltip OneDashboard#tooltip}
         '''
         result = self._values.get("tooltip")
         return typing.cast(typing.Optional["OneDashboardPageWidgetStackedBarTooltip"], result)
@@ -37897,26 +37897,26 @@ class OneDashboardPageWidgetStackedBar:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -37945,8 +37945,8 @@ class OneDashboardPageWidgetStackedBarColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetStackedBarColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bd26eea911c5604fb0e77e17a59d35a9378edd60b6880ec2f96c34eb0fd75f3)
@@ -37960,7 +37960,7 @@ class OneDashboardPageWidgetStackedBarColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -37970,7 +37970,7 @@ class OneDashboardPageWidgetStackedBarColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarColorsSeriesOverrides"]]], result)
@@ -38189,8 +38189,8 @@ class OneDashboardPageWidgetStackedBarColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__932eeb23f27e24302faf82e7ce34278fde7540f1197d4f5d3d8c1612971db567)
@@ -38206,7 +38206,7 @@ class OneDashboardPageWidgetStackedBarColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -38215,7 +38215,7 @@ class OneDashboardPageWidgetStackedBarColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -38431,10 +38431,10 @@ class OneDashboardPageWidgetStackedBarDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fca95ff97c7603038a3b29463e72dea1f30f2ea99cb234c188258b50ebe2375f)
@@ -38455,7 +38455,7 @@ class OneDashboardPageWidgetStackedBarDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -38465,7 +38465,7 @@ class OneDashboardPageWidgetStackedBarDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -38475,7 +38475,7 @@ class OneDashboardPageWidgetStackedBarDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -38484,7 +38484,7 @@ class OneDashboardPageWidgetStackedBarDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -38722,8 +38722,8 @@ class OneDashboardPageWidgetStackedBarDataFormatOutputReference(
 class OneDashboardPageWidgetStackedBarInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0d43850e1b57915009072ceb2f53c85b445747c635c886ef020e5efe9f1773d)
@@ -38738,7 +38738,7 @@ class OneDashboardPageWidgetStackedBarInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -38748,7 +38748,7 @@ class OneDashboardPageWidgetStackedBarInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -38944,8 +38944,8 @@ class OneDashboardPageWidgetStackedBarNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__675cef10884a25b5ee1a32a128aa3e81dbe8480ff251118aee9e1a53fc5e58e3)
@@ -38961,7 +38961,7 @@ class OneDashboardPageWidgetStackedBarNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -38973,7 +38973,7 @@ class OneDashboardPageWidgetStackedBarNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -39178,8 +39178,8 @@ class OneDashboardPageWidgetStackedBarNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetStackedBarNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__58c77d1258b3ae4e1f470c2618d46fdb75655fcd4dca9e63a09a6007ca946f04)
@@ -39193,7 +39193,7 @@ class OneDashboardPageWidgetStackedBarNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -39203,7 +39203,7 @@ class OneDashboardPageWidgetStackedBarNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarNullValuesSeriesOverrides"]]], result)
@@ -39422,8 +39422,8 @@ class OneDashboardPageWidgetStackedBarNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ccbee92d66cafaa85b08ba6969b141e2fcfb2983051b62ac6fad9f597cb7e93f)
@@ -39439,7 +39439,7 @@ class OneDashboardPageWidgetStackedBarNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -39448,7 +39448,7 @@ class OneDashboardPageWidgetStackedBarNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -39704,8 +39704,8 @@ class OneDashboardPageWidgetStackedBarOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetStackedBarInitialSorting(
             direction=direction, name=name
@@ -39742,7 +39742,7 @@ class OneDashboardPageWidgetStackedBarOutputReference(
     @jsii.member(jsii_name="putTooltip")
     def put_tooltip(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         value = OneDashboardPageWidgetStackedBarTooltip(mode=mode)
 
@@ -40142,7 +40142,7 @@ class OneDashboardPageWidgetStackedBarOutputReference(
 class OneDashboardPageWidgetStackedBarTooltip:
     def __init__(self, *, mode: builtins.str) -> None:
         '''
-        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        :param mode: Tooltip display mode. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2253a77baf22128dafef6f6a40517aefcda2f6aa087f52ab6905b4d106ecf210)
@@ -40155,7 +40155,7 @@ class OneDashboardPageWidgetStackedBarTooltip:
     def mode(self) -> builtins.str:
         '''Tooltip display mode.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#mode OneDashboard#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#mode OneDashboard#mode}
         '''
         result = self._values.get("mode")
         assert result is not None, "Required property 'mode' is missing"
@@ -40241,8 +40241,8 @@ class OneDashboardPageWidgetStackedBarUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1ed8dc5fcfbc760823ffefb6ed48e0aca5225c6034170285f4b684921aef5b9a)
@@ -40260,14 +40260,14 @@ class OneDashboardPageWidgetStackedBarUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetStackedBarUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -40485,8 +40485,8 @@ class OneDashboardPageWidgetStackedBarUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__21484fbbe56fbb32ab330df70a64e6073ec92e438719de2fa9365101e7da01a3)
@@ -40502,7 +40502,7 @@ class OneDashboardPageWidgetStackedBarUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -40511,7 +40511,7 @@ class OneDashboardPageWidgetStackedBarUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -40759,26 +40759,26 @@ class OneDashboardPageWidgetTable:
         y_axis_left_min: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
-        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
-        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
-        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.
-        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
-        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
-        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
-        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
-        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
-        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
-        :param threshold: threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#threshold OneDashboard#threshold}
-        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.
-        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
-        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param colors: colors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
+        :param data_format: data_format block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        :param facet_show_other_series: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.
+        :param filter_current_dashboard: Use this item to filter the current dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.
+        :param ignore_time_range: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.
+        :param initial_sorting: initial_sorting block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        :param legend_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.
+        :param linked_entity_guids: Related entities. Currently only supports Dashboard entities, but may allow other cases in the future. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        :param null_values: null_values block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        :param refresh_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.
+        :param threshold: threshold block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#threshold OneDashboard#threshold}
+        :param units: units block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.
+        :param y_axis_left_max: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.
+        :param y_axis_left_min: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.
         '''
         if isinstance(initial_sorting, dict):
             initial_sorting = OneDashboardPageWidgetTableInitialSorting(**initial_sorting)
@@ -40845,7 +40845,7 @@ class OneDashboardPageWidgetTable:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column OneDashboard#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column OneDashboard#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -40856,7 +40856,7 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableNrqlQuery"]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         assert result is not None, "Required property 'nrql_query' is missing"
@@ -40864,7 +40864,7 @@ class OneDashboardPageWidgetTable:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#row OneDashboard#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#row OneDashboard#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -40873,7 +40873,7 @@ class OneDashboardPageWidgetTable:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -40885,7 +40885,7 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableColors"]]]:
         '''colors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#colors OneDashboard#colors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#colors OneDashboard#colors}
         '''
         result = self._values.get("colors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableColors"]]], result)
@@ -40896,7 +40896,7 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableDataFormat"]]]:
         '''data_format block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#data_format OneDashboard#data_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#data_format OneDashboard#data_format}
         '''
         result = self._values.get("data_format")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableDataFormat"]]], result)
@@ -40905,7 +40905,7 @@ class OneDashboardPageWidgetTable:
     def facet_show_other_series(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#facet_show_other_series OneDashboard#facet_show_other_series}.'''
         result = self._values.get("facet_show_other_series")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -40915,14 +40915,14 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Use this item to filter the current dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#filter_current_dashboard OneDashboard#filter_current_dashboard}
         '''
         result = self._values.get("filter_current_dashboard")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#height OneDashboard#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#height OneDashboard#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -40930,7 +40930,7 @@ class OneDashboardPageWidgetTable:
     def ignore_time_range(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}.'''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -40940,7 +40940,7 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Optional["OneDashboardPageWidgetTableInitialSorting"]:
         '''initial_sorting block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#initial_sorting OneDashboard#initial_sorting}
         '''
         result = self._values.get("initial_sorting")
         return typing.cast(typing.Optional["OneDashboardPageWidgetTableInitialSorting"], result)
@@ -40949,7 +40949,7 @@ class OneDashboardPageWidgetTable:
     def legend_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#legend_enabled OneDashboard#legend_enabled}.'''
         result = self._values.get("legend_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -40957,7 +40957,7 @@ class OneDashboardPageWidgetTable:
     def linked_entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Related entities. Currently only supports Dashboard entities, but may allow other cases in the future.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#linked_entity_guids OneDashboard#linked_entity_guids}
         '''
         result = self._values.get("linked_entity_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -40968,14 +40968,14 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableNullValues"]]]:
         '''null_values block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_values OneDashboard#null_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_values OneDashboard#null_values}
         '''
         result = self._values.get("null_values")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableNullValues"]]], result)
 
     @builtins.property
     def refresh_rate(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#refresh_rate OneDashboard#refresh_rate}.'''
         result = self._values.get("refresh_rate")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -40985,7 +40985,7 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableThreshold"]]]:
         '''threshold block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#threshold OneDashboard#threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#threshold OneDashboard#threshold}
         '''
         result = self._values.get("threshold")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableThreshold"]]], result)
@@ -40996,26 +40996,26 @@ class OneDashboardPageWidgetTable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableUnits"]]]:
         '''units block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#units OneDashboard#units}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#units OneDashboard#units}
         '''
         result = self._values.get("units")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableUnits"]]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#width OneDashboard#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#width OneDashboard#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_max(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_max OneDashboard#y_axis_left_max}.'''
         result = self._values.get("y_axis_left_max")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def y_axis_left_min(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#y_axis_left_min OneDashboard#y_axis_left_min}.'''
         result = self._values.get("y_axis_left_min")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -41044,8 +41044,8 @@ class OneDashboardPageWidgetTableColors:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetTableColorsSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param color: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__36193764262771f8a394b38eeab0c4114ae9dba200fd8c97ac700b05db5dd637)
@@ -41059,7 +41059,7 @@ class OneDashboardPageWidgetTableColors:
 
     @builtins.property
     def color(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}.'''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -41069,7 +41069,7 @@ class OneDashboardPageWidgetTableColors:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableColorsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableColorsSeriesOverrides"]]], result)
@@ -41288,8 +41288,8 @@ class OneDashboardPageWidgetTableColorsSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param color: Color code. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d2a0ed4a561354f134e7ed87107e7652d2eae4e0fa28ec2aac1aab1bf58c6123)
@@ -41305,7 +41305,7 @@ class OneDashboardPageWidgetTableColorsSeriesOverrides:
     def color(self) -> typing.Optional[builtins.str]:
         '''Color code.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#color OneDashboard#color}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#color OneDashboard#color}
         '''
         result = self._values.get("color")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -41314,7 +41314,7 @@ class OneDashboardPageWidgetTableColorsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -41530,10 +41530,10 @@ class OneDashboardPageWidgetTableDataFormat:
         precision: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
-        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param type: Defines the type of the mentioned column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param format: Defines the format of the mentioned type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
+        :param precision: The precision of the type. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__28cd7623121a98aacb01bb47b0290b2c8756a7b51997588ee725a6a3dd3278ea)
@@ -41554,7 +41554,7 @@ class OneDashboardPageWidgetTableDataFormat:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -41564,7 +41564,7 @@ class OneDashboardPageWidgetTableDataFormat:
     def type(self) -> builtins.str:
         '''Defines the type of the mentioned column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -41574,7 +41574,7 @@ class OneDashboardPageWidgetTableDataFormat:
     def format(self) -> typing.Optional[builtins.str]:
         '''Defines the format of the mentioned type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#format OneDashboard#format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#format OneDashboard#format}
         '''
         result = self._values.get("format")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -41583,7 +41583,7 @@ class OneDashboardPageWidgetTableDataFormat:
     def precision(self) -> typing.Optional[jsii.Number]:
         '''The precision of the type.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#precision OneDashboard#precision}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#precision OneDashboard#precision}
         '''
         result = self._values.get("precision")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -41821,8 +41821,8 @@ class OneDashboardPageWidgetTableDataFormatOutputReference(
 class OneDashboardPageWidgetTableInitialSorting:
     def __init__(self, *, direction: builtins.str, name: builtins.str) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4650d0fd1a42eac28dcd316d41dc2df4a608a59d0e5430e54851bd3056be8b2c)
@@ -41837,7 +41837,7 @@ class OneDashboardPageWidgetTableInitialSorting:
     def direction(self) -> builtins.str:
         '''Defines the sort order. Either ascending or descending.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
         '''
         result = self._values.get("direction")
         assert result is not None, "Required property 'direction' is missing"
@@ -41847,7 +41847,7 @@ class OneDashboardPageWidgetTableInitialSorting:
     def name(self) -> builtins.str:
         '''The column name to be sorted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -42040,8 +42040,8 @@ class OneDashboardPageWidgetTableNrqlQuery:
         account_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        :param query: The NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_id: The account ID(s) used for the NRQL query. Can be a single account ID or multiple account IDs in a JSON-encoded array. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9afa7c932bbf9161a7a7a0e2324d970afc058eddff7934ce23c3971040f81593)
@@ -42057,7 +42057,7 @@ class OneDashboardPageWidgetTableNrqlQuery:
     def query(self) -> builtins.str:
         '''The NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -42069,7 +42069,7 @@ class OneDashboardPageWidgetTableNrqlQuery:
 
         Can be a single account ID or multiple account IDs in a JSON-encoded array.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_id OneDashboard#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_id OneDashboard#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -42274,8 +42274,8 @@ class OneDashboardPageWidgetTableNullValues:
         series_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardPageWidgetTableNullValuesSeriesOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param null_value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4f76543b0ee4b6709af9837e3fb2438955a22dbe364897efab013d83cd5a6c5)
@@ -42289,7 +42289,7 @@ class OneDashboardPageWidgetTableNullValues:
 
     @builtins.property
     def null_value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}.'''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -42299,7 +42299,7 @@ class OneDashboardPageWidgetTableNullValues:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableNullValuesSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableNullValuesSeriesOverrides"]]], result)
@@ -42518,8 +42518,8 @@ class OneDashboardPageWidgetTableNullValuesSeriesOverrides:
         series_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param null_value: Null value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ca5a27ae756206f615318c2a7ed3c3dd28484c121320a0cf34824594aa32c40)
@@ -42535,7 +42535,7 @@ class OneDashboardPageWidgetTableNullValuesSeriesOverrides:
     def null_value(self) -> typing.Optional[builtins.str]:
         '''Null value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#null_value OneDashboard#null_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#null_value OneDashboard#null_value}
         '''
         result = self._values.get("null_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -42544,7 +42544,7 @@ class OneDashboardPageWidgetTableNullValuesSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -42800,8 +42800,8 @@ class OneDashboardPageWidgetTableOutputReference(
         name: builtins.str,
     ) -> None:
         '''
-        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#direction OneDashboard#direction}
-        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        :param direction: Defines the sort order. Either ascending or descending. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#direction OneDashboard#direction}
+        :param name: The column name to be sorted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         value = OneDashboardPageWidgetTableInitialSorting(
             direction=direction, name=name
@@ -43303,10 +43303,10 @@ class OneDashboardPageWidgetTableThreshold:
         to: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param column_name: Name of the column in the table, to which the threshold would be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column_name OneDashboard#column_name}
-        :param from_: The number from which the range starts in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#from OneDashboard#from}
-        :param severity: Severity of the threshold, which would reflect in the widget, in the range of the threshold specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#severity OneDashboard#severity}
-        :param to: The number at which the range ends in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#to OneDashboard#to}
+        :param column_name: Name of the column in the table, to which the threshold would be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column_name OneDashboard#column_name}
+        :param from_: The number from which the range starts in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#from OneDashboard#from}
+        :param severity: Severity of the threshold, which would reflect in the widget, in the range of the threshold specified. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#severity OneDashboard#severity}
+        :param to: The number at which the range ends in thresholds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#to OneDashboard#to}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f272ddfb7368b9d0622e90e76c24fdf504bbd8dd8616be19807b0af14df515e)
@@ -43328,7 +43328,7 @@ class OneDashboardPageWidgetTableThreshold:
     def column_name(self) -> typing.Optional[builtins.str]:
         '''Name of the column in the table, to which the threshold would be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#column_name OneDashboard#column_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#column_name OneDashboard#column_name}
         '''
         result = self._values.get("column_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -43337,7 +43337,7 @@ class OneDashboardPageWidgetTableThreshold:
     def from_(self) -> typing.Optional[builtins.str]:
         '''The number from which the range starts in thresholds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#from OneDashboard#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#from OneDashboard#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -43346,7 +43346,7 @@ class OneDashboardPageWidgetTableThreshold:
     def severity(self) -> typing.Optional[builtins.str]:
         '''Severity of the threshold, which would reflect in the widget, in the range of the threshold specified.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#severity OneDashboard#severity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#severity OneDashboard#severity}
         '''
         result = self._values.get("severity")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -43355,7 +43355,7 @@ class OneDashboardPageWidgetTableThreshold:
     def to(self) -> typing.Optional[builtins.str]:
         '''The number at which the range ends in thresholds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#to OneDashboard#to}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#to OneDashboard#to}
         '''
         result = self._values.get("to")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -43606,8 +43606,8 @@ class OneDashboardPageWidgetTableUnits:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.
+        :param series_overrides: series_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__93c09a7d8da52b25428713b5dd8c0887c216fa3d03bf08e497a7b9b1689c08c9)
@@ -43625,14 +43625,14 @@ class OneDashboardPageWidgetTableUnits:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableUnitsSeriesOverrides"]]]:
         '''series_overrides block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_overrides OneDashboard#series_overrides}
         '''
         result = self._values.get("series_overrides")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardPageWidgetTableUnitsSeriesOverrides"]]], result)
 
     @builtins.property
     def unit(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}.'''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -43848,8 +43848,8 @@ class OneDashboardPageWidgetTableUnitsSeriesOverrides:
         unit: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
-        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        :param series_name: Series name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        :param unit: Unit name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__446fc3b207943004b42d1be168fce7a81ecf111dc118c448aea23e91443be298)
@@ -43865,7 +43865,7 @@ class OneDashboardPageWidgetTableUnitsSeriesOverrides:
     def series_name(self) -> typing.Optional[builtins.str]:
         '''Series name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#series_name OneDashboard#series_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#series_name OneDashboard#series_name}
         '''
         result = self._values.get("series_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -43874,7 +43874,7 @@ class OneDashboardPageWidgetTableUnitsSeriesOverrides:
     def unit(self) -> typing.Optional[builtins.str]:
         '''Unit name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#unit OneDashboard#unit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#unit OneDashboard#unit}
         '''
         result = self._values.get("unit")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -44100,15 +44100,15 @@ class OneDashboardVariable:
         options: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardVariableOptions", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: The variable identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
-        :param replacement_strategy: Indicates the strategy to apply when replacing a variable in a NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#replacement_strategy OneDashboard#replacement_strategy}
-        :param title: Human-friendly display string for this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
-        :param type: Specifies the data type of the variable and where its possible values may come from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
-        :param default_values: Default values for this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#default_values OneDashboard#default_values}
-        :param is_multi_selection: Indicates whether this variable supports multiple selection or not. Only applies to variables of type NRQL or ENUM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#is_multi_selection OneDashboard#is_multi_selection}
-        :param item: item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#item OneDashboard#item}
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
-        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#options OneDashboard#options}
+        :param name: The variable identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
+        :param replacement_strategy: Indicates the strategy to apply when replacing a variable in a NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#replacement_strategy OneDashboard#replacement_strategy}
+        :param title: Human-friendly display string for this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
+        :param type: Specifies the data type of the variable and where its possible values may come from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
+        :param default_values: Default values for this variable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#default_values OneDashboard#default_values}
+        :param is_multi_selection: Indicates whether this variable supports multiple selection or not. Only applies to variables of type NRQL or ENUM. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#is_multi_selection OneDashboard#is_multi_selection}
+        :param item: item block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#item OneDashboard#item}
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        :param options: options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#options OneDashboard#options}
         '''
         if isinstance(nrql_query, dict):
             nrql_query = OneDashboardVariableNrqlQuery(**nrql_query)
@@ -44144,7 +44144,7 @@ class OneDashboardVariable:
     def name(self) -> builtins.str:
         '''The variable identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#name OneDashboard#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#name OneDashboard#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -44154,7 +44154,7 @@ class OneDashboardVariable:
     def replacement_strategy(self) -> builtins.str:
         '''Indicates the strategy to apply when replacing a variable in a NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#replacement_strategy OneDashboard#replacement_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#replacement_strategy OneDashboard#replacement_strategy}
         '''
         result = self._values.get("replacement_strategy")
         assert result is not None, "Required property 'replacement_strategy' is missing"
@@ -44164,7 +44164,7 @@ class OneDashboardVariable:
     def title(self) -> builtins.str:
         '''Human-friendly display string for this variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -44174,7 +44174,7 @@ class OneDashboardVariable:
     def type(self) -> builtins.str:
         '''Specifies the data type of the variable and where its possible values may come from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#type OneDashboard#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#type OneDashboard#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -44184,7 +44184,7 @@ class OneDashboardVariable:
     def default_values(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Default values for this variable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#default_values OneDashboard#default_values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#default_values OneDashboard#default_values}
         '''
         result = self._values.get("default_values")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -44195,7 +44195,7 @@ class OneDashboardVariable:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether this variable supports multiple selection or not. Only applies to variables of type NRQL or ENUM.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#is_multi_selection OneDashboard#is_multi_selection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#is_multi_selection OneDashboard#is_multi_selection}
         '''
         result = self._values.get("is_multi_selection")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -44206,7 +44206,7 @@ class OneDashboardVariable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardVariableItem"]]]:
         '''item block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#item OneDashboard#item}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#item OneDashboard#item}
         '''
         result = self._values.get("item")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardVariableItem"]]], result)
@@ -44215,7 +44215,7 @@ class OneDashboardVariable:
     def nrql_query(self) -> typing.Optional["OneDashboardVariableNrqlQuery"]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#nrql_query OneDashboard#nrql_query}
         '''
         result = self._values.get("nrql_query")
         return typing.cast(typing.Optional["OneDashboardVariableNrqlQuery"], result)
@@ -44226,7 +44226,7 @@ class OneDashboardVariable:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardVariableOptions"]]]:
         '''options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#options OneDashboard#options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#options OneDashboard#options}
         '''
         result = self._values.get("options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardVariableOptions"]]], result)
@@ -44256,8 +44256,8 @@ class OneDashboardVariableItem:
         title: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param value: A possible variable value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#value OneDashboard#value}
-        :param title: A human-friendly display string for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        :param value: A possible variable value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#value OneDashboard#value}
+        :param title: A human-friendly display string for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c64b88ec3f8bfa78bcee98491b15db8a1a80015a7e55cb0a68a4a9eef671a2e)
@@ -44273,7 +44273,7 @@ class OneDashboardVariableItem:
     def value(self) -> builtins.str:
         '''A possible variable value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#value OneDashboard#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#value OneDashboard#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -44283,7 +44283,7 @@ class OneDashboardVariableItem:
     def title(self) -> typing.Optional[builtins.str]:
         '''A human-friendly display string for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#title OneDashboard#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#title OneDashboard#title}
         '''
         result = self._values.get("title")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -44575,8 +44575,8 @@ class OneDashboardVariableNrqlQuery:
         account_ids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param query: NRQL formatted query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_ids: New Relic account ID(s) to issue the query against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_ids OneDashboard#account_ids}
+        :param query: NRQL formatted query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_ids: New Relic account ID(s) to issue the query against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_ids OneDashboard#account_ids}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d285e813593e095ff97a0067e82b0c88047e9ae8043d748fe8eaf2d53eeadbe5)
@@ -44592,7 +44592,7 @@ class OneDashboardVariableNrqlQuery:
     def query(self) -> builtins.str:
         '''NRQL formatted query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -44602,7 +44602,7 @@ class OneDashboardVariableNrqlQuery:
     def account_ids(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''New Relic account ID(s) to issue the query against.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_ids OneDashboard#account_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_ids OneDashboard#account_ids}
         '''
         result = self._values.get("account_ids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -44706,8 +44706,8 @@ class OneDashboardVariableOptions:
         ignore_time_range: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param excluded: Only applies to variables of type NRQL. With this turned on, query condition defined with the variable will not be included in the query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#excluded OneDashboard#excluded}
-        :param ignore_time_range: Only applies to variables of type NRQL. With this turned on, the time range for the NRQL query will override the time picker on dashboards and other pages. Turn this off to use the time picker as normal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}
+        :param excluded: Only applies to variables of type NRQL. With this turned on, query condition defined with the variable will not be included in the query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#excluded OneDashboard#excluded}
+        :param ignore_time_range: Only applies to variables of type NRQL. With this turned on, the time range for the NRQL query will override the time picker on dashboards and other pages. Turn this off to use the time picker as normal. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ebd33c6be5b7883c54d853819be08868f6a8fe869ee87b92b11e8805d33caf4)
@@ -44727,7 +44727,7 @@ class OneDashboardVariableOptions:
 
         With this turned on, query condition defined with the variable will not be included in the query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#excluded OneDashboard#excluded}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#excluded OneDashboard#excluded}
         '''
         result = self._values.get("excluded")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -44740,7 +44740,7 @@ class OneDashboardVariableOptions:
 
         With this turned on, the time range for the NRQL query will override the time picker on dashboards and other pages. Turn this off to use the time picker as normal.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#ignore_time_range OneDashboard#ignore_time_range}
         '''
         result = self._values.get("ignore_time_range")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -44992,8 +44992,8 @@ class OneDashboardVariableOutputReference(
         account_ids: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param query: NRQL formatted query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#query OneDashboard#query}
-        :param account_ids: New Relic account ID(s) to issue the query against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/one_dashboard#account_ids OneDashboard#account_ids}
+        :param query: NRQL formatted query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#query OneDashboard#query}
+        :param account_ids: New Relic account ID(s) to issue the query against. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/one_dashboard#account_ids OneDashboard#account_ids}
         '''
         value = OneDashboardVariableNrqlQuery(query=query, account_ids=account_ids)
 

@@ -1607,7 +1607,7 @@ struct __pyx_opt_args_7cpython_11contextvars_get_value_no_default {
 };
 struct __pyx_opt_args_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_event_attributes;
 
-/* "ddtrace/internal/_encoding.pyx":919
+/* "ddtrace/internal/_encoding.pyx":918
  *         return ret
  * 
  *     cdef int pack_span_event_attributes(self, object attr, int depth=0) except ? -1:             # <<<<<<<<<<<<<<
@@ -1619,7 +1619,7 @@ struct __pyx_opt_args_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_spa
   int depth;
 };
 
-/* "ddtrace/internal/_encoding.pyx":179
+/* "ddtrace/internal/_encoding.pyx":178
  *     raise TypeError("Unhandled text type: %r" % type(text))
  * 
  * cdef class StringTable(object):             # <<<<<<<<<<<<<<
@@ -1634,7 +1634,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":228
+/* "ddtrace/internal/_encoding.pyx":227
  * 
  * 
  * cdef class ListStringTable(StringTable):             # <<<<<<<<<<<<<<
@@ -1647,7 +1647,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_ListStringTable {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":242
+/* "ddtrace/internal/_encoding.pyx":241
  * 
  * 
  * cdef class MsgpackStringTable(StringTable):             # <<<<<<<<<<<<<<
@@ -1665,7 +1665,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackStringTable {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":363
+/* "ddtrace/internal/_encoding.pyx":362
  * 
  * 
  * cdef class BufferedEncoder(object):             # <<<<<<<<<<<<<<
@@ -1680,7 +1680,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_BufferedEncoder {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":384
+/* "ddtrace/internal/_encoding.pyx":383
  * 
  * 
  * cdef class ListBufferedEncoder(BufferedEncoder):             # <<<<<<<<<<<<<<
@@ -1695,7 +1695,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_ListBufferedEncoder {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":430
+/* "ddtrace/internal/_encoding.pyx":429
  * 
  * 
  * cdef class MsgpackEncoderBase(BufferedEncoder):             # <<<<<<<<<<<<<<
@@ -1710,7 +1710,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":583
+/* "ddtrace/internal/_encoding.pyx":582
  * 
  * 
  * cdef class MsgpackEncoderV04(MsgpackEncoderBase):             # <<<<<<<<<<<<<<
@@ -1723,7 +1723,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":998
+/* "ddtrace/internal/_encoding.pyx":997
  *         return ret
  * 
  * cdef class MsgpackEncoderV05(MsgpackEncoderBase):             # <<<<<<<<<<<<<<
@@ -1736,7 +1736,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 {
 };
 
 
-/* "ddtrace/internal/_encoding.pyx":1148
+/* "ddtrace/internal/_encoding.pyx":1147
  * 
  * 
  * cdef class Packer(object):             # <<<<<<<<<<<<<<
@@ -1755,7 +1755,7 @@ struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer {
 
 
 
-/* "ddtrace/internal/_encoding.pyx":179
+/* "ddtrace/internal/_encoding.pyx":178
  *     raise TypeError("Unhandled text type: %r" % type(text))
  * 
  * cdef class StringTable(object):             # <<<<<<<<<<<<<<
@@ -1772,7 +1772,7 @@ struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable {
 static struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *__pyx_vtabptr_7ddtrace_8internal_9_encoding_StringTable;
 
 
-/* "ddtrace/internal/_encoding.pyx":228
+/* "ddtrace/internal/_encoding.pyx":227
  * 
  * 
  * cdef class ListStringTable(StringTable):             # <<<<<<<<<<<<<<
@@ -1786,7 +1786,7 @@ struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_ListStringTable {
 static struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_ListStringTable *__pyx_vtabptr_7ddtrace_8internal_9_encoding_ListStringTable;
 
 
-/* "ddtrace/internal/_encoding.pyx":242
+/* "ddtrace/internal/_encoding.pyx":241
  * 
  * 
  * cdef class MsgpackStringTable(StringTable):             # <<<<<<<<<<<<<<
@@ -1805,7 +1805,7 @@ struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable {
 static struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *__pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackStringTable;
 
 
-/* "ddtrace/internal/_encoding.pyx":384
+/* "ddtrace/internal/_encoding.pyx":383
  * 
  * 
  * cdef class ListBufferedEncoder(BufferedEncoder):             # <<<<<<<<<<<<<<
@@ -1820,7 +1820,7 @@ struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_ListBufferedEncoder {
 static struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_ListBufferedEncoder *__pyx_vtabptr_7ddtrace_8internal_9_encoding_ListBufferedEncoder;
 
 
-/* "ddtrace/internal/_encoding.pyx":430
+/* "ddtrace/internal/_encoding.pyx":429
  * 
  * 
  * cdef class MsgpackEncoderBase(BufferedEncoder):             # <<<<<<<<<<<<<<
@@ -1846,7 +1846,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__pack_trace(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *, PyObject *);
 
 
-/* "ddtrace/internal/_encoding.pyx":583
+/* "ddtrace/internal/_encoding.pyx":582
  * 
  * 
  * cdef class MsgpackEncoderV04(MsgpackEncoderBase):             # <<<<<<<<<<<<<<
@@ -1869,7 +1869,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_metrics(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *, PyObject *);
 
 
-/* "ddtrace/internal/_encoding.pyx":998
+/* "ddtrace/internal/_encoding.pyx":997
  *         return ret
  * 
  * cdef class MsgpackEncoderV05(MsgpackEncoderBase):             # <<<<<<<<<<<<<<
@@ -1885,7 +1885,7 @@ static struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *
 static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *, PyObject *);
 
 
-/* "ddtrace/internal/_encoding.pyx":1148
+/* "ddtrace/internal/_encoding.pyx":1147
  * 
  * 
  * cdef class Packer(object):             # <<<<<<<<<<<<<<
@@ -5140,12 +5140,11 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
-  PyObject *__pyx_t_6;
-  char *__pyx_t_7;
-  size_t __pyx_t_8;
+  char *__pyx_t_6;
+  size_t __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
   PyObject *__pyx_t_9 = NULL;
   PyObject *__pyx_t_10 = NULL;
-  PyObject *__pyx_t_11 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -5196,7 +5195,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
  *     if PyBytesLike_Check(text):
  *         L = len(text)             # <<<<<<<<<<<<<<
  *         if L > MAX_SPAN_META_VALUE_LEN:
- *             PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(text).tp_name)
+ *             text = truncate_string(text)
 */
     __pyx_t_2 = PyObject_Length(__pyx_v_text); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 149, __pyx_L1_error)
     __pyx_v_L = __pyx_t_2;
@@ -5205,8 +5204,8 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
  *     if PyBytesLike_Check(text):
  *         L = len(text)
  *         if L > MAX_SPAN_META_VALUE_LEN:             # <<<<<<<<<<<<<<
- *             PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(text).tp_name)
  *             text = truncate_string(text)
+ *             L = len(text)
 */
     __pyx_t_3 = PyLong_FromSsize_t(__pyx_v_L); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
@@ -5222,44 +5221,35 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
       /* "ddtrace/internal/_encoding.pyx":151
  *         L = len(text)
  *         if L > MAX_SPAN_META_VALUE_LEN:
- *             PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(text).tp_name)             # <<<<<<<<<<<<<<
- *             text = truncate_string(text)
- *             L = len(text)
-*/
-      __pyx_t_6 = PyErr_Format(__pyx_builtin_ValueError, ((char *)"%.200s object is too large"), Py_TYPE(__pyx_v_text)->tp_name); if (unlikely(__pyx_t_6 == ((PyObject *)0))) __PYX_ERR(0, 151, __pyx_L1_error)
-
-      /* "ddtrace/internal/_encoding.pyx":152
- *         if L > MAX_SPAN_META_VALUE_LEN:
- *             PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(text).tp_name)
  *             text = truncate_string(text)             # <<<<<<<<<<<<<<
  *             L = len(text)
  *         ret = msgpack_pack_raw(pk, L)
 */
-      __pyx_t_5 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_text); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 152, __pyx_L1_error)
+      __pyx_t_5 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_text); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 151, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF_SET(__pyx_v_text, __pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":153
- *             PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(text).tp_name)
+      /* "ddtrace/internal/_encoding.pyx":152
+ *         if L > MAX_SPAN_META_VALUE_LEN:
  *             text = truncate_string(text)
  *             L = len(text)             # <<<<<<<<<<<<<<
  *         ret = msgpack_pack_raw(pk, L)
  *         if ret == 0:
 */
-      __pyx_t_2 = PyObject_Length(__pyx_v_text); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 153, __pyx_L1_error)
+      __pyx_t_2 = PyObject_Length(__pyx_v_text); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 152, __pyx_L1_error)
       __pyx_v_L = __pyx_t_2;
 
       /* "ddtrace/internal/_encoding.pyx":150
  *     if PyBytesLike_Check(text):
  *         L = len(text)
  *         if L > MAX_SPAN_META_VALUE_LEN:             # <<<<<<<<<<<<<<
- *             PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(text).tp_name)
  *             text = truncate_string(text)
+ *             L = len(text)
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":154
+    /* "ddtrace/internal/_encoding.pyx":153
  *             text = truncate_string(text)
  *             L = len(text)
  *         ret = msgpack_pack_raw(pk, L)             # <<<<<<<<<<<<<<
@@ -5268,7 +5258,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
 */
     __pyx_v_ret = msgpack_pack_raw(__pyx_v_pk, __pyx_v_L);
 
-    /* "ddtrace/internal/_encoding.pyx":155
+    /* "ddtrace/internal/_encoding.pyx":154
  *             L = len(text)
  *         ret = msgpack_pack_raw(pk, L)
  *         if ret == 0:             # <<<<<<<<<<<<<<
@@ -5278,17 +5268,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
     __pyx_t_1 = (__pyx_v_ret == 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":156
+      /* "ddtrace/internal/_encoding.pyx":155
  *         ret = msgpack_pack_raw(pk, L)
  *         if ret == 0:
  *             ret = msgpack_pack_raw_body(pk, <char *> text, L)             # <<<<<<<<<<<<<<
  *         return ret
  * 
 */
-      __pyx_t_7 = __Pyx_PyObject_AsWritableString(__pyx_v_text); if (unlikely((!__pyx_t_7) && PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L1_error)
-      __pyx_v_ret = msgpack_pack_raw_body(__pyx_v_pk, ((char *)__pyx_t_7), __pyx_v_L);
+      __pyx_t_6 = __Pyx_PyObject_AsWritableString(__pyx_v_text); if (unlikely((!__pyx_t_6) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L1_error)
+      __pyx_v_ret = msgpack_pack_raw_body(__pyx_v_pk, ((char *)__pyx_t_6), __pyx_v_L);
 
-      /* "ddtrace/internal/_encoding.pyx":155
+      /* "ddtrace/internal/_encoding.pyx":154
  *             L = len(text)
  *         ret = msgpack_pack_raw(pk, L)
  *         if ret == 0:             # <<<<<<<<<<<<<<
@@ -5297,7 +5287,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":157
+    /* "ddtrace/internal/_encoding.pyx":156
  *         if ret == 0:
  *             ret = msgpack_pack_raw_body(pk, <char *> text, L)
  *         return ret             # <<<<<<<<<<<<<<
@@ -5316,7 +5306,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":159
+  /* "ddtrace/internal/_encoding.pyx":158
  *         return ret
  * 
  *     if PyUnicode_Check(text):             # <<<<<<<<<<<<<<
@@ -5326,38 +5316,38 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
   __pyx_t_1 = PyUnicode_Check(__pyx_v_text);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":160
+    /* "ddtrace/internal/_encoding.pyx":159
  * 
  *     if PyUnicode_Check(text):
  *         if len(text) > MAX_SPAN_META_VALUE_LEN:             # <<<<<<<<<<<<<<
  *             text = truncate_string(text)
  *         IF PY_MAJOR_VERSION >= 3:
 */
-    __pyx_t_2 = PyObject_Length(__pyx_v_text); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 160, __pyx_L1_error)
-    __pyx_t_5 = PyLong_FromSsize_t(__pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 160, __pyx_L1_error)
+    __pyx_t_2 = PyObject_Length(__pyx_v_text); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_5 = PyLong_FromSsize_t(__pyx_t_2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 159, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MAX_SPAN_META_VALUE_LEN); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 160, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_MAX_SPAN_META_VALUE_LEN); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 159, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_t_4, Py_GT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 160, __pyx_L1_error)
+    __pyx_t_3 = PyObject_RichCompare(__pyx_t_5, __pyx_t_4, Py_GT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 159, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 160, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 159, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":161
+      /* "ddtrace/internal/_encoding.pyx":160
  *     if PyUnicode_Check(text):
  *         if len(text) > MAX_SPAN_META_VALUE_LEN:
  *             text = truncate_string(text)             # <<<<<<<<<<<<<<
  *         IF PY_MAJOR_VERSION >= 3:
  *             ret = msgpack_pack_unicode(pk, text, ITEM_LIMIT)
 */
-      __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_text); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 161, __pyx_L1_error)
+      __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_text); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 160, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF_SET(__pyx_v_text, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":160
+      /* "ddtrace/internal/_encoding.pyx":159
  * 
  *     if PyUnicode_Check(text):
  *         if len(text) > MAX_SPAN_META_VALUE_LEN:             # <<<<<<<<<<<<<<
@@ -5366,7 +5356,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":163
+    /* "ddtrace/internal/_encoding.pyx":162
  *             text = truncate_string(text)
  *         IF PY_MAJOR_VERSION >= 3:
  *             ret = msgpack_pack_unicode(pk, text, ITEM_LIMIT)             # <<<<<<<<<<<<<<
@@ -5375,7 +5365,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
 */
     __pyx_v_ret = msgpack_pack_unicode(__pyx_v_pk, __pyx_v_text, __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
 
-    /* "ddtrace/internal/_encoding.pyx":164
+    /* "ddtrace/internal/_encoding.pyx":163
  *         IF PY_MAJOR_VERSION >= 3:
  *             ret = msgpack_pack_unicode(pk, text, ITEM_LIMIT)
  *             if ret == -2:             # <<<<<<<<<<<<<<
@@ -5385,7 +5375,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
     __pyx_t_1 = (__pyx_v_ret == -2L);
     if (unlikely(__pyx_t_1)) {
 
-      /* "ddtrace/internal/_encoding.pyx":165
+      /* "ddtrace/internal/_encoding.pyx":164
  *             ret = msgpack_pack_unicode(pk, text, ITEM_LIMIT)
  *             if ret == -2:
  *                 raise ValueError("unicode string is too large")             # <<<<<<<<<<<<<<
@@ -5395,20 +5385,20 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
       __pyx_t_4 = NULL;
       __Pyx_INCREF(__pyx_builtin_ValueError);
       __pyx_t_5 = __pyx_builtin_ValueError; 
-      __pyx_t_8 = 1;
+      __pyx_t_7 = 1;
       {
         PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_unicode_string_is_too_large};
-        __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 165, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_Raise(__pyx_t_3, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __PYX_ERR(0, 165, __pyx_L1_error)
+      __PYX_ERR(0, 164, __pyx_L1_error)
 
-      /* "ddtrace/internal/_encoding.pyx":164
+      /* "ddtrace/internal/_encoding.pyx":163
  *         IF PY_MAJOR_VERSION >= 3:
  *             ret = msgpack_pack_unicode(pk, text, ITEM_LIMIT)
  *             if ret == -2:             # <<<<<<<<<<<<<<
@@ -5417,7 +5407,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":175
+    /* "ddtrace/internal/_encoding.pyx":174
  *                 ret = msgpack_pack_raw_body(pk, <char *> text, L)
  * 
  *         return ret             # <<<<<<<<<<<<<<
@@ -5427,7 +5417,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":159
+    /* "ddtrace/internal/_encoding.pyx":158
  *         return ret
  * 
  *     if PyUnicode_Check(text):             # <<<<<<<<<<<<<<
@@ -5436,7 +5426,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":177
+  /* "ddtrace/internal/_encoding.pyx":176
  *         return ret
  * 
  *     raise TypeError("Unhandled text type: %r" % type(text))             # <<<<<<<<<<<<<<
@@ -5446,34 +5436,34 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
   __pyx_t_5 = NULL;
   __Pyx_INCREF(__pyx_builtin_TypeError);
   __pyx_t_4 = __pyx_builtin_TypeError; 
-  __pyx_t_10 = NULL;
+  __pyx_t_9 = NULL;
   __Pyx_INCREF((PyObject *)__pyx_mstate_global->__pyx_ptype_7cpython_4type_type);
-  __pyx_t_11 = ((PyObject *)__pyx_mstate_global->__pyx_ptype_7cpython_4type_type); 
-  __pyx_t_8 = 1;
+  __pyx_t_10 = ((PyObject *)__pyx_mstate_global->__pyx_ptype_7cpython_4type_type); 
+  __pyx_t_7 = 1;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_10, __pyx_v_text};
-    __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 177, __pyx_L1_error)
-    __Pyx_GOTREF((PyObject *)__pyx_t_9);
+    PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_text};
+    __pyx_t_8 = __Pyx_PyObject_FastCall(__pyx_t_10, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 176, __pyx_L1_error)
+    __Pyx_GOTREF((PyObject *)__pyx_t_8);
   }
-  __pyx_t_11 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Unhandled_text_type_r, ((PyObject *)__pyx_t_9)); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 177, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_11);
-  __Pyx_DECREF((PyObject *)__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_8 = 1;
+  __pyx_t_10 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Unhandled_text_type_r, ((PyObject *)__pyx_t_8)); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 176, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __Pyx_DECREF((PyObject *)__pyx_t_8); __pyx_t_8 = 0;
+  __pyx_t_7 = 1;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_11};
-    __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_10};
+    __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 177, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 176, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_Raise(__pyx_t_3, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __PYX_ERR(0, 177, __pyx_L1_error)
+  __PYX_ERR(0, 176, __pyx_L1_error)
 
   /* "ddtrace/internal/_encoding.pyx":141
  * 
@@ -5488,9 +5478,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_8);
   __Pyx_XDECREF(__pyx_t_9);
   __Pyx_XDECREF(__pyx_t_10);
-  __Pyx_XDECREF(__pyx_t_11);
   __Pyx_AddTraceback("ddtrace.internal._encoding.pack_text", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = -1;
   __pyx_L0:;
@@ -5499,7 +5489,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_pack_text(struct 
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":183
+/* "ddtrace/internal/_encoding.pyx":182
  *     cdef stdint.uint32_t _next_id
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -5541,34 +5531,34 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_11StringTable___init__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":184
+  /* "ddtrace/internal/_encoding.pyx":183
  * 
  *     def __init__(self):
  *         self._table = {"": 0}             # <<<<<<<<<<<<<<
  *         self.insert("")
  *         self._next_id = 1
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_, __pyx_mstate_global->__pyx_int_0) < 0) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_, __pyx_mstate_global->__pyx_int_0) < 0) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_table);
   __Pyx_DECREF(__pyx_v_self->_table);
   __pyx_v_self->_table = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":185
+  /* "ddtrace/internal/_encoding.pyx":184
  *     def __init__(self):
  *         self._table = {"": 0}
  *         self.insert("")             # <<<<<<<<<<<<<<
  *         self._next_id = 1
  * 
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->insert(__pyx_v_self, __pyx_mstate_global->__pyx_kp_u_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->insert(__pyx_v_self, __pyx_mstate_global->__pyx_kp_u_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":186
+  /* "ddtrace/internal/_encoding.pyx":185
  *         self._table = {"": 0}
  *         self.insert("")
  *         self._next_id = 1             # <<<<<<<<<<<<<<
@@ -5577,7 +5567,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_11StringTable___init__(struct 
 */
   __pyx_v_self->_next_id = 1;
 
-  /* "ddtrace/internal/_encoding.pyx":183
+  /* "ddtrace/internal/_encoding.pyx":182
  *     cdef stdint.uint32_t _next_id
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -5597,7 +5587,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_11StringTable___init__(struct 
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":188
+/* "ddtrace/internal/_encoding.pyx":187
  *         self._next_id = 1
  * 
  *     cdef insert(self, object string):             # <<<<<<<<<<<<<<
@@ -5617,7 +5607,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_insert(CYTH
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":191
+/* "ddtrace/internal/_encoding.pyx":190
  *         pass
  * 
  *     cdef stdint.uint32_t _index(self, object string) except? -1:             # <<<<<<<<<<<<<<
@@ -5642,7 +5632,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_index", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":195
+  /* "ddtrace/internal/_encoding.pyx":194
  *         cdef int ret
  * 
  *         if string is None:             # <<<<<<<<<<<<<<
@@ -5652,7 +5642,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   __pyx_t_1 = (__pyx_v_string == Py_None);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":196
+    /* "ddtrace/internal/_encoding.pyx":195
  * 
  *         if string is None:
  *             return 0             # <<<<<<<<<<<<<<
@@ -5662,7 +5652,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":195
+    /* "ddtrace/internal/_encoding.pyx":194
  *         cdef int ret
  * 
  *         if string is None:             # <<<<<<<<<<<<<<
@@ -5671,7 +5661,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":198
+  /* "ddtrace/internal/_encoding.pyx":197
  *             return 0
  * 
  *         ret = PyDict_Contains(self._table, string)             # <<<<<<<<<<<<<<
@@ -5680,11 +5670,11 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
 */
   __pyx_t_2 = __pyx_v_self->_table;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_3 = PyDict_Contains(__pyx_t_2, __pyx_v_string); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 198, __pyx_L1_error)
+  __pyx_t_3 = PyDict_Contains(__pyx_t_2, __pyx_v_string); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 197, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret = __pyx_t_3;
 
-  /* "ddtrace/internal/_encoding.pyx":199
+  /* "ddtrace/internal/_encoding.pyx":198
  * 
  *         ret = PyDict_Contains(self._table, string)
  *         if ret == -1:             # <<<<<<<<<<<<<<
@@ -5694,7 +5684,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   __pyx_t_1 = (__pyx_v_ret == -1L);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":200
+    /* "ddtrace/internal/_encoding.pyx":199
  *         ret = PyDict_Contains(self._table, string)
  *         if ret == -1:
  *             return ret             # <<<<<<<<<<<<<<
@@ -5704,7 +5694,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":199
+    /* "ddtrace/internal/_encoding.pyx":198
  * 
  *         ret = PyDict_Contains(self._table, string)
  *         if ret == -1:             # <<<<<<<<<<<<<<
@@ -5713,7 +5703,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":201
+  /* "ddtrace/internal/_encoding.pyx":200
  *         if ret == -1:
  *             return ret
  *         if ret:             # <<<<<<<<<<<<<<
@@ -5723,7 +5713,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":202
+    /* "ddtrace/internal/_encoding.pyx":201
  *             return ret
  *         if ret:
  *             return PyLong_AsLong(<object>PyDict_GetItem(self._table, string))             # <<<<<<<<<<<<<<
@@ -5734,11 +5724,11 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
     __Pyx_INCREF(__pyx_t_2);
     __pyx_t_4 = PyDict_GetItem(__pyx_t_2, __pyx_v_string);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_5 = PyLong_AsLong(((PyObject *)__pyx_t_4)); if (unlikely(__pyx_t_5 == ((long)-1) && PyErr_Occurred())) __PYX_ERR(0, 202, __pyx_L1_error)
+    __pyx_t_5 = PyLong_AsLong(((PyObject *)__pyx_t_4)); if (unlikely(__pyx_t_5 == ((long)-1) && PyErr_Occurred())) __PYX_ERR(0, 201, __pyx_L1_error)
     __pyx_r = __pyx_t_5;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":201
+    /* "ddtrace/internal/_encoding.pyx":200
  *         if ret == -1:
  *             return ret
  *         if ret:             # <<<<<<<<<<<<<<
@@ -5747,7 +5737,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":204
+  /* "ddtrace/internal/_encoding.pyx":203
  *             return PyLong_AsLong(<object>PyDict_GetItem(self._table, string))
  * 
  *         _id = self._next_id             # <<<<<<<<<<<<<<
@@ -5757,7 +5747,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   __pyx_t_6 = __pyx_v_self->_next_id;
   __pyx_v__id = __pyx_t_6;
 
-  /* "ddtrace/internal/_encoding.pyx":205
+  /* "ddtrace/internal/_encoding.pyx":204
  * 
  *         _id = self._next_id
  *         ret = PyDict_SetItem(self._table, string, PyLong_FromLong(_id))             # <<<<<<<<<<<<<<
@@ -5766,14 +5756,14 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
 */
   __pyx_t_2 = __pyx_v_self->_table;
   __Pyx_INCREF(__pyx_t_2);
-  __pyx_t_7 = PyLong_FromLong(__pyx_v__id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __pyx_t_7 = PyLong_FromLong(__pyx_v__id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_3 = PyDict_SetItem(__pyx_t_2, __pyx_v_string, __pyx_t_7); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 205, __pyx_L1_error)
+  __pyx_t_3 = PyDict_SetItem(__pyx_t_2, __pyx_v_string, __pyx_t_7); if (unlikely(__pyx_t_3 == ((int)-1))) __PYX_ERR(0, 204, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_v_ret = __pyx_t_3;
 
-  /* "ddtrace/internal/_encoding.pyx":206
+  /* "ddtrace/internal/_encoding.pyx":205
  *         _id = self._next_id
  *         ret = PyDict_SetItem(self._table, string, PyLong_FromLong(_id))
  *         if ret == -1:             # <<<<<<<<<<<<<<
@@ -5783,7 +5773,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   __pyx_t_1 = (__pyx_v_ret == -1L);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":207
+    /* "ddtrace/internal/_encoding.pyx":206
  *         ret = PyDict_SetItem(self._table, string, PyLong_FromLong(_id))
  *         if ret == -1:
  *             return ret             # <<<<<<<<<<<<<<
@@ -5793,7 +5783,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":206
+    /* "ddtrace/internal/_encoding.pyx":205
  *         _id = self._next_id
  *         ret = PyDict_SetItem(self._table, string, PyLong_FromLong(_id))
  *         if ret == -1:             # <<<<<<<<<<<<<<
@@ -5802,18 +5792,18 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":208
+  /* "ddtrace/internal/_encoding.pyx":207
  *         if ret == -1:
  *             return ret
  *         self.insert(string)             # <<<<<<<<<<<<<<
  *         self._next_id += 1
  *         return _id
 */
-  __pyx_t_7 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->insert(__pyx_v_self, __pyx_v_string); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __pyx_t_7 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->insert(__pyx_v_self, __pyx_v_string); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 207, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":209
+  /* "ddtrace/internal/_encoding.pyx":208
  *             return ret
  *         self.insert(string)
  *         self._next_id += 1             # <<<<<<<<<<<<<<
@@ -5822,7 +5812,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
 */
   __pyx_v_self->_next_id = (__pyx_v_self->_next_id + 1);
 
-  /* "ddtrace/internal/_encoding.pyx":210
+  /* "ddtrace/internal/_encoding.pyx":209
  *         self.insert(string)
  *         self._next_id += 1
  *         return _id             # <<<<<<<<<<<<<<
@@ -5832,7 +5822,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   __pyx_r = __pyx_v__id;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":191
+  /* "ddtrace/internal/_encoding.pyx":190
  *         pass
  * 
  *     cdef stdint.uint32_t _index(self, object string) except? -1:             # <<<<<<<<<<<<<<
@@ -5851,7 +5841,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable__index(struc
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":212
+/* "ddtrace/internal/_encoding.pyx":211
  *         return _id
  * 
  *     cpdef stdint.uint32_t index(self, object string) except? -1:             # <<<<<<<<<<<<<<
@@ -5895,7 +5885,7 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable_index(struct
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_index); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_11StringTable_3index)) {
         __pyx_t_3 = NULL;
@@ -5918,10 +5908,10 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable_index(struct
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 211, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
-        __pyx_t_6 = __Pyx_PyLong_As_uint32_t(__pyx_t_2); if (unlikely((__pyx_t_6 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_As_uint32_t(__pyx_t_2); if (unlikely((__pyx_t_6 == ((uint32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_r = __pyx_t_6;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -5940,18 +5930,18 @@ static uint32_t __pyx_f_7ddtrace_8internal_9_encoding_11StringTable_index(struct
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":213
+  /* "ddtrace/internal/_encoding.pyx":212
  * 
  *     cpdef stdint.uint32_t index(self, object string) except? -1:
  *         return self._index(string)             # <<<<<<<<<<<<<<
  * 
  *     cdef reset(self):
 */
-  __pyx_t_6 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->_index(__pyx_v_self, __pyx_v_string); if (unlikely(__pyx_t_6 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_6 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->_index(__pyx_v_self, __pyx_v_string); if (unlikely(__pyx_t_6 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L1_error)
   __pyx_r = __pyx_t_6;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":212
+  /* "ddtrace/internal/_encoding.pyx":211
  *         return _id
  * 
  *     cpdef stdint.uint32_t index(self, object string) except? -1:             # <<<<<<<<<<<<<<
@@ -6011,32 +6001,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_string,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 212, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 211, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 212, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 211, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "index", 0) < 0) __PYX_ERR(0, 212, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "index", 0) < 0) __PYX_ERR(0, 211, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("index", 1, 1, 1, i); __PYX_ERR(0, 212, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("index", 1, 1, 1, i); __PYX_ERR(0, 211, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 212, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 211, __pyx_L3_error)
     }
     __pyx_v_string = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("index", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 212, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("index", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 211, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6067,8 +6057,8 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_11StringTable_2index(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("index", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_11StringTable_index(__pyx_v_self, __pyx_v_string, 1); if (unlikely(__pyx_t_1 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 212, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_uint32_t(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_11StringTable_index(__pyx_v_self, __pyx_v_string, 1); if (unlikely(__pyx_t_1 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_uint32_t(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -6085,7 +6075,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_11StringTable_2index(str
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":215
+/* "ddtrace/internal/_encoding.pyx":214
  *         return self._index(string)
  * 
  *     cdef reset(self):             # <<<<<<<<<<<<<<
@@ -6103,7 +6093,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset(struc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("reset", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":216
+  /* "ddtrace/internal/_encoding.pyx":215
  * 
  *     cdef reset(self):
  *         PyDict_Clear(self._table)             # <<<<<<<<<<<<<<
@@ -6115,7 +6105,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset(struc
   PyDict_Clear(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":217
+  /* "ddtrace/internal/_encoding.pyx":216
  *     cdef reset(self):
  *         PyDict_Clear(self._table)
  *         PyDict_SetItem(self._table, "", 0)             # <<<<<<<<<<<<<<
@@ -6124,21 +6114,21 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset(struc
 */
   __pyx_t_1 = __pyx_v_self->_table;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_, __pyx_mstate_global->__pyx_int_0); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 217, __pyx_L1_error)
+  __pyx_t_2 = PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_, __pyx_mstate_global->__pyx_int_0); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 216, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":218
+  /* "ddtrace/internal/_encoding.pyx":217
  *         PyDict_Clear(self._table)
  *         PyDict_SetItem(self._table, "", 0)
  *         self.insert("")             # <<<<<<<<<<<<<<
  *         self._next_id = 1
  * 
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->insert(__pyx_v_self, __pyx_mstate_global->__pyx_kp_u_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 218, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->__pyx_vtab)->insert(__pyx_v_self, __pyx_mstate_global->__pyx_kp_u_); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":219
+  /* "ddtrace/internal/_encoding.pyx":218
  *         PyDict_SetItem(self._table, "", 0)
  *         self.insert("")
  *         self._next_id = 1             # <<<<<<<<<<<<<<
@@ -6147,7 +6137,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset(struc
 */
   __pyx_v_self->_next_id = 1;
 
-  /* "ddtrace/internal/_encoding.pyx":215
+  /* "ddtrace/internal/_encoding.pyx":214
  *         return self._index(string)
  * 
  *     cdef reset(self):             # <<<<<<<<<<<<<<
@@ -6168,7 +6158,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset(struc
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":221
+/* "ddtrace/internal/_encoding.pyx":220
  *         self._next_id = 1
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -6201,21 +6191,21 @@ static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_11StringTable_4__len__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__len__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":222
+  /* "ddtrace/internal/_encoding.pyx":221
  * 
  *     def __len__(self):
  *         return PyLong_FromLong(self._next_id)             # <<<<<<<<<<<<<<
  * 
  *     def __contains__(self, object string):
 */
-  __pyx_t_1 = PyLong_FromLong(__pyx_v_self->_next_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_1 = PyLong_FromLong(__pyx_v_self->_next_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyIndex_AsSsize_t(__pyx_t_1); if (unlikely((__pyx_t_2 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyIndex_AsSsize_t(__pyx_t_1); if (unlikely((__pyx_t_2 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":221
+  /* "ddtrace/internal/_encoding.pyx":220
  *         self._next_id = 1
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -6233,7 +6223,7 @@ static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_11StringTable_4__len__(
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":224
+/* "ddtrace/internal/_encoding.pyx":223
  *         return PyLong_FromLong(self._next_id)
  * 
  *     def __contains__(self, object string):             # <<<<<<<<<<<<<<
@@ -6266,7 +6256,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_11StringTable_6__contains__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__contains__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":225
+  /* "ddtrace/internal/_encoding.pyx":224
  * 
  *     def __contains__(self, object string):
  *         return PyBool_FromLong(PyDict_Contains(self._table, string))             # <<<<<<<<<<<<<<
@@ -6275,16 +6265,16 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_11StringTable_6__contains__(st
 */
   __pyx_t_1 = __pyx_v_self->_table;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyDict_Contains(__pyx_t_1, __pyx_v_string); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = PyDict_Contains(__pyx_t_1, __pyx_v_string); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_1 = PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_As_int(__pyx_t_1); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":224
+  /* "ddtrace/internal/_encoding.pyx":223
  *         return PyLong_FromLong(self._next_id)
  * 
  *     def __contains__(self, object string):             # <<<<<<<<<<<<<<
@@ -6725,7 +6715,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_11StringTable_10__setsta
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":231
+/* "ddtrace/internal/_encoding.pyx":230
  *     cdef list _list
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -6772,14 +6762,14 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable___init__(str
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":232
+  /* "ddtrace/internal/_encoding.pyx":231
  * 
  *     def __init__(self):
  *         self._list = []             # <<<<<<<<<<<<<<
  *         super(ListStringTable, self).__init__()
  * 
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 232, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_list);
@@ -6787,7 +6777,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable___init__(str
   __pyx_v_self->_list = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":233
+  /* "ddtrace/internal/_encoding.pyx":232
  *     def __init__(self):
  *         self._list = []
  *         super(ListStringTable, self).__init__()             # <<<<<<<<<<<<<<
@@ -6803,7 +6793,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable___init__(str
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 233, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 232, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -6814,12 +6804,12 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable___init__(str
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_init, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 232, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":231
+  /* "ddtrace/internal/_encoding.pyx":230
  *     cdef list _list
  * 
  *     def __init__(self):             # <<<<<<<<<<<<<<
@@ -6843,7 +6833,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable___init__(str
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":235
+/* "ddtrace/internal/_encoding.pyx":234
  *         super(ListStringTable, self).__init__()
  * 
  *     cdef insert(self, object string):             # <<<<<<<<<<<<<<
@@ -6861,7 +6851,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_15ListStringTable_insert(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("insert", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":236
+  /* "ddtrace/internal/_encoding.pyx":235
  * 
  *     cdef insert(self, object string):
  *         PyList_Append(self._list, string)             # <<<<<<<<<<<<<<
@@ -6870,10 +6860,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_15ListStringTable_insert(
 */
   __pyx_t_1 = __pyx_v_self->_list;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyList_Append(__pyx_t_1, __pyx_v_string); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_2 = PyList_Append(__pyx_t_1, __pyx_v_string); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 235, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":235
+  /* "ddtrace/internal/_encoding.pyx":234
  *         super(ListStringTable, self).__init__()
  * 
  *     cdef insert(self, object string):             # <<<<<<<<<<<<<<
@@ -6894,7 +6884,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_15ListStringTable_insert(
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":238
+/* "ddtrace/internal/_encoding.pyx":237
  *         PyList_Append(self._list, string)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
@@ -6927,7 +6917,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable_2__ite
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__iter__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":239
+  /* "ddtrace/internal/_encoding.pyx":238
  * 
  *     def __iter__(self):
  *         return iter(self._list)             # <<<<<<<<<<<<<<
@@ -6937,14 +6927,14 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable_2__ite
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __pyx_v_self->_list;
   __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":238
+  /* "ddtrace/internal/_encoding.pyx":237
  *         PyList_Append(self._list, string)
  * 
  *     def __iter__(self):             # <<<<<<<<<<<<<<
@@ -7399,7 +7389,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15ListStringTable_6__set
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":250
+/* "ddtrace/internal/_encoding.pyx":249
  *     cdef size_t _reset_size
  * 
  *     def __init__(self, max_size):             # <<<<<<<<<<<<<<
@@ -7429,32 +7419,32 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackStringTable_1__init__
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_max_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 250, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 249, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 250, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 249, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 250, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 249, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 250, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 249, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 250, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 249, __pyx_L3_error)
     }
     __pyx_v_max_size = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 250, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 249, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7493,7 +7483,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":251
+  /* "ddtrace/internal/_encoding.pyx":250
  * 
  *     def __init__(self, max_size):
  *         self.pk.buf_size = min(max_size, 1 << 20)             # <<<<<<<<<<<<<<
@@ -7503,14 +7493,14 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
   __pyx_t_1 = 0x100000;
   __Pyx_INCREF(__pyx_v_max_size);
   __pyx_t_2 = __pyx_v_max_size;
-  __pyx_t_4 = __Pyx_PyLong_From_long(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 251, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_From_long(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, __pyx_t_2, Py_LT); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 251, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_4, __pyx_t_2, Py_LT); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 251, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_6) {
-    __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 251, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_From_long(__pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 250, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_3 = __pyx_t_5;
     __pyx_t_5 = 0;
@@ -7519,11 +7509,11 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
     __pyx_t_3 = __pyx_t_2;
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_7 = __Pyx_PyLong_As_size_t(__pyx_t_3); if (unlikely((__pyx_t_7 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 251, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyLong_As_size_t(__pyx_t_3); if (unlikely((__pyx_t_7 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_self->pk.buf_size = __pyx_t_7;
 
-  /* "ddtrace/internal/_encoding.pyx":252
+  /* "ddtrace/internal/_encoding.pyx":251
  *     def __init__(self, max_size):
  *         self.pk.buf_size = min(max_size, 1 << 20)
  *         self.pk.buf = <char*> PyMem_Malloc(self.pk.buf_size)             # <<<<<<<<<<<<<<
@@ -7532,7 +7522,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
 */
   __pyx_v_self->pk.buf = ((char *)PyMem_Malloc(__pyx_v_self->pk.buf_size));
 
-  /* "ddtrace/internal/_encoding.pyx":253
+  /* "ddtrace/internal/_encoding.pyx":252
  *         self.pk.buf_size = min(max_size, 1 << 20)
  *         self.pk.buf = <char*> PyMem_Malloc(self.pk.buf_size)
  *         if self.pk.buf == NULL:             # <<<<<<<<<<<<<<
@@ -7542,7 +7532,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
   __pyx_t_6 = (__pyx_v_self->pk.buf == NULL);
   if (unlikely(__pyx_t_6)) {
 
-    /* "ddtrace/internal/_encoding.pyx":254
+    /* "ddtrace/internal/_encoding.pyx":253
  *         self.pk.buf = <char*> PyMem_Malloc(self.pk.buf_size)
  *         if self.pk.buf == NULL:
  *             raise MemoryError("Unable to allocate internal buffer.")             # <<<<<<<<<<<<<<
@@ -7558,14 +7548,14 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 254, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 254, __pyx_L1_error)
+    __PYX_ERR(0, 253, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":253
+    /* "ddtrace/internal/_encoding.pyx":252
  *         self.pk.buf_size = min(max_size, 1 << 20)
  *         self.pk.buf = <char*> PyMem_Malloc(self.pk.buf_size)
  *         if self.pk.buf == NULL:             # <<<<<<<<<<<<<<
@@ -7574,17 +7564,17 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":255
+  /* "ddtrace/internal/_encoding.pyx":254
  *         if self.pk.buf == NULL:
  *             raise MemoryError("Unable to allocate internal buffer.")
  *         self.max_size = max_size             # <<<<<<<<<<<<<<
  *         self.pk.length = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE
  *         self._sp_len = 0
 */
-  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_max_size); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_As_int(__pyx_v_max_size); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 254, __pyx_L1_error)
   __pyx_v_self->max_size = __pyx_t_8;
 
-  /* "ddtrace/internal/_encoding.pyx":256
+  /* "ddtrace/internal/_encoding.pyx":255
  *             raise MemoryError("Unable to allocate internal buffer.")
  *         self.max_size = max_size
  *         self.pk.length = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE             # <<<<<<<<<<<<<<
@@ -7593,7 +7583,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
 */
   __pyx_v_self->pk.length = 6;
 
-  /* "ddtrace/internal/_encoding.pyx":257
+  /* "ddtrace/internal/_encoding.pyx":256
  *         self.max_size = max_size
  *         self.pk.length = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE
  *         self._sp_len = 0             # <<<<<<<<<<<<<<
@@ -7602,7 +7592,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
 */
   __pyx_v_self->_sp_len = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":258
+  /* "ddtrace/internal/_encoding.pyx":257
  *         self.pk.length = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE
  *         self._sp_len = 0
  *         self._lock = threading.RLock()             # <<<<<<<<<<<<<<
@@ -7610,9 +7600,9 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
  * 
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 257, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_RLock); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_RLock); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 257, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_7 = 1;
@@ -7632,7 +7622,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 258, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 257, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_GIVEREF(__pyx_t_3);
@@ -7641,7 +7631,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
   __pyx_v_self->_lock = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":259
+  /* "ddtrace/internal/_encoding.pyx":258
  *         self._sp_len = 0
  *         self._lock = threading.RLock()
  *         super(MsgpackStringTable, self).__init__()             # <<<<<<<<<<<<<<
@@ -7657,7 +7647,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
     __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 258, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
   __pyx_t_4 = __pyx_t_5;
@@ -7668,24 +7658,24 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
     __pyx_t_3 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_init, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 259, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 258, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":261
+  /* "ddtrace/internal/_encoding.pyx":260
  *         super(MsgpackStringTable, self).__init__()
  * 
  *         self.index(ORIGIN_KEY)             # <<<<<<<<<<<<<<
  *         self._reset_size = self.pk.length
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ORIGIN_KEY); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ORIGIN_KEY); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_10 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.index(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self), __pyx_t_3, 0); if (unlikely(__pyx_t_10 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_10 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.index(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self), __pyx_t_3, 0); if (unlikely(__pyx_t_10 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":262
+  /* "ddtrace/internal/_encoding.pyx":261
  * 
  *         self.index(ORIGIN_KEY)
  *         self._reset_size = self.pk.length             # <<<<<<<<<<<<<<
@@ -7695,7 +7685,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
   __pyx_t_7 = __pyx_v_self->pk.length;
   __pyx_v_self->_reset_size = __pyx_t_7;
 
-  /* "ddtrace/internal/_encoding.pyx":250
+  /* "ddtrace/internal/_encoding.pyx":249
  *     cdef size_t _reset_size
  * 
  *     def __init__(self, max_size):             # <<<<<<<<<<<<<<
@@ -7719,7 +7709,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable___init__(
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":264
+/* "ddtrace/internal/_encoding.pyx":263
  *         self._reset_size = self.pk.length
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -7742,7 +7732,7 @@ static void __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackStringTable_3__deall
 
 static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_2__dealloc__(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackStringTable *__pyx_v_self) {
 
-  /* "ddtrace/internal/_encoding.pyx":265
+  /* "ddtrace/internal/_encoding.pyx":264
  * 
  *     def __dealloc__(self):
  *         PyMem_Free(self.pk.buf)             # <<<<<<<<<<<<<<
@@ -7751,7 +7741,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_2__deall
 */
   PyMem_Free(__pyx_v_self->pk.buf);
 
-  /* "ddtrace/internal/_encoding.pyx":266
+  /* "ddtrace/internal/_encoding.pyx":265
  *     def __dealloc__(self):
  *         PyMem_Free(self.pk.buf)
  *         self.pk.buf = NULL             # <<<<<<<<<<<<<<
@@ -7760,7 +7750,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_2__deall
 */
   __pyx_v_self->pk.buf = NULL;
 
-  /* "ddtrace/internal/_encoding.pyx":264
+  /* "ddtrace/internal/_encoding.pyx":263
  *         self._reset_size = self.pk.length
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -7771,7 +7761,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_2__deall
   /* function exit code */
 }
 
-/* "ddtrace/internal/_encoding.pyx":268
+/* "ddtrace/internal/_encoding.pyx":267
  *         self.pk.buf = NULL
  * 
  *     cdef insert(self, object string):             # <<<<<<<<<<<<<<
@@ -7802,30 +7792,30 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
   __Pyx_RefNannySetupContext("insert", 0);
   __Pyx_INCREF(__pyx_v_string);
 
-  /* "ddtrace/internal/_encoding.pyx":272
+  /* "ddtrace/internal/_encoding.pyx":271
  * 
  *         # Before inserting, truncate the string if it is greater than MAX_SPAN_META_VALUE_LEN
  *         string = truncate_string(string)             # <<<<<<<<<<<<<<
  * 
  *         if self.pk.length + len(string) > self.max_size:
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_string); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_string); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 271, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF_SET(__pyx_v_string, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":274
+  /* "ddtrace/internal/_encoding.pyx":273
  *         string = truncate_string(string)
  * 
  *         if self.pk.length + len(string) > self.max_size:             # <<<<<<<<<<<<<<
  *             raise ValueError(
  *                 "Cannot insert '%s': string table is full (current size: %d, size after insert: %d, max size: %d)." % (
 */
-  __pyx_t_2 = PyObject_Length(__pyx_v_string); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 274, __pyx_L1_error)
+  __pyx_t_2 = PyObject_Length(__pyx_v_string); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 273, __pyx_L1_error)
   __pyx_t_3 = ((__pyx_v_self->pk.length + __pyx_t_2) > __pyx_v_self->max_size);
   if (unlikely(__pyx_t_3)) {
 
-    /* "ddtrace/internal/_encoding.pyx":275
+    /* "ddtrace/internal/_encoding.pyx":274
  * 
  *         if self.pk.length + len(string) > self.max_size:
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -7836,21 +7826,21 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
     __Pyx_INCREF(__pyx_builtin_ValueError);
     __pyx_t_5 = __pyx_builtin_ValueError; 
 
-    /* "ddtrace/internal/_encoding.pyx":277
+    /* "ddtrace/internal/_encoding.pyx":276
  *             raise ValueError(
  *                 "Cannot insert '%s': string table is full (current size: %d, size after insert: %d, max size: %d)." % (
  *                     string, self.pk.length, (self.pk.length + len(string)), self.max_size             # <<<<<<<<<<<<<<
  *                 )
  *             )
 */
-    __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_string), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 277, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_v_string), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 276, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = __Pyx_PyUnicode_From_size_t(__pyx_v_self->pk.length, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 277, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyUnicode_From_size_t(__pyx_v_self->pk.length, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 276, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_2 = PyObject_Length(__pyx_v_string); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 277, __pyx_L1_error)
-    __pyx_t_8 = __Pyx_PyUnicode_From_size_t((__pyx_v_self->pk.length + __pyx_t_2), 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 277, __pyx_L1_error)
+    __pyx_t_2 = PyObject_Length(__pyx_v_string); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 276, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyUnicode_From_size_t((__pyx_v_self->pk.length + __pyx_t_2), 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 276, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyUnicode_From_int(__pyx_v_self->max_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 277, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyUnicode_From_int(__pyx_v_self->max_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 276, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_10[0] = __pyx_mstate_global->__pyx_kp_u_Cannot_insert;
     __pyx_t_10[1] = __pyx_t_6;
@@ -7862,7 +7852,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
     __pyx_t_10[7] = __pyx_t_9;
     __pyx_t_10[8] = __pyx_mstate_global->__pyx_kp_u__2;
 
-    /* "ddtrace/internal/_encoding.pyx":276
+    /* "ddtrace/internal/_encoding.pyx":275
  *         if self.pk.length + len(string) > self.max_size:
  *             raise ValueError(
  *                 "Cannot insert '%s': string table is full (current size: %d, size after insert: %d, max size: %d)." % (             # <<<<<<<<<<<<<<
@@ -7870,7 +7860,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
  *                 )
 */
     __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_10, 9, 15 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 21 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 12 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 2, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
-    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 276, __pyx_L1_error)
+    if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 275, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -7883,14 +7873,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 274, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 275, __pyx_L1_error)
+    __PYX_ERR(0, 274, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":274
+    /* "ddtrace/internal/_encoding.pyx":273
  *         string = truncate_string(string)
  * 
  *         if self.pk.length + len(string) > self.max_size:             # <<<<<<<<<<<<<<
@@ -7899,17 +7889,17 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":281
+  /* "ddtrace/internal/_encoding.pyx":280
  *             )
  * 
  *         ret = pack_text(&self.pk, string)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             raise RuntimeError("Failed to add string to msgpack string table")
 */
-  __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->pk), __pyx_v_string); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 281, __pyx_L1_error)
+  __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->pk), __pyx_v_string); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 280, __pyx_L1_error)
   __pyx_v_ret = __pyx_t_13;
 
-  /* "ddtrace/internal/_encoding.pyx":282
+  /* "ddtrace/internal/_encoding.pyx":281
  * 
  *         ret = pack_text(&self.pk, string)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -7919,7 +7909,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
   __pyx_t_3 = (__pyx_v_ret != 0);
   if (unlikely(__pyx_t_3)) {
 
-    /* "ddtrace/internal/_encoding.pyx":283
+    /* "ddtrace/internal/_encoding.pyx":282
  *         ret = pack_text(&self.pk, string)
  *         if ret != 0:
  *             raise RuntimeError("Failed to add string to msgpack string table")             # <<<<<<<<<<<<<<
@@ -7935,14 +7925,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+__pyx_t_12, (2-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 283, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 282, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 283, __pyx_L1_error)
+    __PYX_ERR(0, 282, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":282
+    /* "ddtrace/internal/_encoding.pyx":281
  * 
  *         ret = pack_text(&self.pk, string)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -7951,7 +7941,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":268
+  /* "ddtrace/internal/_encoding.pyx":267
  *         self.pk.buf = NULL
  * 
  *     cdef insert(self, object string):             # <<<<<<<<<<<<<<
@@ -7980,7 +7970,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_inse
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":285
+/* "ddtrace/internal/_encoding.pyx":284
  *             raise RuntimeError("Failed to add string to msgpack string table")
  * 
  *     cdef savepoint(self):             # <<<<<<<<<<<<<<
@@ -7995,7 +7985,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_save
   uint32_t __pyx_t_2;
   __Pyx_RefNannySetupContext("savepoint", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":286
+  /* "ddtrace/internal/_encoding.pyx":285
  * 
  *     cdef savepoint(self):
  *         self._sp_len = self.pk.length             # <<<<<<<<<<<<<<
@@ -8005,7 +7995,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_save
   __pyx_t_1 = __pyx_v_self->pk.length;
   __pyx_v_self->_sp_len = __pyx_t_1;
 
-  /* "ddtrace/internal/_encoding.pyx":287
+  /* "ddtrace/internal/_encoding.pyx":286
  *     cdef savepoint(self):
  *         self._sp_len = self.pk.length
  *         self._sp_id = self._next_id             # <<<<<<<<<<<<<<
@@ -8015,7 +8005,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_save
   __pyx_t_2 = __pyx_v_self->__pyx_base._next_id;
   __pyx_v_self->_sp_id = __pyx_t_2;
 
-  /* "ddtrace/internal/_encoding.pyx":285
+  /* "ddtrace/internal/_encoding.pyx":284
  *             raise RuntimeError("Failed to add string to msgpack string table")
  * 
  *     cdef savepoint(self):             # <<<<<<<<<<<<<<
@@ -8030,7 +8020,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_save
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":289
+/* "ddtrace/internal/_encoding.pyx":288
  *         self._sp_id = self._next_id
  * 
  *     cdef rollback(self):             # <<<<<<<<<<<<<<
@@ -8058,7 +8048,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("rollback", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":290
+  /* "ddtrace/internal/_encoding.pyx":289
  * 
  *     cdef rollback(self):
  *         if self._sp_len > 0:             # <<<<<<<<<<<<<<
@@ -8068,7 +8058,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
   __pyx_t_1 = (__pyx_v_self->_sp_len > 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":291
+    /* "ddtrace/internal/_encoding.pyx":290
  *     cdef rollback(self):
  *         if self._sp_len > 0:
  *             self.pk.length = self._sp_len             # <<<<<<<<<<<<<<
@@ -8078,7 +8068,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
     __pyx_t_2 = __pyx_v_self->_sp_len;
     __pyx_v_self->pk.length = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":292
+    /* "ddtrace/internal/_encoding.pyx":291
  *         if self._sp_len > 0:
  *             self.pk.length = self._sp_len
  *             self._next_id = self._sp_id             # <<<<<<<<<<<<<<
@@ -8088,7 +8078,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
     __pyx_t_3 = __pyx_v_self->_sp_id;
     __pyx_v_self->__pyx_base._next_id = __pyx_t_3;
 
-    /* "ddtrace/internal/_encoding.pyx":290
+    /* "ddtrace/internal/_encoding.pyx":289
  * 
  *     cdef rollback(self):
  *         if self._sp_len > 0:             # <<<<<<<<<<<<<<
@@ -8097,7 +8087,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":302
+  /* "ddtrace/internal/_encoding.pyx":301
  *         #    trace can not be decoded without accessing an invalid index. In this scenario the agent will
  *         #    return a 400 status code.
  *         self._table = {s: idx for s, idx in self._table.items() if idx < self._next_id}             # <<<<<<<<<<<<<<
@@ -8105,14 +8095,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
  *     cdef get_bytes(self):
 */
   { /* enter inner scope */
-    __pyx_t_4 = PyDict_New(); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 302, __pyx_L6_error)
+    __pyx_t_4 = PyDict_New(); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 301, __pyx_L6_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_6 = 0;
     if (unlikely(__pyx_v_self->__pyx_base._table == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 302, __pyx_L6_error)
+      __PYX_ERR(0, 301, __pyx_L6_error)
     }
-    __pyx_t_8 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base._table, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_7), (&__pyx_t_2)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 302, __pyx_L6_error)
+    __pyx_t_8 = __Pyx_dict_iterator(__pyx_v_self->__pyx_base._table, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_7), (&__pyx_t_2)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 301, __pyx_L6_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_XDECREF(__pyx_t_5);
     __pyx_t_5 = __pyx_t_8;
@@ -8120,21 +8110,21 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
     while (1) {
       __pyx_t_10 = __Pyx_dict_iter_next(__pyx_t_5, __pyx_t_7, &__pyx_t_6, &__pyx_t_8, &__pyx_t_9, NULL, __pyx_t_2);
       if (unlikely(__pyx_t_10 == 0)) break;
-      if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 302, __pyx_L6_error)
+      if (unlikely(__pyx_t_10 == -1)) __PYX_ERR(0, 301, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_s, __pyx_t_8);
       __pyx_t_8 = 0;
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_idx, __pyx_t_9);
       __pyx_t_9 = 0;
-      __pyx_t_9 = __Pyx_PyLong_From_uint32_t(__pyx_v_self->__pyx_base._next_id); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 302, __pyx_L6_error)
+      __pyx_t_9 = __Pyx_PyLong_From_uint32_t(__pyx_v_self->__pyx_base._next_id); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 301, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_8 = PyObject_RichCompare(__pyx_7genexpr__pyx_v_idx, __pyx_t_9, Py_LT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 302, __pyx_L6_error)
+      __pyx_t_8 = PyObject_RichCompare(__pyx_7genexpr__pyx_v_idx, __pyx_t_9, Py_LT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 301, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 302, __pyx_L6_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 301, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       if (__pyx_t_1) {
-        if (unlikely(PyDict_SetItem(__pyx_t_4, (PyObject*)__pyx_7genexpr__pyx_v_s, (PyObject*)__pyx_7genexpr__pyx_v_idx))) __PYX_ERR(0, 302, __pyx_L6_error)
+        if (unlikely(PyDict_SetItem(__pyx_t_4, (PyObject*)__pyx_7genexpr__pyx_v_s, (PyObject*)__pyx_7genexpr__pyx_v_idx))) __PYX_ERR(0, 301, __pyx_L6_error)
       }
     }
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -8153,7 +8143,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
   __pyx_v_self->__pyx_base._table = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":289
+  /* "ddtrace/internal/_encoding.pyx":288
  *         self._sp_id = self._next_id
  * 
  *     cdef rollback(self):             # <<<<<<<<<<<<<<
@@ -8179,7 +8169,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_roll
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":304
+/* "ddtrace/internal/_encoding.pyx":303
  *         self._table = {s: idx for s, idx in self._table.items() if idx < self._next_id}
  * 
  *     cdef get_bytes(self):             # <<<<<<<<<<<<<<
@@ -8214,7 +8204,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_bytes", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":309
+  /* "ddtrace/internal/_encoding.pyx":308
  *         cdef int offset
  *         cdef int old_pos
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -8222,10 +8212,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
  *             offset = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE - array_prefix_size(table_size)
 */
   /*with:*/ {
-    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 309, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 309, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 308, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -8244,7 +8234,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 309, __pyx_L3_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 308, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -8258,7 +8248,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
         __Pyx_XGOTREF(__pyx_t_8);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":310
+          /* "ddtrace/internal/_encoding.pyx":309
  *         cdef int old_pos
  *         with self._lock:
  *             table_size = self._next_id             # <<<<<<<<<<<<<<
@@ -8268,17 +8258,17 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
           __pyx_t_9 = __pyx_v_self->__pyx_base._next_id;
           __pyx_v_table_size = __pyx_t_9;
 
-          /* "ddtrace/internal/_encoding.pyx":311
+          /* "ddtrace/internal/_encoding.pyx":310
  *         with self._lock:
  *             table_size = self._next_id
  *             offset = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE - array_prefix_size(table_size)             # <<<<<<<<<<<<<<
  *             old_pos = self.pk.length
  * 
 */
-          __pyx_t_10 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_table_size); if (unlikely(__pyx_t_10 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 311, __pyx_L7_error)
+          __pyx_t_10 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_table_size); if (unlikely(__pyx_t_10 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 310, __pyx_L7_error)
           __pyx_v_offset = (6 - __pyx_t_10);
 
-          /* "ddtrace/internal/_encoding.pyx":312
+          /* "ddtrace/internal/_encoding.pyx":311
  *             table_size = self._next_id
  *             offset = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE - array_prefix_size(table_size)
  *             old_pos = self.pk.length             # <<<<<<<<<<<<<<
@@ -8288,7 +8278,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
           __pyx_t_5 = __pyx_v_self->pk.length;
           __pyx_v_old_pos = __pyx_t_5;
 
-          /* "ddtrace/internal/_encoding.pyx":315
+          /* "ddtrace/internal/_encoding.pyx":314
  * 
  *             # Update table size prefix
  *             self.pk.length = offset             # <<<<<<<<<<<<<<
@@ -8297,7 +8287,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
 */
           __pyx_v_self->pk.length = __pyx_v_offset;
 
-          /* "ddtrace/internal/_encoding.pyx":316
+          /* "ddtrace/internal/_encoding.pyx":315
  *             # Update table size prefix
  *             self.pk.length = offset
  *             ret = msgpack_pack_array(&self.pk, table_size)             # <<<<<<<<<<<<<<
@@ -8306,7 +8296,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
 */
           __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->pk), __pyx_v_table_size);
 
-          /* "ddtrace/internal/_encoding.pyx":317
+          /* "ddtrace/internal/_encoding.pyx":316
  *             self.pk.length = offset
  *             ret = msgpack_pack_array(&self.pk, table_size)
  *             if ret:             # <<<<<<<<<<<<<<
@@ -8316,7 +8306,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
           __pyx_t_11 = (__pyx_v_ret != 0);
           if (__pyx_t_11) {
 
-            /* "ddtrace/internal/_encoding.pyx":318
+            /* "ddtrace/internal/_encoding.pyx":317
  *             ret = msgpack_pack_array(&self.pk, table_size)
  *             if ret:
  *                 return None             # <<<<<<<<<<<<<<
@@ -8327,7 +8317,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
             __pyx_r = Py_None; __Pyx_INCREF(Py_None);
             goto __pyx_L11_try_return;
 
-            /* "ddtrace/internal/_encoding.pyx":317
+            /* "ddtrace/internal/_encoding.pyx":316
  *             self.pk.length = offset
  *             ret = msgpack_pack_array(&self.pk, table_size)
  *             if ret:             # <<<<<<<<<<<<<<
@@ -8336,7 +8326,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":320
+          /* "ddtrace/internal/_encoding.pyx":319
  *                 return None
  *             # Add root array size prefix
  *             self.pk.length = offset = offset - 1             # <<<<<<<<<<<<<<
@@ -8347,7 +8337,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
           __pyx_v_self->pk.length = __pyx_t_12;
           __pyx_v_offset = __pyx_t_12;
 
-          /* "ddtrace/internal/_encoding.pyx":321
+          /* "ddtrace/internal/_encoding.pyx":320
  *             # Add root array size prefix
  *             self.pk.length = offset = offset - 1
  *             ret = msgpack_pack_array(&self.pk, 2)             # <<<<<<<<<<<<<<
@@ -8356,7 +8346,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
 */
           __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->pk), 2);
 
-          /* "ddtrace/internal/_encoding.pyx":322
+          /* "ddtrace/internal/_encoding.pyx":321
  *             self.pk.length = offset = offset - 1
  *             ret = msgpack_pack_array(&self.pk, 2)
  *             if ret:             # <<<<<<<<<<<<<<
@@ -8366,7 +8356,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
           __pyx_t_11 = (__pyx_v_ret != 0);
           if (__pyx_t_11) {
 
-            /* "ddtrace/internal/_encoding.pyx":323
+            /* "ddtrace/internal/_encoding.pyx":322
  *             ret = msgpack_pack_array(&self.pk, 2)
  *             if ret:
  *                 return None             # <<<<<<<<<<<<<<
@@ -8377,7 +8367,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
             __pyx_r = Py_None; __Pyx_INCREF(Py_None);
             goto __pyx_L11_try_return;
 
-            /* "ddtrace/internal/_encoding.pyx":322
+            /* "ddtrace/internal/_encoding.pyx":321
  *             self.pk.length = offset = offset - 1
  *             ret = msgpack_pack_array(&self.pk, 2)
  *             if ret:             # <<<<<<<<<<<<<<
@@ -8386,7 +8376,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":324
+          /* "ddtrace/internal/_encoding.pyx":323
  *             if ret:
  *                 return None
  *             self.pk.length = old_pos             # <<<<<<<<<<<<<<
@@ -8395,7 +8385,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
 */
           __pyx_v_self->pk.length = __pyx_v_old_pos;
 
-          /* "ddtrace/internal/_encoding.pyx":326
+          /* "ddtrace/internal/_encoding.pyx":325
  *             self.pk.length = old_pos
  * 
  *             return PyBytes_FromStringAndSize(self.pk.buf + offset, self.pk.length - offset)             # <<<<<<<<<<<<<<
@@ -8403,13 +8393,13 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
  *     @property
 */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_2 = PyBytes_FromStringAndSize((__pyx_v_self->pk.buf + __pyx_v_offset), (__pyx_v_self->pk.length - __pyx_v_offset)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 326, __pyx_L7_error)
+          __pyx_t_2 = PyBytes_FromStringAndSize((__pyx_v_self->pk.buf + __pyx_v_offset), (__pyx_v_self->pk.length - __pyx_v_offset)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 325, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_r = __pyx_t_2;
           __pyx_t_2 = 0;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":309
+          /* "ddtrace/internal/_encoding.pyx":308
  *         cdef int offset
  *         cdef int old_pos
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -8423,20 +8413,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackStringTable.get_bytes", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 309, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 308, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_2);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_3);
-          __pyx_t_13 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 309, __pyx_L9_except_error)
+          __pyx_t_13 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 308, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_13);
           __pyx_t_14 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_13, NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 309, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 308, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_14);
           __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_14);
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (__pyx_t_11 < 0) __PYX_ERR(0, 309, __pyx_L9_except_error)
+          if (__pyx_t_11 < 0) __PYX_ERR(0, 308, __pyx_L9_except_error)
           __pyx_t_15 = (!__pyx_t_11);
           if (unlikely(__pyx_t_15)) {
             __Pyx_GIVEREF(__pyx_t_2);
@@ -8444,7 +8434,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
             __Pyx_XGIVEREF(__pyx_t_3);
             __Pyx_ErrRestoreWithState(__pyx_t_2, __pyx_t_4, __pyx_t_3);
             __pyx_t_2 = 0;  __pyx_t_4 = 0;  __pyx_t_3 = 0; 
-            __PYX_ERR(0, 309, __pyx_L9_except_error)
+            __PYX_ERR(0, 308, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -8475,7 +8465,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
         if (__pyx_t_1) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 309, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 308, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -8487,7 +8477,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
         if (__pyx_t_1) {
           __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 309, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 308, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
@@ -8504,7 +8494,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
     __pyx_L18:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":304
+  /* "ddtrace/internal/_encoding.pyx":303
  *         self._table = {s: idx for s, idx in self._table.items() if idx < self._next_id}
  * 
  *     cdef get_bytes(self):             # <<<<<<<<<<<<<<
@@ -8528,7 +8518,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_get_
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":328
+/* "ddtrace/internal/_encoding.pyx":327
  *             return PyBytes_FromStringAndSize(self.pk.buf + offset, self.pk.length - offset)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8572,7 +8562,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":330
+  /* "ddtrace/internal/_encoding.pyx":329
  *     @property
  *     def size(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -8580,10 +8570,10 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
  * 
 */
   /*with:*/ {
-    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 330, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 330, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 329, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -8602,7 +8592,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 330, __pyx_L3_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 329, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -8616,7 +8606,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
         __Pyx_XGOTREF(__pyx_t_8);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":331
+          /* "ddtrace/internal/_encoding.pyx":330
  *     def size(self):
  *         with self._lock:
  *             return self.pk.length - MSGPACK_ARRAY_LENGTH_PREFIX_SIZE + array_prefix_size(self._next_id)             # <<<<<<<<<<<<<<
@@ -8624,14 +8614,14 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
  *     cdef append_raw(self, long src, Py_ssize_t size):
 */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_self->__pyx_base._next_id); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 331, __pyx_L7_error)
-          __pyx_t_2 = __Pyx_PyLong_FromSize_t(((__pyx_v_self->pk.length - 5) + __pyx_t_9)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 331, __pyx_L7_error)
+          __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_self->__pyx_base._next_id); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 330, __pyx_L7_error)
+          __pyx_t_2 = __Pyx_PyLong_FromSize_t(((__pyx_v_self->pk.length - 5) + __pyx_t_9)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 330, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_r = __pyx_t_2;
           __pyx_t_2 = 0;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":330
+          /* "ddtrace/internal/_encoding.pyx":329
  *     @property
  *     def size(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -8645,20 +8635,20 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackStringTable.size.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 330, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 329, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_2);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_3);
-          __pyx_t_10 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 330, __pyx_L9_except_error)
+          __pyx_t_10 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 329, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_10, NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 330, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 329, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_11);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (__pyx_t_12 < 0) __PYX_ERR(0, 330, __pyx_L9_except_error)
+          if (__pyx_t_12 < 0) __PYX_ERR(0, 329, __pyx_L9_except_error)
           __pyx_t_13 = (!__pyx_t_12);
           if (unlikely(__pyx_t_13)) {
             __Pyx_GIVEREF(__pyx_t_2);
@@ -8666,7 +8656,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
             __Pyx_XGIVEREF(__pyx_t_3);
             __Pyx_ErrRestoreWithState(__pyx_t_2, __pyx_t_4, __pyx_t_3);
             __pyx_t_2 = 0;  __pyx_t_4 = 0;  __pyx_t_3 = 0; 
-            __PYX_ERR(0, 330, __pyx_L9_except_error)
+            __PYX_ERR(0, 329, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -8697,7 +8687,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
         if (__pyx_t_1) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 330, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 329, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -8709,7 +8699,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
         if (__pyx_t_1) {
           __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 330, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 329, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
@@ -8726,7 +8716,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
     __pyx_L16:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":328
+  /* "ddtrace/internal/_encoding.pyx":327
  *             return PyBytes_FromStringAndSize(self.pk.buf + offset, self.pk.length - offset)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -8750,7 +8740,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4si
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":333
+/* "ddtrace/internal/_encoding.pyx":332
  *             return self.pk.length - MSGPACK_ARRAY_LENGTH_PREFIX_SIZE + array_prefix_size(self._next_id)
  * 
  *     cdef append_raw(self, long src, Py_ssize_t size):             # <<<<<<<<<<<<<<
@@ -8783,7 +8773,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("append_raw", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":335
+  /* "ddtrace/internal/_encoding.pyx":334
  *     cdef append_raw(self, long src, Py_ssize_t size):
  *         cdef int res
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -8791,10 +8781,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
  *                 raise BufferFull(
 */
   /*with:*/ {
-    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 335, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 334, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 335, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 334, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -8813,7 +8803,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 335, __pyx_L3_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 334, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -8827,31 +8817,31 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
         __Pyx_XGOTREF(__pyx_t_8);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":336
+          /* "ddtrace/internal/_encoding.pyx":335
  *         cdef int res
  *         with self._lock:
  *             if self.size + size > self.max_size:             # <<<<<<<<<<<<<<
  *                 raise BufferFull(
  *                     "Cannot append raw bytes: string table is full (current size: %d, max size: %d)." % (
 */
-          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L7_error)
+          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 335, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_2);
-          __pyx_t_4 = PyLong_FromSsize_t(__pyx_v_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 336, __pyx_L7_error)
+          __pyx_t_4 = PyLong_FromSsize_t(__pyx_v_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 335, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_3 = PyNumber_Add(__pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 336, __pyx_L7_error)
+          __pyx_t_3 = PyNumber_Add(__pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 335, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_3);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->max_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 336, __pyx_L7_error)
+          __pyx_t_4 = __Pyx_PyLong_From_int(__pyx_v_self->max_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 335, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_4);
-          __pyx_t_2 = PyObject_RichCompare(__pyx_t_3, __pyx_t_4, Py_GT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L7_error)
+          __pyx_t_2 = PyObject_RichCompare(__pyx_t_3, __pyx_t_4, Py_GT); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 335, __pyx_L7_error)
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 336, __pyx_L7_error)
+          __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 335, __pyx_L7_error)
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           if (unlikely(__pyx_t_9)) {
 
-            /* "ddtrace/internal/_encoding.pyx":337
+            /* "ddtrace/internal/_encoding.pyx":336
  *         with self._lock:
  *             if self.size + size > self.max_size:
  *                 raise BufferFull(             # <<<<<<<<<<<<<<
@@ -8859,22 +8849,22 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
  *                         self.size, self.max_size
 */
             __pyx_t_4 = NULL;
-            __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_BufferFull); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 337, __pyx_L7_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_BufferFull); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 336, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_3);
 
-            /* "ddtrace/internal/_encoding.pyx":339
+            /* "ddtrace/internal/_encoding.pyx":338
  *                 raise BufferFull(
  *                     "Cannot append raw bytes: string table is full (current size: %d, max size: %d)." % (
  *                         self.size, self.max_size             # <<<<<<<<<<<<<<
  *                     )
  *                 )
 */
-            __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 339, __pyx_L7_error)
+            __pyx_t_10 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 338, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_10);
-            __pyx_t_11 = __Pyx_PyObject_FormatAndDecref(__Pyx_PyNumber_Long(__pyx_t_10), __pyx_mstate_global->__pyx_n_u_d); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 339, __pyx_L7_error)
+            __pyx_t_11 = __Pyx_PyObject_FormatAndDecref(__Pyx_PyNumber_Long(__pyx_t_10), __pyx_mstate_global->__pyx_n_u_d); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 338, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_11);
             __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-            __pyx_t_10 = __Pyx_PyUnicode_From_int(__pyx_v_self->max_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 339, __pyx_L7_error)
+            __pyx_t_10 = __Pyx_PyUnicode_From_int(__pyx_v_self->max_size, 0, ' ', 'd'); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 338, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_10);
             __pyx_t_12[0] = __pyx_mstate_global->__pyx_kp_u_Cannot_append_raw_bytes_string_t;
             __pyx_t_12[1] = __pyx_t_11;
@@ -8882,7 +8872,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
             __pyx_t_12[3] = __pyx_t_10;
             __pyx_t_12[4] = __pyx_mstate_global->__pyx_kp_u__2;
 
-            /* "ddtrace/internal/_encoding.pyx":338
+            /* "ddtrace/internal/_encoding.pyx":337
  *             if self.size + size > self.max_size:
  *                 raise BufferFull(
  *                     "Cannot append raw bytes: string table is full (current size: %d, max size: %d)." % (             # <<<<<<<<<<<<<<
@@ -8890,7 +8880,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
  *                     )
 */
             __pyx_t_13 = __Pyx_PyUnicode_Join(__pyx_t_12, 5, 61 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_11) + 12 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10) + 2, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_11));
-            if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 338, __pyx_L7_error)
+            if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 337, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_13);
             __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
             __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -8912,14 +8902,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
               __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
               __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
               __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-              if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 337, __pyx_L7_error)
+              if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_2);
             }
             __Pyx_Raise(__pyx_t_2, 0, 0, 0);
             __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-            __PYX_ERR(0, 337, __pyx_L7_error)
+            __PYX_ERR(0, 336, __pyx_L7_error)
 
-            /* "ddtrace/internal/_encoding.pyx":336
+            /* "ddtrace/internal/_encoding.pyx":335
  *         cdef int res
  *         with self._lock:
  *             if self.size + size > self.max_size:             # <<<<<<<<<<<<<<
@@ -8928,20 +8918,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":342
+          /* "ddtrace/internal/_encoding.pyx":341
  *                     )
  *                 )
  *             res = msgpack_pack_raw_body(&self.pk, <char *>PyLong_AsLong(src), size)             # <<<<<<<<<<<<<<
  *             if res != 0:
  *                 raise RuntimeError("Failed to append raw bytes to msgpack string table")
 */
-          __pyx_t_2 = __Pyx_PyLong_From_long(__pyx_v_src); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 342, __pyx_L7_error)
+          __pyx_t_2 = __Pyx_PyLong_From_long(__pyx_v_src); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 341, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_2);
-          __pyx_t_14 = PyLong_AsLong(__pyx_t_2); if (unlikely(__pyx_t_14 == ((long)-1) && PyErr_Occurred())) __PYX_ERR(0, 342, __pyx_L7_error)
+          __pyx_t_14 = PyLong_AsLong(__pyx_t_2); if (unlikely(__pyx_t_14 == ((long)-1) && PyErr_Occurred())) __PYX_ERR(0, 341, __pyx_L7_error)
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           __pyx_v_res = msgpack_pack_raw_body((&__pyx_v_self->pk), ((char *)__pyx_t_14), __pyx_v_size);
 
-          /* "ddtrace/internal/_encoding.pyx":343
+          /* "ddtrace/internal/_encoding.pyx":342
  *                 )
  *             res = msgpack_pack_raw_body(&self.pk, <char *>PyLong_AsLong(src), size)
  *             if res != 0:             # <<<<<<<<<<<<<<
@@ -8951,7 +8941,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
           __pyx_t_9 = (__pyx_v_res != 0);
           if (unlikely(__pyx_t_9)) {
 
-            /* "ddtrace/internal/_encoding.pyx":344
+            /* "ddtrace/internal/_encoding.pyx":343
  *             res = msgpack_pack_raw_body(&self.pk, <char *>PyLong_AsLong(src), size)
  *             if res != 0:
  *                 raise RuntimeError("Failed to append raw bytes to msgpack string table")             # <<<<<<<<<<<<<<
@@ -8967,14 +8957,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
               __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
               __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
               __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-              if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 344, __pyx_L7_error)
+              if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 343, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_2);
             }
             __Pyx_Raise(__pyx_t_2, 0, 0, 0);
             __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-            __PYX_ERR(0, 344, __pyx_L7_error)
+            __PYX_ERR(0, 343, __pyx_L7_error)
 
-            /* "ddtrace/internal/_encoding.pyx":343
+            /* "ddtrace/internal/_encoding.pyx":342
  *                 )
  *             res = msgpack_pack_raw_body(&self.pk, <char *>PyLong_AsLong(src), size)
  *             if res != 0:             # <<<<<<<<<<<<<<
@@ -8983,7 +8973,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":335
+          /* "ddtrace/internal/_encoding.pyx":334
  *     cdef append_raw(self, long src, Py_ssize_t size):
  *         cdef int res
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -9004,20 +8994,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackStringTable.append_raw", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_13, &__pyx_t_3) < 0) __PYX_ERR(0, 335, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_13, &__pyx_t_3) < 0) __PYX_ERR(0, 334, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_2);
           __Pyx_XGOTREF(__pyx_t_13);
           __Pyx_XGOTREF(__pyx_t_3);
-          __pyx_t_4 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_13, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 335, __pyx_L9_except_error)
+          __pyx_t_4 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_13, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 334, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_4);
           __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_4, NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 335, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 334, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_15);
           __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_15);
           __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-          if (__pyx_t_9 < 0) __PYX_ERR(0, 335, __pyx_L9_except_error)
+          if (__pyx_t_9 < 0) __PYX_ERR(0, 334, __pyx_L9_except_error)
           __pyx_t_16 = (!__pyx_t_9);
           if (unlikely(__pyx_t_16)) {
             __Pyx_GIVEREF(__pyx_t_2);
@@ -9025,7 +9015,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
             __Pyx_XGIVEREF(__pyx_t_3);
             __Pyx_ErrRestoreWithState(__pyx_t_2, __pyx_t_13, __pyx_t_3);
             __pyx_t_2 = 0;  __pyx_t_13 = 0;  __pyx_t_3 = 0; 
-            __PYX_ERR(0, 335, __pyx_L9_except_error)
+            __PYX_ERR(0, 334, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
@@ -9051,7 +9041,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
         if (__pyx_t_1) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 335, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 334, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -9066,7 +9056,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
     __pyx_L18:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":333
+  /* "ddtrace/internal/_encoding.pyx":332
  *             return self.pk.length - MSGPACK_ARRAY_LENGTH_PREFIX_SIZE + array_prefix_size(self._next_id)
  * 
  *     cdef append_raw(self, long src, Py_ssize_t size):             # <<<<<<<<<<<<<<
@@ -9092,7 +9082,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_appe
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":346
+/* "ddtrace/internal/_encoding.pyx":345
  *                 raise RuntimeError("Failed to append raw bytes to msgpack string table")
  * 
  *     cdef reset(self):             # <<<<<<<<<<<<<<
@@ -9113,18 +9103,18 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_rese
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("reset", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":347
+  /* "ddtrace/internal/_encoding.pyx":346
  * 
  *     cdef reset(self):
  *         StringTable.reset(self)             # <<<<<<<<<<<<<<
  *         assert self._next_id == 1
  * 
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 346, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":348
+  /* "ddtrace/internal/_encoding.pyx":347
  *     cdef reset(self):
  *         StringTable.reset(self)
  *         assert self._next_id == 1             # <<<<<<<<<<<<<<
@@ -9136,14 +9126,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_rese
     __pyx_t_2 = (__pyx_v_self->__pyx_base._next_id == 1);
     if (unlikely(!__pyx_t_2)) {
       __Pyx_Raise(__pyx_builtin_AssertionError, 0, 0, 0);
-      __PYX_ERR(0, 348, __pyx_L1_error)
+      __PYX_ERR(0, 347, __pyx_L1_error)
     }
   }
   #else
-  if ((1)); else __PYX_ERR(0, 348, __pyx_L1_error)
+  if ((1)); else __PYX_ERR(0, 347, __pyx_L1_error)
   #endif
 
-  /* "ddtrace/internal/_encoding.pyx":350
+  /* "ddtrace/internal/_encoding.pyx":349
  *         assert self._next_id == 1
  * 
  *         PyDict_SetItem(self._table, ORIGIN_KEY, 1)             # <<<<<<<<<<<<<<
@@ -9152,13 +9142,13 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_rese
 */
   __pyx_t_1 = __pyx_v_self->__pyx_base._table;
   __Pyx_INCREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ORIGIN_KEY); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ORIGIN_KEY); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 349, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyDict_SetItem(__pyx_t_1, __pyx_t_3, __pyx_mstate_global->__pyx_int_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 350, __pyx_L1_error)
+  __pyx_t_4 = PyDict_SetItem(__pyx_t_1, __pyx_t_3, __pyx_mstate_global->__pyx_int_1); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 349, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":351
+  /* "ddtrace/internal/_encoding.pyx":350
  * 
  *         PyDict_SetItem(self._table, ORIGIN_KEY, 1)
  *         self._next_id = 2             # <<<<<<<<<<<<<<
@@ -9167,7 +9157,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_rese
 */
   __pyx_v_self->__pyx_base._next_id = 2;
 
-  /* "ddtrace/internal/_encoding.pyx":352
+  /* "ddtrace/internal/_encoding.pyx":351
  *         PyDict_SetItem(self._table, ORIGIN_KEY, 1)
  *         self._next_id = 2
  *         self.pk.length = self._reset_size             # <<<<<<<<<<<<<<
@@ -9177,7 +9167,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_rese
   __pyx_t_5 = __pyx_v_self->_reset_size;
   __pyx_v_self->pk.length = __pyx_t_5;
 
-  /* "ddtrace/internal/_encoding.pyx":353
+  /* "ddtrace/internal/_encoding.pyx":352
  *         self._next_id = 2
  *         self.pk.length = self._reset_size
  *         self._sp_len = 0             # <<<<<<<<<<<<<<
@@ -9186,7 +9176,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_rese
 */
   __pyx_v_self->_sp_len = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":346
+  /* "ddtrace/internal/_encoding.pyx":345
  *                 raise RuntimeError("Failed to append raw bytes to msgpack string table")
  * 
  *     cdef reset(self):             # <<<<<<<<<<<<<<
@@ -9208,7 +9198,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_rese
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":355
+/* "ddtrace/internal/_encoding.pyx":354
  *         self._sp_len = 0
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -9266,7 +9256,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 354, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackStringTable_5flush)) {
         __Pyx_XDECREF(__pyx_r);
@@ -9290,7 +9280,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 355, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 354, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -9311,7 +9301,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":356
+  /* "ddtrace/internal/_encoding.pyx":355
  * 
  *     cpdef flush(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -9319,10 +9309,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
  *                 return self.get_bytes()
 */
   /*with:*/ {
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 355, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 356, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->_lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 355, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -9341,7 +9331,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 356, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -9355,7 +9345,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":357
+          /* "ddtrace/internal/_encoding.pyx":356
  *     cpdef flush(self):
  *         with self._lock:
  *             try:             # <<<<<<<<<<<<<<
@@ -9364,7 +9354,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
 */
           /*try:*/ {
 
-            /* "ddtrace/internal/_encoding.pyx":358
+            /* "ddtrace/internal/_encoding.pyx":357
  *         with self._lock:
  *             try:
  *                 return self.get_bytes()             # <<<<<<<<<<<<<<
@@ -9372,14 +9362,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
  *                 self.reset()
 */
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_bytes(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 358, __pyx_L14_error)
+            __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->get_bytes(__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 357, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_1);
             __pyx_r = __pyx_t_1;
             __pyx_t_1 = 0;
             goto __pyx_L13_return;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":360
+          /* "ddtrace/internal/_encoding.pyx":359
  *                 return self.get_bytes()
  *             finally:
  *                 self.reset()             # <<<<<<<<<<<<<<
@@ -9406,7 +9396,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
               __Pyx_XGOTREF(__pyx_t_18);
               __pyx_t_10 = __pyx_lineno; __pyx_t_11 = __pyx_clineno; __pyx_t_12 = __pyx_filename;
               {
-                __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.reset(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 360, __pyx_L17_error)
+                __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.reset(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 359, __pyx_L17_error)
                 __Pyx_GOTREF(__pyx_t_1);
                 __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
               }
@@ -9435,7 +9425,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
             __pyx_L13_return: {
               __pyx_t_18 = __pyx_r;
               __pyx_r = 0;
-              __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.reset(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 360, __pyx_L7_error)
+              __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.reset(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 359, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_1);
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
               __pyx_r = __pyx_t_18;
@@ -9444,7 +9434,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
             }
           }
 
-          /* "ddtrace/internal/_encoding.pyx":356
+          /* "ddtrace/internal/_encoding.pyx":355
  * 
  *     cpdef flush(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -9459,20 +9449,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackStringTable.flush", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 356, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 355, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_2);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 356, __pyx_L9_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 355, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_18 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 356, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 355, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_18);
           __pyx_t_19 = __Pyx_PyObject_IsTrue(__pyx_t_18);
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (__pyx_t_19 < 0) __PYX_ERR(0, 356, __pyx_L9_except_error)
+          if (__pyx_t_19 < 0) __PYX_ERR(0, 355, __pyx_L9_except_error)
           __pyx_t_20 = (!__pyx_t_19);
           if (unlikely(__pyx_t_20)) {
             __Pyx_GIVEREF(__pyx_t_1);
@@ -9480,7 +9470,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
             __Pyx_XGIVEREF(__pyx_t_2);
             __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_4, __pyx_t_2);
             __pyx_t_1 = 0;  __pyx_t_4 = 0;  __pyx_t_2 = 0; 
-            __PYX_ERR(0, 356, __pyx_L9_except_error)
+            __PYX_ERR(0, 355, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -9511,7 +9501,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
         if (__pyx_t_6) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 356, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 355, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -9523,7 +9513,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
         if (__pyx_t_6) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 356, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 355, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -9540,7 +9530,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flus
     __pyx_L21:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":355
+  /* "ddtrace/internal/_encoding.pyx":354
  *         self._sp_len = 0
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -9615,7 +9605,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_4fl
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("flush", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -9836,7 +9826,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackStringTable_8__
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":370
+/* "ddtrace/internal/_encoding.pyx":369
  *     cdef object _lock
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -9867,39 +9857,39 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_15BufferedEncoder_1__cinit__(P
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_max_size,&__pyx_mstate_global->__pyx_n_u_max_item_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 370, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 369, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 370, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 369, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 370, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 369, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 370, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 369, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 370, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 369, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 370, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 369, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 370, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 369, __pyx_L3_error)
     }
-    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 370, __pyx_L3_error)
-    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 370, __pyx_L3_error)
+    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 369, __pyx_L3_error)
+    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 369, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 370, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 369, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9933,7 +9923,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder___cinit__(st
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":371
+  /* "ddtrace/internal/_encoding.pyx":370
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         self.max_size = max_size             # <<<<<<<<<<<<<<
@@ -9942,7 +9932,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder___cinit__(st
 */
   __pyx_v_self->max_size = __pyx_v_max_size;
 
-  /* "ddtrace/internal/_encoding.pyx":372
+  /* "ddtrace/internal/_encoding.pyx":371
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         self.max_size = max_size
  *         self.max_item_size = max_item_size             # <<<<<<<<<<<<<<
@@ -9951,7 +9941,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder___cinit__(st
 */
   __pyx_v_self->max_item_size = __pyx_v_max_item_size;
 
-  /* "ddtrace/internal/_encoding.pyx":373
+  /* "ddtrace/internal/_encoding.pyx":372
  *         self.max_size = max_size
  *         self.max_item_size = max_item_size
  *         self._lock = threading.Lock()             # <<<<<<<<<<<<<<
@@ -9959,9 +9949,9 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder___cinit__(st
  *     # ---- Abstract methods ----
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 373, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Lock); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 373, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Lock); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -9981,7 +9971,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder___cinit__(st
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 373, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 372, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_GIVEREF(__pyx_t_1);
@@ -9990,7 +9980,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder___cinit__(st
   __pyx_v_self->_lock = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":370
+  /* "ddtrace/internal/_encoding.pyx":369
  *     cdef object _lock
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -10013,7 +10003,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder___cinit__(st
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":377
+/* "ddtrace/internal/_encoding.pyx":376
  *     # ---- Abstract methods ----
  * 
  *     def put(self, item):             # <<<<<<<<<<<<<<
@@ -10060,32 +10050,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_item,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 377, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 376, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 377, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 376, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 377, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 376, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 377, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 376, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 377, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 376, __pyx_L3_error)
     }
     __pyx_v_item = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 377, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 376, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10118,7 +10108,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_2put(C
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("put", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":378
+  /* "ddtrace/internal/_encoding.pyx":377
  * 
  *     def put(self, item):
  *         raise NotImplementedError()             # <<<<<<<<<<<<<<
@@ -10134,14 +10124,14 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_2put(C
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 378, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 377, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_Raise(__pyx_t_1, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __PYX_ERR(0, 378, __pyx_L1_error)
+  __PYX_ERR(0, 377, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":377
+  /* "ddtrace/internal/_encoding.pyx":376
  *     # ---- Abstract methods ----
  * 
  *     def put(self, item):             # <<<<<<<<<<<<<<
@@ -10161,7 +10151,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_2put(C
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":380
+/* "ddtrace/internal/_encoding.pyx":379
  *         raise NotImplementedError()
  * 
  *     def encode(self):             # <<<<<<<<<<<<<<
@@ -10223,7 +10213,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_4encod
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("encode", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":381
+  /* "ddtrace/internal/_encoding.pyx":380
  * 
  *     def encode(self):
  *         raise NotImplementedError()             # <<<<<<<<<<<<<<
@@ -10239,14 +10229,14 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_4encod
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 381, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_Raise(__pyx_t_1, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __PYX_ERR(0, 381, __pyx_L1_error)
+  __PYX_ERR(0, 380, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":380
+  /* "ddtrace/internal/_encoding.pyx":379
  *         raise NotImplementedError()
  * 
  *     def encode(self):             # <<<<<<<<<<<<<<
@@ -10266,7 +10256,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_4encod
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":366
+/* "ddtrace/internal/_encoding.pyx":365
  *     content_type: str = None
  * 
  *     cdef public size_t max_size             # <<<<<<<<<<<<<<
@@ -10298,7 +10288,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_8max_s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->max_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->max_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 365, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -10336,7 +10326,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_8max_size_2_
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_size_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_size_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 365, __pyx_L1_error)
   __pyx_v_self->max_size = __pyx_t_1;
 
   /* function exit code */
@@ -10349,7 +10339,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_8max_size_2_
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":367
+/* "ddtrace/internal/_encoding.pyx":366
  * 
  *     cdef public size_t max_size
  *     cdef public size_t max_item_size             # <<<<<<<<<<<<<<
@@ -10381,7 +10371,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_13max_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->max_item_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 367, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->max_item_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 366, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -10419,7 +10409,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_13max_item_s
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __pyx_t_1 = __Pyx_PyLong_As_size_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_size_t(__pyx_v_value); if (unlikely((__pyx_t_1 == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 366, __pyx_L1_error)
   __pyx_v_self->max_item_size = __pyx_t_1;
 
   /* function exit code */
@@ -10636,7 +10626,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_15BufferedEncoder_8__set
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":388
+/* "ddtrace/internal/_encoding.pyx":387
  *     cdef Py_ssize_t _size
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -10667,39 +10657,39 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_1__cinit
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_max_size,&__pyx_mstate_global->__pyx_n_u_max_item_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 388, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 387, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 388, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 387, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 388, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 387, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 388, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 387, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 388, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 387, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 388, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 387, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 388, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 387, __pyx_L3_error)
     }
-    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 388, __pyx_L3_error)
-    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 388, __pyx_L3_error)
+    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 387, __pyx_L3_error)
+    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 387, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 388, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 387, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10729,14 +10719,14 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder___cinit_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":389
+  /* "ddtrace/internal/_encoding.pyx":388
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         self._buffer = []             # <<<<<<<<<<<<<<
  *         self._size = 0
  * 
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 389, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 388, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->_buffer);
@@ -10744,7 +10734,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder___cinit_
   __pyx_v_self->_buffer = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":390
+  /* "ddtrace/internal/_encoding.pyx":389
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         self._buffer = []
  *         self._size = 0             # <<<<<<<<<<<<<<
@@ -10753,7 +10743,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder___cinit_
 */
   __pyx_v_self->_size = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":388
+  /* "ddtrace/internal/_encoding.pyx":387
  *     cdef Py_ssize_t _size
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -10773,7 +10763,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder___cinit_
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":392
+/* "ddtrace/internal/_encoding.pyx":391
  *         self._size = 0
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -10806,7 +10796,7 @@ static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_2
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__len__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":393
+  /* "ddtrace/internal/_encoding.pyx":392
  * 
  *     def __len__(self):
  *         return len(self._buffer)             # <<<<<<<<<<<<<<
@@ -10817,14 +10807,14 @@ static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_2
   __Pyx_INCREF(__pyx_t_1);
   if (unlikely(__pyx_t_1 == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 393, __pyx_L1_error)
+    __PYX_ERR(0, 392, __pyx_L1_error)
   }
-  __pyx_t_2 = __Pyx_PyList_GET_SIZE(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 393, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyList_GET_SIZE(__pyx_t_1); if (unlikely(__pyx_t_2 == ((Py_ssize_t)-1))) __PYX_ERR(0, 392, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":392
+  /* "ddtrace/internal/_encoding.pyx":391
  *         self._size = 0
  * 
  *     def __len__(self):             # <<<<<<<<<<<<<<
@@ -10842,7 +10832,7 @@ static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_2
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":395
+/* "ddtrace/internal/_encoding.pyx":394
  *         return len(self._buffer)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -10885,7 +10875,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":397
+  /* "ddtrace/internal/_encoding.pyx":396
  *     @property
  *     def size(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -10893,10 +10883,10 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
  * 
 */
   /*with:*/ {
-    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 397, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 396, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 397, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 396, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -10915,7 +10905,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 397, __pyx_L3_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 396, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -10929,7 +10919,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
         __Pyx_XGOTREF(__pyx_t_8);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":398
+          /* "ddtrace/internal/_encoding.pyx":397
  *     def size(self):
  *         with self._lock:
  *             return self._size             # <<<<<<<<<<<<<<
@@ -10937,13 +10927,13 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
  *     cpdef put(self, item):
 */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_2 = PyLong_FromSsize_t(__pyx_v_self->_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 398, __pyx_L7_error)
+          __pyx_t_2 = PyLong_FromSsize_t(__pyx_v_self->_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 397, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_r = __pyx_t_2;
           __pyx_t_2 = 0;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":397
+          /* "ddtrace/internal/_encoding.pyx":396
  *     @property
  *     def size(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -10957,20 +10947,20 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.ListBufferedEncoder.size.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 397, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 396, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_2);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_3);
-          __pyx_t_9 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 397, __pyx_L9_except_error)
+          __pyx_t_9 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 396, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_9);
           __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_9, NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 397, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 396, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (__pyx_t_11 < 0) __PYX_ERR(0, 397, __pyx_L9_except_error)
+          if (__pyx_t_11 < 0) __PYX_ERR(0, 396, __pyx_L9_except_error)
           __pyx_t_12 = (!__pyx_t_11);
           if (unlikely(__pyx_t_12)) {
             __Pyx_GIVEREF(__pyx_t_2);
@@ -10978,7 +10968,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
             __Pyx_XGIVEREF(__pyx_t_3);
             __Pyx_ErrRestoreWithState(__pyx_t_2, __pyx_t_4, __pyx_t_3);
             __pyx_t_2 = 0;  __pyx_t_4 = 0;  __pyx_t_3 = 0; 
-            __PYX_ERR(0, 397, __pyx_L9_except_error)
+            __PYX_ERR(0, 396, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -11009,7 +10999,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
         if (__pyx_t_1) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 397, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 396, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -11021,7 +11011,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
         if (__pyx_t_1) {
           __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 397, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 396, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
@@ -11038,7 +11028,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
     __pyx_L16:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":395
+  /* "ddtrace/internal/_encoding.pyx":394
  *         return len(self._buffer)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -11062,7 +11052,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4s
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":400
+/* "ddtrace/internal/_encoding.pyx":399
  *             return self._size
  * 
  *     cpdef put(self, item):             # <<<<<<<<<<<<<<
@@ -11116,7 +11106,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_put); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 400, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_put); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 399, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_5put)) {
         __Pyx_XDECREF(__pyx_r);
@@ -11140,7 +11130,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 400, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 399, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -11161,7 +11151,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":404
+  /* "ddtrace/internal/_encoding.pyx":403
  *         cdef int item_len
  * 
  *         encoded_item = self.encode_item(item)             # <<<<<<<<<<<<<<
@@ -11175,23 +11165,23 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_item};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_encode_item, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 404, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 403, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_encoded_item = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":405
+  /* "ddtrace/internal/_encoding.pyx":404
  * 
  *         encoded_item = self.encode_item(item)
  *         item_len = len(encoded_item)             # <<<<<<<<<<<<<<
  * 
  *         if item_len > self.max_item_size or item_len > self.max_size:
 */
-  __pyx_t_6 = PyObject_Length(__pyx_v_encoded_item); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 405, __pyx_L1_error)
+  __pyx_t_6 = PyObject_Length(__pyx_v_encoded_item); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 404, __pyx_L1_error)
   __pyx_v_item_len = __pyx_t_6;
 
-  /* "ddtrace/internal/_encoding.pyx":407
+  /* "ddtrace/internal/_encoding.pyx":406
  *         item_len = len(encoded_item)
  * 
  *         if item_len > self.max_item_size or item_len > self.max_size:             # <<<<<<<<<<<<<<
@@ -11209,7 +11199,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
   __pyx_L4_bool_binop_done:;
   if (unlikely(__pyx_t_7)) {
 
-    /* "ddtrace/internal/_encoding.pyx":408
+    /* "ddtrace/internal/_encoding.pyx":407
  * 
  *         if item_len > self.max_item_size or item_len > self.max_size:
  *             raise BufferItemTooLarge(item_len)             # <<<<<<<<<<<<<<
@@ -11217,9 +11207,9 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
  *         with self._lock:
 */
     __pyx_t_2 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BufferItemTooLarge); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 408, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BufferItemTooLarge); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 407, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_item_len); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 408, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyLong_From_int(__pyx_v_item_len); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 407, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -11239,14 +11229,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 408, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 407, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_Raise(__pyx_t_1, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __PYX_ERR(0, 408, __pyx_L1_error)
+    __PYX_ERR(0, 407, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":407
+    /* "ddtrace/internal/_encoding.pyx":406
  *         item_len = len(encoded_item)
  * 
  *         if item_len > self.max_item_size or item_len > self.max_size:             # <<<<<<<<<<<<<<
@@ -11255,7 +11245,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":410
+  /* "ddtrace/internal/_encoding.pyx":409
  *             raise BufferItemTooLarge(item_len)
  * 
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -11263,10 +11253,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
  *                 self._buffer.append(encoded_item)
 */
   /*with:*/ {
-    __pyx_t_9 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 410, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 409, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_4 = NULL;
-    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 410, __pyx_L6_error)
+    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 409, __pyx_L6_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -11285,7 +11275,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 410, __pyx_L6_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 409, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -11299,7 +11289,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
         __Pyx_XGOTREF(__pyx_t_12);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":411
+          /* "ddtrace/internal/_encoding.pyx":410
  * 
  *         with self._lock:
  *             if self._size + item_len <= self.max_size:             # <<<<<<<<<<<<<<
@@ -11309,7 +11299,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
           __pyx_t_7 = ((__pyx_v_self->_size + __pyx_v_item_len) <= __pyx_v_self->__pyx_base.max_size);
           if (likely(__pyx_t_7)) {
 
-            /* "ddtrace/internal/_encoding.pyx":412
+            /* "ddtrace/internal/_encoding.pyx":411
  *         with self._lock:
  *             if self._size + item_len <= self.max_size:
  *                 self._buffer.append(encoded_item)             # <<<<<<<<<<<<<<
@@ -11318,11 +11308,11 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
 */
             if (unlikely(__pyx_v_self->_buffer == Py_None)) {
               PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "append");
-              __PYX_ERR(0, 412, __pyx_L10_error)
+              __PYX_ERR(0, 411, __pyx_L10_error)
             }
-            __pyx_t_13 = __Pyx_PyList_Append(__pyx_v_self->_buffer, __pyx_v_encoded_item); if (unlikely(__pyx_t_13 == ((int)-1))) __PYX_ERR(0, 412, __pyx_L10_error)
+            __pyx_t_13 = __Pyx_PyList_Append(__pyx_v_self->_buffer, __pyx_v_encoded_item); if (unlikely(__pyx_t_13 == ((int)-1))) __PYX_ERR(0, 411, __pyx_L10_error)
 
-            /* "ddtrace/internal/_encoding.pyx":413
+            /* "ddtrace/internal/_encoding.pyx":412
  *             if self._size + item_len <= self.max_size:
  *                 self._buffer.append(encoded_item)
  *                 self._size += item_len             # <<<<<<<<<<<<<<
@@ -11331,7 +11321,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
 */
             __pyx_v_self->_size = (__pyx_v_self->_size + __pyx_v_item_len);
 
-            /* "ddtrace/internal/_encoding.pyx":411
+            /* "ddtrace/internal/_encoding.pyx":410
  * 
  *         with self._lock:
  *             if self._size + item_len <= self.max_size:             # <<<<<<<<<<<<<<
@@ -11341,7 +11331,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
             goto __pyx_L16;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":415
+          /* "ddtrace/internal/_encoding.pyx":414
  *                 self._size += item_len
  *             else:
  *                 raise BufferFull(item_len)             # <<<<<<<<<<<<<<
@@ -11350,9 +11340,9 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
 */
           /*else*/ {
             __pyx_t_3 = NULL;
-            __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BufferFull); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 415, __pyx_L10_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BufferFull); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 414, __pyx_L10_error)
             __Pyx_GOTREF(__pyx_t_4);
-            __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_item_len); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 415, __pyx_L10_error)
+            __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_item_len); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 414, __pyx_L10_error)
             __Pyx_GOTREF(__pyx_t_2);
             __pyx_t_5 = 1;
             #if CYTHON_UNPACK_METHODS
@@ -11372,16 +11362,16 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
               __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
               __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
               __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-              if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 415, __pyx_L10_error)
+              if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 414, __pyx_L10_error)
               __Pyx_GOTREF(__pyx_t_1);
             }
             __Pyx_Raise(__pyx_t_1, 0, 0, 0);
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __PYX_ERR(0, 415, __pyx_L10_error)
+            __PYX_ERR(0, 414, __pyx_L10_error)
           }
           __pyx_L16:;
 
-          /* "ddtrace/internal/_encoding.pyx":410
+          /* "ddtrace/internal/_encoding.pyx":409
  *             raise BufferItemTooLarge(item_len)
  * 
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -11400,20 +11390,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.ListBufferedEncoder.put", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 410, __pyx_L12_except_error)
+          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 409, __pyx_L12_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_2);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 410, __pyx_L12_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 409, __pyx_L12_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_14 = __Pyx_PyObject_Call(__pyx_t_9, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 410, __pyx_L12_except_error)
+          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 409, __pyx_L12_except_error)
           __Pyx_GOTREF(__pyx_t_14);
           __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_14);
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-          if (__pyx_t_7 < 0) __PYX_ERR(0, 410, __pyx_L12_except_error)
+          if (__pyx_t_7 < 0) __PYX_ERR(0, 409, __pyx_L12_except_error)
           __pyx_t_8 = (!__pyx_t_7);
           if (unlikely(__pyx_t_8)) {
             __Pyx_GIVEREF(__pyx_t_1);
@@ -11421,7 +11411,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
             __Pyx_XGIVEREF(__pyx_t_2);
             __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_4, __pyx_t_2);
             __pyx_t_1 = 0;  __pyx_t_4 = 0;  __pyx_t_2 = 0; 
-            __PYX_ERR(0, 410, __pyx_L12_except_error)
+            __PYX_ERR(0, 409, __pyx_L12_except_error)
           }
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -11447,7 +11437,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
         if (__pyx_t_9) {
           __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_9, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 410, __pyx_L1_error)
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 409, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         }
@@ -11462,7 +11452,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put
     __pyx_L20:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":400
+  /* "ddtrace/internal/_encoding.pyx":399
  *             return self._size
  * 
  *     cpdef put(self, item):             # <<<<<<<<<<<<<<
@@ -11527,32 +11517,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_item,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 400, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 399, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 400, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 399, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 400, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 399, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 400, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 399, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 400, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 399, __pyx_L3_error)
     }
     __pyx_v_item = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 400, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 399, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11582,7 +11572,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("put", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put(__pyx_v_self, __pyx_v_item, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put(__pyx_v_self, __pyx_v_item, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -11599,7 +11589,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_4p
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":417
+/* "ddtrace/internal/_encoding.pyx":416
  *                 raise BufferFull(item_len)
  * 
  *     cpdef get(self):             # <<<<<<<<<<<<<<
@@ -11657,7 +11647,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 417, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 416, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_7get)) {
         __Pyx_XDECREF(__pyx_r);
@@ -11681,7 +11671,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 417, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 416, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -11702,7 +11692,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":419
+  /* "ddtrace/internal/_encoding.pyx":418
  *     cpdef get(self):
  *         """Get a copy of the buffer and clear it."""
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -11710,10 +11700,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
  *                 return list(self._buffer)
 */
   /*with:*/ {
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 419, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 418, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 419, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 418, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -11732,7 +11722,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 419, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 418, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -11746,7 +11736,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":420
+          /* "ddtrace/internal/_encoding.pyx":419
  *         """Get a copy of the buffer and clear it."""
  *         with self._lock:
  *             try:             # <<<<<<<<<<<<<<
@@ -11755,7 +11745,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
 */
           /*try:*/ {
 
-            /* "ddtrace/internal/_encoding.pyx":421
+            /* "ddtrace/internal/_encoding.pyx":420
  *         with self._lock:
  *             try:
  *                 return list(self._buffer)             # <<<<<<<<<<<<<<
@@ -11763,14 +11753,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
  *                 self._buffer[:] = []
 */
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_1 = PySequence_List(__pyx_v_self->_buffer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 421, __pyx_L14_error)
+            __pyx_t_1 = PySequence_List(__pyx_v_self->_buffer); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 420, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_1);
             __pyx_r = __pyx_t_1;
             __pyx_t_1 = 0;
             goto __pyx_L13_return;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":423
+          /* "ddtrace/internal/_encoding.pyx":422
  *                 return list(self._buffer)
  *             finally:
  *                 self._buffer[:] = []             # <<<<<<<<<<<<<<
@@ -11797,16 +11787,16 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
               __Pyx_XGOTREF(__pyx_t_18);
               __pyx_t_10 = __pyx_lineno; __pyx_t_11 = __pyx_clineno; __pyx_t_12 = __pyx_filename;
               {
-                __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 423, __pyx_L17_error)
+                __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 422, __pyx_L17_error)
                 __Pyx_GOTREF(__pyx_t_1);
                 if (unlikely(__pyx_v_self->_buffer == Py_None)) {
                   PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                  __PYX_ERR(0, 423, __pyx_L17_error)
+                  __PYX_ERR(0, 422, __pyx_L17_error)
                 }
-                if (__Pyx_PyObject_SetSlice(__pyx_v_self->_buffer, __pyx_t_1, 0, 0, NULL, NULL, NULL, 0, 0, 1) < 0) __PYX_ERR(0, 423, __pyx_L17_error)
+                if (__Pyx_PyObject_SetSlice(__pyx_v_self->_buffer, __pyx_t_1, 0, 0, NULL, NULL, NULL, 0, 0, 1) < 0) __PYX_ERR(0, 422, __pyx_L17_error)
                 __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-                /* "ddtrace/internal/_encoding.pyx":424
+                /* "ddtrace/internal/_encoding.pyx":423
  *             finally:
  *                 self._buffer[:] = []
  *                 self._size = 0             # <<<<<<<<<<<<<<
@@ -11841,23 +11831,23 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
               __pyx_t_18 = __pyx_r;
               __pyx_r = 0;
 
-              /* "ddtrace/internal/_encoding.pyx":423
+              /* "ddtrace/internal/_encoding.pyx":422
  *                 return list(self._buffer)
  *             finally:
  *                 self._buffer[:] = []             # <<<<<<<<<<<<<<
  *                 self._size = 0
  * 
 */
-              __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 423, __pyx_L7_error)
+              __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 422, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_1);
               if (unlikely(__pyx_v_self->_buffer == Py_None)) {
                 PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-                __PYX_ERR(0, 423, __pyx_L7_error)
+                __PYX_ERR(0, 422, __pyx_L7_error)
               }
-              if (__Pyx_PyObject_SetSlice(__pyx_v_self->_buffer, __pyx_t_1, 0, 0, NULL, NULL, NULL, 0, 0, 1) < 0) __PYX_ERR(0, 423, __pyx_L7_error)
+              if (__Pyx_PyObject_SetSlice(__pyx_v_self->_buffer, __pyx_t_1, 0, 0, NULL, NULL, NULL, 0, 0, 1) < 0) __PYX_ERR(0, 422, __pyx_L7_error)
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-              /* "ddtrace/internal/_encoding.pyx":424
+              /* "ddtrace/internal/_encoding.pyx":423
  *             finally:
  *                 self._buffer[:] = []
  *                 self._size = 0             # <<<<<<<<<<<<<<
@@ -11871,7 +11861,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
             }
           }
 
-          /* "ddtrace/internal/_encoding.pyx":419
+          /* "ddtrace/internal/_encoding.pyx":418
  *     cpdef get(self):
  *         """Get a copy of the buffer and clear it."""
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -11886,20 +11876,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.ListBufferedEncoder.get", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 419, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 418, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_2);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 419, __pyx_L9_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 418, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_18 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 419, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 418, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_18);
           __pyx_t_19 = __Pyx_PyObject_IsTrue(__pyx_t_18);
           __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
-          if (__pyx_t_19 < 0) __PYX_ERR(0, 419, __pyx_L9_except_error)
+          if (__pyx_t_19 < 0) __PYX_ERR(0, 418, __pyx_L9_except_error)
           __pyx_t_20 = (!__pyx_t_19);
           if (unlikely(__pyx_t_20)) {
             __Pyx_GIVEREF(__pyx_t_1);
@@ -11907,7 +11897,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
             __Pyx_XGIVEREF(__pyx_t_2);
             __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_4, __pyx_t_2);
             __pyx_t_1 = 0;  __pyx_t_4 = 0;  __pyx_t_2 = 0; 
-            __PYX_ERR(0, 419, __pyx_L9_except_error)
+            __PYX_ERR(0, 418, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -11938,7 +11928,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
         if (__pyx_t_6) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 419, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 418, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -11950,7 +11940,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
         if (__pyx_t_6) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 419, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 418, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -11967,7 +11957,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get
     __pyx_L21:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":417
+  /* "ddtrace/internal/_encoding.pyx":416
  *                 raise BufferFull(item_len)
  * 
  *     cpdef get(self):             # <<<<<<<<<<<<<<
@@ -12043,7 +12033,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_6g
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 416, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -12060,7 +12050,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_6g
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":426
+/* "ddtrace/internal/_encoding.pyx":425
  *                 self._size = 0
  * 
  *     def encode_item(self, item):             # <<<<<<<<<<<<<<
@@ -12107,32 +12097,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_item,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 426, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 425, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 426, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 425, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "encode_item", 0) < 0) __PYX_ERR(0, 426, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "encode_item", 0) < 0) __PYX_ERR(0, 425, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("encode_item", 1, 1, 1, i); __PYX_ERR(0, 426, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("encode_item", 1, 1, 1, i); __PYX_ERR(0, 425, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 426, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 425, __pyx_L3_error)
     }
     __pyx_v_item = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("encode_item", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 426, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("encode_item", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 425, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12165,7 +12155,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_8e
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("encode_item", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":427
+  /* "ddtrace/internal/_encoding.pyx":426
  * 
  *     def encode_item(self, item):
  *         raise NotImplementedError()             # <<<<<<<<<<<<<<
@@ -12181,14 +12171,14 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_8e
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 427, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 426, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_Raise(__pyx_t_1, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __PYX_ERR(0, 427, __pyx_L1_error)
+  __PYX_ERR(0, 426, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":426
+  /* "ddtrace/internal/_encoding.pyx":425
  *                 self._size = 0
  * 
  *     def encode_item(self, item):             # <<<<<<<<<<<<<<
@@ -12412,7 +12402,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_12
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":436
+/* "ddtrace/internal/_encoding.pyx":435
  *     cdef stdint.uint32_t _count
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -12443,39 +12433,39 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_1__cinit_
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_max_size,&__pyx_mstate_global->__pyx_n_u_max_item_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 436, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 435, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 436, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 435, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 436, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 435, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 436, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 435, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 436, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 435, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 436, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 435, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 436, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 435, __pyx_L3_error)
     }
-    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 436, __pyx_L3_error)
-    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 436, __pyx_L3_error)
+    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
+    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 435, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 436, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 435, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12511,7 +12501,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":437
+  /* "ddtrace/internal/_encoding.pyx":436
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         cdef int buf_size = 1024*1024             # <<<<<<<<<<<<<<
@@ -12520,7 +12510,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
 */
   __pyx_v_buf_size = 0x100000;
 
-  /* "ddtrace/internal/_encoding.pyx":438
+  /* "ddtrace/internal/_encoding.pyx":437
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         cdef int buf_size = 1024*1024
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)             # <<<<<<<<<<<<<<
@@ -12529,7 +12519,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
 */
   __pyx_v_self->pk.buf = ((char *)PyMem_Malloc(__pyx_v_buf_size));
 
-  /* "ddtrace/internal/_encoding.pyx":439
+  /* "ddtrace/internal/_encoding.pyx":438
  *         cdef int buf_size = 1024*1024
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)
  *         if self.pk.buf == NULL:             # <<<<<<<<<<<<<<
@@ -12539,7 +12529,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
   __pyx_t_1 = (__pyx_v_self->pk.buf == NULL);
   if (unlikely(__pyx_t_1)) {
 
-    /* "ddtrace/internal/_encoding.pyx":440
+    /* "ddtrace/internal/_encoding.pyx":439
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)
  *         if self.pk.buf == NULL:
  *             raise MemoryError("Unable to allocate internal buffer.")             # <<<<<<<<<<<<<<
@@ -12555,14 +12545,14 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 440, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 439, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 440, __pyx_L1_error)
+    __PYX_ERR(0, 439, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":439
+    /* "ddtrace/internal/_encoding.pyx":438
  *         cdef int buf_size = 1024*1024
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)
  *         if self.pk.buf == NULL:             # <<<<<<<<<<<<<<
@@ -12571,7 +12561,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":442
+  /* "ddtrace/internal/_encoding.pyx":441
  *             raise MemoryError("Unable to allocate internal buffer.")
  * 
  *         self.max_size = max_size             # <<<<<<<<<<<<<<
@@ -12580,7 +12570,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
 */
   __pyx_v_self->__pyx_base.max_size = __pyx_v_max_size;
 
-  /* "ddtrace/internal/_encoding.pyx":443
+  /* "ddtrace/internal/_encoding.pyx":442
  * 
  *         self.max_size = max_size
  *         self.pk.buf_size = buf_size             # <<<<<<<<<<<<<<
@@ -12589,7 +12579,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
 */
   __pyx_v_self->pk.buf_size = __pyx_v_buf_size;
 
-  /* "ddtrace/internal/_encoding.pyx":444
+  /* "ddtrace/internal/_encoding.pyx":443
  *         self.max_size = max_size
  *         self.pk.buf_size = buf_size
  *         self.max_item_size = max_item_size if max_item_size < max_size else max_size             # <<<<<<<<<<<<<<
@@ -12604,7 +12594,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
   }
   __pyx_v_self->__pyx_base.max_item_size = __pyx_t_5;
 
-  /* "ddtrace/internal/_encoding.pyx":445
+  /* "ddtrace/internal/_encoding.pyx":444
  *         self.pk.buf_size = buf_size
  *         self.max_item_size = max_item_size if max_item_size < max_size else max_size
  *         self._lock = threading.RLock()             # <<<<<<<<<<<<<<
@@ -12612,9 +12602,9 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
  * 
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_threading); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_RLock); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 445, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_RLock); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 444, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -12634,7 +12624,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 445, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 444, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_GIVEREF(__pyx_t_2);
@@ -12643,18 +12633,18 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
   __pyx_v_self->__pyx_base._lock = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":446
+  /* "ddtrace/internal/_encoding.pyx":445
  *         self.max_item_size = max_item_size if max_item_size < max_size else max_size
  *         self._lock = threading.RLock()
  *         self._reset_buffer()             # <<<<<<<<<<<<<<
  * 
  *     def __dealloc__(self):
 */
-  __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->_reset_buffer(__pyx_v_self); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->_reset_buffer(__pyx_v_self); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 445, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":436
+  /* "ddtrace/internal/_encoding.pyx":435
  *     cdef stdint.uint32_t _count
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -12677,7 +12667,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase___cinit__
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":448
+/* "ddtrace/internal/_encoding.pyx":447
  *         self._reset_buffer()
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -12700,7 +12690,7 @@ static void __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_3__deall
 
 static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_2__dealloc__(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *__pyx_v_self) {
 
-  /* "ddtrace/internal/_encoding.pyx":449
+  /* "ddtrace/internal/_encoding.pyx":448
  * 
  *     def __dealloc__(self):
  *         PyMem_Free(self.pk.buf)             # <<<<<<<<<<<<<<
@@ -12709,7 +12699,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_2__deall
 */
   PyMem_Free(__pyx_v_self->pk.buf);
 
-  /* "ddtrace/internal/_encoding.pyx":450
+  /* "ddtrace/internal/_encoding.pyx":449
  *     def __dealloc__(self):
  *         PyMem_Free(self.pk.buf)
  *         self.pk.buf = NULL             # <<<<<<<<<<<<<<
@@ -12718,7 +12708,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_2__deall
 */
   __pyx_v_self->pk.buf = NULL;
 
-  /* "ddtrace/internal/_encoding.pyx":448
+  /* "ddtrace/internal/_encoding.pyx":447
  *         self._reset_buffer()
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -12729,7 +12719,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_2__deall
   /* function exit code */
 }
 
-/* "ddtrace/internal/_encoding.pyx":452
+/* "ddtrace/internal/_encoding.pyx":451
  *         self.pk.buf = NULL
  * 
  *     def __len__(self):  # TODO: Use a better name?             # <<<<<<<<<<<<<<
@@ -12755,7 +12745,7 @@ static Py_ssize_t __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_5_
 static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4__len__(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *__pyx_v_self) {
   Py_ssize_t __pyx_r;
 
-  /* "ddtrace/internal/_encoding.pyx":453
+  /* "ddtrace/internal/_encoding.pyx":452
  * 
  *     def __len__(self):  # TODO: Use a better name?
  *         return self._count             # <<<<<<<<<<<<<<
@@ -12765,7 +12755,7 @@ static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4_
   __pyx_r = __pyx_v_self->_count;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":452
+  /* "ddtrace/internal/_encoding.pyx":451
  *         self.pk.buf = NULL
  * 
  *     def __len__(self):  # TODO: Use a better name?             # <<<<<<<<<<<<<<
@@ -12778,7 +12768,7 @@ static Py_ssize_t __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4_
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":455
+/* "ddtrace/internal/_encoding.pyx":454
  *         return self._count
  * 
  *     cpdef _decode(self, data):             # <<<<<<<<<<<<<<
@@ -12823,7 +12813,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__dec
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 455, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_decode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 454, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_7_decode)) {
         __Pyx_XDECREF(__pyx_r);
@@ -12847,7 +12837,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__dec
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 455, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 454, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -12868,37 +12858,37 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__dec
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":456
+  /* "ddtrace/internal/_encoding.pyx":455
  * 
  *     cpdef _decode(self, data):
  *         import msgpack             # <<<<<<<<<<<<<<
  *         if msgpack.version[:2] < (0, 6):
  *             return msgpack.unpackb(data)
 */
-  __pyx_t_1 = __Pyx_ImportDottedModule(__pyx_mstate_global->__pyx_n_u_msgpack, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 456, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_ImportDottedModule(__pyx_mstate_global->__pyx_n_u_msgpack, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 455, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_msgpack = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":457
+  /* "ddtrace/internal/_encoding.pyx":456
  *     cpdef _decode(self, data):
  *         import msgpack
  *         if msgpack.version[:2] < (0, 6):             # <<<<<<<<<<<<<<
  *             return msgpack.unpackb(data)
  *         return msgpack.unpackb(data, raw=True)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_msgpack, __pyx_mstate_global->__pyx_n_u_version); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_msgpack, __pyx_mstate_global->__pyx_n_u_version); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_t_1, 0, 2, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_t_1, 0, 2, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[1], Py_LT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_1 = PyObject_RichCompare(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[1], Py_LT); __Pyx_XGOTREF(__pyx_t_1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_6) {
 
-    /* "ddtrace/internal/_encoding.pyx":458
+    /* "ddtrace/internal/_encoding.pyx":457
  *         import msgpack
  *         if msgpack.version[:2] < (0, 6):
  *             return msgpack.unpackb(data)             # <<<<<<<<<<<<<<
@@ -12913,14 +12903,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__dec
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_data};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_unpackb, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 458, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 457, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":457
+    /* "ddtrace/internal/_encoding.pyx":456
  *     cpdef _decode(self, data):
  *         import msgpack
  *         if msgpack.version[:2] < (0, 6):             # <<<<<<<<<<<<<<
@@ -12929,7 +12919,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__dec
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":459
+  /* "ddtrace/internal/_encoding.pyx":458
  *         if msgpack.version[:2] < (0, 6):
  *             return msgpack.unpackb(data)
  *         return msgpack.unpackb(data, raw=True)             # <<<<<<<<<<<<<<
@@ -12942,20 +12932,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__dec
   __pyx_t_5 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_2, __pyx_v_data};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 459, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 458, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_raw, Py_True, __pyx_t_4, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 459, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_raw, Py_True, __pyx_t_4, __pyx_callargs+2, 0) < 0) __PYX_ERR(0, 458, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder(__pyx_mstate_global->__pyx_n_u_unpackb, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 459, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 458, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":455
+  /* "ddtrace/internal/_encoding.pyx":454
  *         return self._count
  * 
  *     cpdef _decode(self, data):             # <<<<<<<<<<<<<<
@@ -13017,32 +13007,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_data,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 455, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 454, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 455, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 454, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_decode", 0) < 0) __PYX_ERR(0, 455, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_decode", 0) < 0) __PYX_ERR(0, 454, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_decode", 1, 1, 1, i); __PYX_ERR(0, 455, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_decode", 1, 1, 1, i); __PYX_ERR(0, 454, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 455, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 454, __pyx_L3_error)
     }
     __pyx_v_data = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_decode", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 455, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_decode", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 454, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13072,7 +13062,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_6_d
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_decode", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__decode(__pyx_v_self, __pyx_v_data, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 455, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__decode(__pyx_v_self, __pyx_v_data, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -13089,7 +13079,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_6_d
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":461
+/* "ddtrace/internal/_encoding.pyx":460
  *         return msgpack.unpackb(data, raw=True)
  * 
  *     cdef _reset_buffer(self):             # <<<<<<<<<<<<<<
@@ -13102,7 +13092,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__res
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("_reset_buffer", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":462
+  /* "ddtrace/internal/_encoding.pyx":461
  * 
  *     cdef _reset_buffer(self):
  *         self._count = 0             # <<<<<<<<<<<<<<
@@ -13111,7 +13101,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__res
 */
   __pyx_v_self->_count = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":463
+  /* "ddtrace/internal/_encoding.pyx":462
  *     cdef _reset_buffer(self):
  *         self._count = 0
  *         self.pk.length = MSGPACK_ARRAY_LENGTH_PREFIX_SIZE  # Leave room for array length prefix             # <<<<<<<<<<<<<<
@@ -13120,7 +13110,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__res
 */
   __pyx_v_self->pk.length = 5;
 
-  /* "ddtrace/internal/_encoding.pyx":461
+  /* "ddtrace/internal/_encoding.pyx":460
  *         return msgpack.unpackb(data, raw=True)
  * 
  *     cdef _reset_buffer(self):             # <<<<<<<<<<<<<<
@@ -13135,7 +13125,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__res
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":465
+/* "ddtrace/internal/_encoding.pyx":464
  *         self.pk.length = MSGPACK_ARRAY_LENGTH_PREFIX_SIZE  # Leave room for array length prefix
  * 
  *     cpdef encode(self):             # <<<<<<<<<<<<<<
@@ -13185,7 +13175,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_encode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 464, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_9encode)) {
         __Pyx_XDECREF(__pyx_r);
@@ -13209,7 +13199,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 465, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 464, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -13230,7 +13220,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":466
+  /* "ddtrace/internal/_encoding.pyx":465
  * 
  *     cpdef encode(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -13238,10 +13228,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
  *                 return []
 */
   /*with:*/ {
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 466, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 465, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 466, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 465, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -13260,7 +13250,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 466, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -13274,7 +13264,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":467
+          /* "ddtrace/internal/_encoding.pyx":466
  *     cpdef encode(self):
  *         with self._lock:
  *             if not self._count:             # <<<<<<<<<<<<<<
@@ -13284,7 +13274,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
           __pyx_t_10 = (!(__pyx_v_self->_count != 0));
           if (__pyx_t_10) {
 
-            /* "ddtrace/internal/_encoding.pyx":468
+            /* "ddtrace/internal/_encoding.pyx":467
  *         with self._lock:
  *             if not self._count:
  *                 return []             # <<<<<<<<<<<<<<
@@ -13292,13 +13282,13 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
  *             return self.flush()
 */
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 468, __pyx_L7_error)
+            __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 467, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_1);
             __pyx_r = __pyx_t_1;
             __pyx_t_1 = 0;
             goto __pyx_L11_try_return;
 
-            /* "ddtrace/internal/_encoding.pyx":467
+            /* "ddtrace/internal/_encoding.pyx":466
  *     cpdef encode(self):
  *         with self._lock:
  *             if not self._count:             # <<<<<<<<<<<<<<
@@ -13307,7 +13297,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":470
+          /* "ddtrace/internal/_encoding.pyx":469
  *                 return []
  * 
  *             return self.flush()             # <<<<<<<<<<<<<<
@@ -13315,13 +13305,13 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
  *     cdef inline int _update_array_len(self):
 */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->flush(__pyx_v_self, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 470, __pyx_L7_error)
+          __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->flush(__pyx_v_self, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 469, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_1);
           __pyx_r = __pyx_t_1;
           __pyx_t_1 = 0;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":466
+          /* "ddtrace/internal/_encoding.pyx":465
  * 
  *     cpdef encode(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -13336,20 +13326,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderBase.encode", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 466, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 465, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_2);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 466, __pyx_L9_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 465, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 466, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 465, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_11);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (__pyx_t_10 < 0) __PYX_ERR(0, 466, __pyx_L9_except_error)
+          if (__pyx_t_10 < 0) __PYX_ERR(0, 465, __pyx_L9_except_error)
           __pyx_t_12 = (!__pyx_t_10);
           if (unlikely(__pyx_t_12)) {
             __Pyx_GIVEREF(__pyx_t_1);
@@ -13357,7 +13347,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
             __Pyx_XGIVEREF(__pyx_t_2);
             __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_4, __pyx_t_2);
             __pyx_t_1 = 0;  __pyx_t_4 = 0;  __pyx_t_2 = 0; 
-            __PYX_ERR(0, 466, __pyx_L9_except_error)
+            __PYX_ERR(0, 465, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -13388,7 +13378,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
         if (__pyx_t_6) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 466, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 465, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -13400,7 +13390,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
         if (__pyx_t_6) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 466, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 465, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -13417,7 +13407,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_enco
     __pyx_L17:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":465
+  /* "ddtrace/internal/_encoding.pyx":464
  *         self.pk.length = MSGPACK_ARRAY_LENGTH_PREFIX_SIZE  # Leave room for array length prefix
  * 
  *     cpdef encode(self):             # <<<<<<<<<<<<<<
@@ -13492,7 +13482,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_8en
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("encode", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_encode(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_encode(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 464, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -13509,7 +13499,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_8en
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":472
+/* "ddtrace/internal/_encoding.pyx":471
  *             return self.flush()
  * 
  *     cdef inline int _update_array_len(self):             # <<<<<<<<<<<<<<
@@ -13536,17 +13526,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_update_array_len", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":474
+  /* "ddtrace/internal/_encoding.pyx":473
  *     cdef inline int _update_array_len(self):
  *         """Update traces array size prefix"""
  *         cdef int offset = MSGPACK_ARRAY_LENGTH_PREFIX_SIZE - array_prefix_size(self._count)             # <<<<<<<<<<<<<<
  *         cdef int old_pos = self.pk.length
  * 
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_self->_count); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_self->_count); if (unlikely(__pyx_t_1 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 473, __pyx_L1_error)
   __pyx_v_offset = (5 - __pyx_t_1);
 
-  /* "ddtrace/internal/_encoding.pyx":475
+  /* "ddtrace/internal/_encoding.pyx":474
  *         """Update traces array size prefix"""
  *         cdef int offset = MSGPACK_ARRAY_LENGTH_PREFIX_SIZE - array_prefix_size(self._count)
  *         cdef int old_pos = self.pk.length             # <<<<<<<<<<<<<<
@@ -13556,7 +13546,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   __pyx_t_2 = __pyx_v_self->pk.length;
   __pyx_v_old_pos = __pyx_t_2;
 
-  /* "ddtrace/internal/_encoding.pyx":477
+  /* "ddtrace/internal/_encoding.pyx":476
  *         cdef int old_pos = self.pk.length
  * 
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -13564,10 +13554,10 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
  *             msgpack_pack_array(&self.pk, self._count)
 */
   /*with:*/ {
-    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 477, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 476, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_5 = NULL;
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 477, __pyx_L3_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 476, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -13586,7 +13576,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_2, (1-__pyx_t_2) | (__pyx_t_2*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 477, __pyx_L3_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 476, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -13595,7 +13585,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         (void)__pyx_t_7; (void)__pyx_t_8; (void)__pyx_t_9; /* mark used */
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":478
+          /* "ddtrace/internal/_encoding.pyx":477
  * 
  *         with self._lock:
  *             self.pk.length = offset             # <<<<<<<<<<<<<<
@@ -13604,7 +13594,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
           __pyx_v_self->pk.length = __pyx_v_offset;
 
-          /* "ddtrace/internal/_encoding.pyx":479
+          /* "ddtrace/internal/_encoding.pyx":478
  *         with self._lock:
  *             self.pk.length = offset
  *             msgpack_pack_array(&self.pk, self._count)             # <<<<<<<<<<<<<<
@@ -13613,7 +13603,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
           (void)(msgpack_pack_array((&__pyx_v_self->pk), __pyx_v_self->_count));
 
-          /* "ddtrace/internal/_encoding.pyx":480
+          /* "ddtrace/internal/_encoding.pyx":479
  *             self.pk.length = offset
  *             msgpack_pack_array(&self.pk, self._count)
  *             self.pk.length = old_pos             # <<<<<<<<<<<<<<
@@ -13622,7 +13612,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
           __pyx_v_self->pk.length = __pyx_v_old_pos;
 
-          /* "ddtrace/internal/_encoding.pyx":481
+          /* "ddtrace/internal/_encoding.pyx":480
  *             msgpack_pack_array(&self.pk, self._count)
  *             self.pk.length = old_pos
  *             return offset             # <<<<<<<<<<<<<<
@@ -13632,7 +13622,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
           __pyx_r = __pyx_v_offset;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":477
+          /* "ddtrace/internal/_encoding.pyx":476
  *         cdef int old_pos = self.pk.length
  * 
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -13649,7 +13639,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         if (__pyx_t_3) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 477, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 476, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -13660,7 +13650,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         if (__pyx_t_3) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 477, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 476, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -13676,7 +13666,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     __pyx_L13:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":472
+  /* "ddtrace/internal/_encoding.pyx":471
  *             return self.flush()
  * 
  *     cdef inline int _update_array_len(self):             # <<<<<<<<<<<<<<
@@ -13698,7 +13688,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":483
+/* "ddtrace/internal/_encoding.pyx":482
  *             return offset
  * 
  *     cdef get_bytes(self):             # <<<<<<<<<<<<<<
@@ -13728,17 +13718,17 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_bytes", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":485
+  /* "ddtrace/internal/_encoding.pyx":484
  *     cdef get_bytes(self):
  *         """Return internal buffer contents as bytes object"""
  *         cdef int offset = self._update_array_len()             # <<<<<<<<<<<<<<
  *         with self._lock:
  *             return PyBytes_FromStringAndSize(self.pk.buf + offset, self.pk.length - offset)
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__update_array_len(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 485, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__update_array_len(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 484, __pyx_L1_error)
   __pyx_v_offset = __pyx_t_1;
 
-  /* "ddtrace/internal/_encoding.pyx":486
+  /* "ddtrace/internal/_encoding.pyx":485
  *         """Return internal buffer contents as bytes object"""
  *         cdef int offset = self._update_array_len()
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -13746,10 +13736,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
  * 
 */
   /*with:*/ {
-    __pyx_t_2 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 486, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_4 = NULL;
-    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 486, __pyx_L3_error)
+    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 485, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -13768,7 +13758,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 486, __pyx_L3_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 485, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -13782,7 +13772,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":487
+          /* "ddtrace/internal/_encoding.pyx":486
  *         cdef int offset = self._update_array_len()
  *         with self._lock:
  *             return PyBytes_FromStringAndSize(self.pk.buf + offset, self.pk.length - offset)             # <<<<<<<<<<<<<<
@@ -13790,13 +13780,13 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
  *     cdef char * get_buffer(self):
 */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_3 = PyBytes_FromStringAndSize((__pyx_v_self->pk.buf + __pyx_v_offset), (__pyx_v_self->pk.length - __pyx_v_offset)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 487, __pyx_L7_error)
+          __pyx_t_3 = PyBytes_FromStringAndSize((__pyx_v_self->pk.buf + __pyx_v_offset), (__pyx_v_self->pk.length - __pyx_v_offset)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 486, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_r = __pyx_t_3;
           __pyx_t_3 = 0;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":486
+          /* "ddtrace/internal/_encoding.pyx":485
  *         """Return internal buffer contents as bytes object"""
  *         cdef int offset = self._update_array_len()
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -13810,20 +13800,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderBase.get_bytes", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_5, &__pyx_t_4) < 0) __PYX_ERR(0, 486, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_5, &__pyx_t_4) < 0) __PYX_ERR(0, 485, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_3);
           __Pyx_XGOTREF(__pyx_t_5);
           __Pyx_XGOTREF(__pyx_t_4);
-          __pyx_t_10 = PyTuple_Pack(3, __pyx_t_3, __pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 486, __pyx_L9_except_error)
+          __pyx_t_10 = PyTuple_Pack(3, __pyx_t_3, __pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 485, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_10, NULL);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 486, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 485, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_11);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (__pyx_t_12 < 0) __PYX_ERR(0, 486, __pyx_L9_except_error)
+          if (__pyx_t_12 < 0) __PYX_ERR(0, 485, __pyx_L9_except_error)
           __pyx_t_13 = (!__pyx_t_12);
           if (unlikely(__pyx_t_13)) {
             __Pyx_GIVEREF(__pyx_t_3);
@@ -13831,7 +13821,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
             __Pyx_XGIVEREF(__pyx_t_4);
             __Pyx_ErrRestoreWithState(__pyx_t_3, __pyx_t_5, __pyx_t_4);
             __pyx_t_3 = 0;  __pyx_t_5 = 0;  __pyx_t_4 = 0; 
-            __PYX_ERR(0, 486, __pyx_L9_except_error)
+            __PYX_ERR(0, 485, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -13862,7 +13852,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
         if (__pyx_t_2) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 486, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 485, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -13874,7 +13864,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
         if (__pyx_t_2) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 486, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 485, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -13891,7 +13881,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
     __pyx_L16:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":483
+  /* "ddtrace/internal/_encoding.pyx":482
  *             return offset
  * 
  *     cdef get_bytes(self):             # <<<<<<<<<<<<<<
@@ -13915,7 +13905,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":489
+/* "ddtrace/internal/_encoding.pyx":488
  *             return PyBytes_FromStringAndSize(self.pk.buf + offset, self.pk.length - offset)
  * 
  *     cdef char * get_buffer(self):             # <<<<<<<<<<<<<<
@@ -13930,18 +13920,18 @@ static char *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_buff
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":491
+  /* "ddtrace/internal/_encoding.pyx":490
  *     cdef char * get_buffer(self):
  *         """Return internal buffer."""
  *         return self.pk.buf + self._update_array_len()             # <<<<<<<<<<<<<<
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__update_array_len(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 491, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__update_array_len(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 490, __pyx_L1_error)
   __pyx_r = (__pyx_v_self->pk.buf + __pyx_t_1);
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":489
+  /* "ddtrace/internal/_encoding.pyx":488
  *             return PyBytes_FromStringAndSize(self.pk.buf + offset, self.pk.length - offset)
  * 
  *     cdef char * get_buffer(self):             # <<<<<<<<<<<<<<
@@ -13957,7 +13947,7 @@ static char *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_buff
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":493
+/* "ddtrace/internal/_encoding.pyx":492
  *         return self.pk.buf + self._update_array_len()
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):             # <<<<<<<<<<<<<<
@@ -13977,7 +13967,7 @@ static void *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_dd_o
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_dd_origin_ref", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":494
+  /* "ddtrace/internal/_encoding.pyx":493
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):
  *         raise NotImplementedError()             # <<<<<<<<<<<<<<
@@ -13993,14 +13983,14 @@ static void *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_dd_o
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 494, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 493, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_Raise(__pyx_t_1, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __PYX_ERR(0, 494, __pyx_L1_error)
+  __PYX_ERR(0, 493, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":493
+  /* "ddtrace/internal/_encoding.pyx":492
  *         return self.pk.buf + self._update_array_len()
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):             # <<<<<<<<<<<<<<
@@ -14019,7 +14009,7 @@ static void *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_get_dd_o
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":496
+/* "ddtrace/internal/_encoding.pyx":495
  *         raise NotImplementedError()
  * 
  *     cdef inline int _pack_trace(self, list trace) except? -1:             # <<<<<<<<<<<<<<
@@ -14069,7 +14059,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_pack_trace", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":499
+  /* "ddtrace/internal/_encoding.pyx":498
  *         cdef int ret
  *         cdef Py_ssize_t L
  *         cdef void * dd_origin = NULL             # <<<<<<<<<<<<<<
@@ -14078,7 +14068,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   __pyx_v_dd_origin = NULL;
 
-  /* "ddtrace/internal/_encoding.pyx":500
+  /* "ddtrace/internal/_encoding.pyx":499
  *         cdef Py_ssize_t L
  *         cdef void * dd_origin = NULL
  *         cdef unsigned long long trace_id_64bits = 0             # <<<<<<<<<<<<<<
@@ -14087,7 +14077,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   __pyx_v_trace_id_64bits = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":502
+  /* "ddtrace/internal/_encoding.pyx":501
  *         cdef unsigned long long trace_id_64bits = 0
  * 
  *         L = len(trace)             # <<<<<<<<<<<<<<
@@ -14096,12 +14086,12 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   if (unlikely(__pyx_v_trace == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 502, __pyx_L1_error)
+    __PYX_ERR(0, 501, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_trace); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 502, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_trace); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 501, __pyx_L1_error)
   __pyx_v_L = __pyx_t_1;
 
-  /* "ddtrace/internal/_encoding.pyx":503
+  /* "ddtrace/internal/_encoding.pyx":502
  * 
  *         L = len(trace)
  *         if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -14111,7 +14101,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   __pyx_t_2 = (__pyx_v_L > __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
   if (unlikely(__pyx_t_2)) {
 
-    /* "ddtrace/internal/_encoding.pyx":504
+    /* "ddtrace/internal/_encoding.pyx":503
  *         L = len(trace)
  *         if L > ITEM_LIMIT:
  *             raise ValueError("list is too large")             # <<<<<<<<<<<<<<
@@ -14127,14 +14117,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 504, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 503, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 504, __pyx_L1_error)
+    __PYX_ERR(0, 503, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":503
+    /* "ddtrace/internal/_encoding.pyx":502
  * 
  *         L = len(trace)
  *         if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -14143,7 +14133,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":506
+  /* "ddtrace/internal/_encoding.pyx":505
  *             raise ValueError("list is too large")
  * 
  *         ret = msgpack_pack_array(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -14152,7 +14142,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->pk), __pyx_v_L);
 
-  /* "ddtrace/internal/_encoding.pyx":507
+  /* "ddtrace/internal/_encoding.pyx":506
  * 
  *         ret = msgpack_pack_array(&self.pk, L)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -14162,7 +14152,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   __pyx_t_2 = (__pyx_v_ret != 0);
   if (unlikely(__pyx_t_2)) {
 
-    /* "ddtrace/internal/_encoding.pyx":508
+    /* "ddtrace/internal/_encoding.pyx":507
  *         ret = msgpack_pack_array(&self.pk, L)
  *         if ret != 0:
  *             raise RuntimeError("Couldn't pack trace")             # <<<<<<<<<<<<<<
@@ -14178,14 +14168,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 508, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 507, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 508, __pyx_L1_error)
+    __PYX_ERR(0, 507, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":507
+    /* "ddtrace/internal/_encoding.pyx":506
  * 
  *         ret = msgpack_pack_array(&self.pk, L)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -14194,7 +14184,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":511
+  /* "ddtrace/internal/_encoding.pyx":510
  * 
  *         # TODO: Can we skip packing an empty array?
  *         if L == 0:             # <<<<<<<<<<<<<<
@@ -14204,7 +14194,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   __pyx_t_2 = (__pyx_v_L == 0);
   if (__pyx_t_2) {
 
-    /* "ddtrace/internal/_encoding.pyx":512
+    /* "ddtrace/internal/_encoding.pyx":511
  *         # TODO: Can we skip packing an empty array?
  *         if L == 0:
  *             return 0             # <<<<<<<<<<<<<<
@@ -14214,7 +14204,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":511
+    /* "ddtrace/internal/_encoding.pyx":510
  * 
  *         # TODO: Can we skip packing an empty array?
  *         if L == 0:             # <<<<<<<<<<<<<<
@@ -14223,7 +14213,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":514
+  /* "ddtrace/internal/_encoding.pyx":513
  *             return 0
  * 
  *         if trace[0].context is not None and trace[0].context.dd_origin is not None:             # <<<<<<<<<<<<<<
@@ -14232,11 +14222,11 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   if (unlikely(__pyx_v_trace == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 514, __pyx_L1_error)
+    __PYX_ERR(0, 513, __pyx_L1_error)
   }
-  __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 513, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 513, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_7 = (__pyx_t_4 != Py_None);
@@ -14248,14 +14238,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   }
   if (unlikely(__pyx_v_trace == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 514, __pyx_L1_error)
+    __PYX_ERR(0, 513, __pyx_L1_error)
   }
-  __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 513, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 513, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_dd_origin); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_dd_origin); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 513, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_7 = (__pyx_t_4 != Py_None);
@@ -14264,7 +14254,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "ddtrace/internal/_encoding.pyx":515
+    /* "ddtrace/internal/_encoding.pyx":514
  * 
  *         if trace[0].context is not None and trace[0].context.dd_origin is not None:
  *             dd_origin = self.get_dd_origin_ref(trace[0].context.dd_origin)             # <<<<<<<<<<<<<<
@@ -14273,22 +14263,22 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
     if (unlikely(__pyx_v_trace == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 515, __pyx_L1_error)
+      __PYX_ERR(0, 514, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 515, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 514, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 515, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_context); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 514, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_dd_origin); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 515, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_dd_origin); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 514, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 515, __pyx_L1_error)
-    __pyx_t_8 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->get_dd_origin_ref(__pyx_v_self, ((PyObject*)__pyx_t_4)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 515, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_4))) __PYX_ERR(0, 514, __pyx_L1_error)
+    __pyx_t_8 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->get_dd_origin_ref(__pyx_v_self, ((PyObject*)__pyx_t_4)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 514, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_v_dd_origin = __pyx_t_8;
 
-    /* "ddtrace/internal/_encoding.pyx":514
+    /* "ddtrace/internal/_encoding.pyx":513
  *             return 0
  * 
  *         if trace[0].context is not None and trace[0].context.dd_origin is not None:             # <<<<<<<<<<<<<<
@@ -14297,7 +14287,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":518
+  /* "ddtrace/internal/_encoding.pyx":517
  * 
  *         # PERF: _trace_id_64bits is a computed property, cache/convert once for all spans
  *         try:             # <<<<<<<<<<<<<<
@@ -14313,7 +14303,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     __Pyx_XGOTREF(__pyx_t_11);
     /*try:*/ {
 
-      /* "ddtrace/internal/_encoding.pyx":519
+      /* "ddtrace/internal/_encoding.pyx":518
  *         # PERF: _trace_id_64bits is a computed property, cache/convert once for all spans
  *         try:
  *             trace_id_64bits = trace[0]._trace_id_64bits             # <<<<<<<<<<<<<<
@@ -14322,18 +14312,18 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
       if (unlikely(__pyx_v_trace == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 519, __pyx_L9_error)
+        __PYX_ERR(0, 518, __pyx_L9_error)
       }
-      __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 519, __pyx_L9_error)
+      __pyx_t_4 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 518, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_trace_id_64bits); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 519, __pyx_L9_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_trace_id_64bits); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 518, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_12 = __Pyx_PyLong_As_unsigned_PY_LONG_LONG(__pyx_t_3); if (unlikely((__pyx_t_12 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 519, __pyx_L9_error)
+      __pyx_t_12 = __Pyx_PyLong_As_unsigned_PY_LONG_LONG(__pyx_t_3); if (unlikely((__pyx_t_12 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 518, __pyx_L9_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_v_trace_id_64bits = __pyx_t_12;
 
-      /* "ddtrace/internal/_encoding.pyx":518
+      /* "ddtrace/internal/_encoding.pyx":517
  * 
  *         # PERF: _trace_id_64bits is a computed property, cache/convert once for all spans
  *         try:             # <<<<<<<<<<<<<<
@@ -14350,7 +14340,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":523
+    /* "ddtrace/internal/_encoding.pyx":522
  *         # We can get TypeError if the trace_id is not an int
  *         #   e.g. "unsupported operand type(s) for &: 'int' and 'str'"
  *         except Exception as e:             # <<<<<<<<<<<<<<
@@ -14360,7 +14350,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     __pyx_t_13 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_13) {
       __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderBase._pack_trace", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_4, &__pyx_t_5) < 0) __PYX_ERR(0, 523, __pyx_L11_except_error)
+      if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_4, &__pyx_t_5) < 0) __PYX_ERR(0, 522, __pyx_L11_except_error)
       __Pyx_XGOTREF(__pyx_t_3);
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
@@ -14368,7 +14358,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __pyx_v_e = __pyx_t_4;
       /*try:*/ {
 
-        /* "ddtrace/internal/_encoding.pyx":524
+        /* "ddtrace/internal/_encoding.pyx":523
  *         #   e.g. "unsupported operand type(s) for &: 'int' and 'str'"
  *         except Exception as e:
  *             raise RuntimeError(             # <<<<<<<<<<<<<<
@@ -14379,7 +14369,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         __Pyx_INCREF(__pyx_builtin_RuntimeError);
         __pyx_t_16 = __pyx_builtin_RuntimeError; 
 
-        /* "ddtrace/internal/_encoding.pyx":525
+        /* "ddtrace/internal/_encoding.pyx":524
  *         except Exception as e:
  *             raise RuntimeError(
  *                 "failed to pack span: {!r}. Exception: {}".format(trace[0], e)             # <<<<<<<<<<<<<<
@@ -14390,9 +14380,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         __Pyx_INCREF(__pyx_t_18);
         if (unlikely(__pyx_v_trace == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-          __PYX_ERR(0, 525, __pyx_L20_error)
+          __PYX_ERR(0, 524, __pyx_L20_error)
         }
-        __pyx_t_19 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 525, __pyx_L20_error)
+        __pyx_t_19 = __Pyx_GetItemInt_List(__pyx_v_trace, 0, long, 1, __Pyx_PyLong_From_long, 1, 0, 1, 1); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 524, __pyx_L20_error)
         __Pyx_GOTREF(__pyx_t_19);
         __pyx_t_6 = 0;
         {
@@ -14400,7 +14390,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
           __pyx_t_17 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_18); __pyx_t_18 = 0;
           __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
-          if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 525, __pyx_L20_error)
+          if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 524, __pyx_L20_error)
           __Pyx_GOTREF(__pyx_t_17);
         }
         __pyx_t_6 = 1;
@@ -14410,15 +14400,15 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
           __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
           __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 524, __pyx_L20_error)
+          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 523, __pyx_L20_error)
           __Pyx_GOTREF(__pyx_t_14);
         }
         __Pyx_Raise(__pyx_t_14, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-        __PYX_ERR(0, 524, __pyx_L20_error)
+        __PYX_ERR(0, 523, __pyx_L20_error)
       }
 
-      /* "ddtrace/internal/_encoding.pyx":523
+      /* "ddtrace/internal/_encoding.pyx":522
  *         # We can get TypeError if the trace_id is not an int
  *         #   e.g. "unsupported operand type(s) for &: 'int' and 'str'"
  *         except Exception as e:             # <<<<<<<<<<<<<<
@@ -14465,7 +14455,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     }
     goto __pyx_L11_except_error;
 
-    /* "ddtrace/internal/_encoding.pyx":518
+    /* "ddtrace/internal/_encoding.pyx":517
  * 
  *         # PERF: _trace_id_64bits is a computed property, cache/convert once for all spans
  *         try:             # <<<<<<<<<<<<<<
@@ -14481,7 +14471,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     __pyx_L14_try_end:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":527
+  /* "ddtrace/internal/_encoding.pyx":526
  *                 "failed to pack span: {!r}. Exception: {}".format(trace[0], e)
  *             )
  *         for span in trace:             # <<<<<<<<<<<<<<
@@ -14490,7 +14480,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
   if (unlikely(__pyx_v_trace == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 527, __pyx_L1_error)
+    __PYX_ERR(0, 526, __pyx_L1_error)
   }
   __pyx_t_5 = __pyx_v_trace; __Pyx_INCREF(__pyx_t_5);
   __pyx_t_1 = 0;
@@ -14498,18 +14488,18 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_5);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 527, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 526, __pyx_L1_error)
       #endif
       if (__pyx_t_1 >= __pyx_temp) break;
     }
     __pyx_t_4 = __Pyx_PyList_GetItemRef(__pyx_t_5, __pyx_t_1);
     ++__pyx_t_1;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 527, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 526, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF_SET(__pyx_v_span, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":528
+    /* "ddtrace/internal/_encoding.pyx":527
  *             )
  *         for span in trace:
  *             try:             # <<<<<<<<<<<<<<
@@ -14525,17 +14515,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __Pyx_XGOTREF(__pyx_t_9);
       /*try:*/ {
 
-        /* "ddtrace/internal/_encoding.pyx":529
+        /* "ddtrace/internal/_encoding.pyx":528
  *         for span in trace:
  *             try:
  *                 ret = self.pack_span(span, trace_id_64bits, dd_origin)             # <<<<<<<<<<<<<<
  *             except Exception as e:
  *                 raise RuntimeError("failed to pack span: {!r}. Exception: {}".format(span, e))
 */
-        __pyx_t_20 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->pack_span(__pyx_v_self, __pyx_v_span, __pyx_v_trace_id_64bits, __pyx_v_dd_origin); if (unlikely(__pyx_t_20 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 529, __pyx_L28_error)
+        __pyx_t_20 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self->__pyx_vtab)->pack_span(__pyx_v_self, __pyx_v_span, __pyx_v_trace_id_64bits, __pyx_v_dd_origin); if (unlikely(__pyx_t_20 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 528, __pyx_L28_error)
         __pyx_v_ret = __pyx_t_20;
 
-        /* "ddtrace/internal/_encoding.pyx":528
+        /* "ddtrace/internal/_encoding.pyx":527
  *             )
  *         for span in trace:
  *             try:             # <<<<<<<<<<<<<<
@@ -14557,7 +14547,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":530
+      /* "ddtrace/internal/_encoding.pyx":529
  *             try:
  *                 ret = self.pack_span(span, trace_id_64bits, dd_origin)
  *             except Exception as e:             # <<<<<<<<<<<<<<
@@ -14567,7 +14557,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __pyx_t_20 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
       if (__pyx_t_20) {
         __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderBase._pack_trace", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_3, &__pyx_t_14) < 0) __PYX_ERR(0, 530, __pyx_L30_except_error)
+        if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_3, &__pyx_t_14) < 0) __PYX_ERR(0, 529, __pyx_L30_except_error)
         __Pyx_XGOTREF(__pyx_t_4);
         __Pyx_XGOTREF(__pyx_t_3);
         __Pyx_XGOTREF(__pyx_t_14);
@@ -14575,7 +14565,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         __pyx_v_e = __pyx_t_3;
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":531
+          /* "ddtrace/internal/_encoding.pyx":530
  *                 ret = self.pack_span(span, trace_id_64bits, dd_origin)
  *             except Exception as e:
  *                 raise RuntimeError("failed to pack span: {!r}. Exception: {}".format(span, e))             # <<<<<<<<<<<<<<
@@ -14592,7 +14582,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
             PyObject *__pyx_callargs[3] = {__pyx_t_18, __pyx_v_span, __pyx_v_e};
             __pyx_t_19 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_18); __pyx_t_18 = 0;
-            if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 531, __pyx_L41_error)
+            if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 530, __pyx_L41_error)
             __Pyx_GOTREF(__pyx_t_19);
           }
           __pyx_t_6 = 1;
@@ -14602,15 +14592,15 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
             __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
             __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
             __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-            if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 531, __pyx_L41_error)
+            if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 530, __pyx_L41_error)
             __Pyx_GOTREF(__pyx_t_16);
           }
           __Pyx_Raise(__pyx_t_16, 0, 0, 0);
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-          __PYX_ERR(0, 531, __pyx_L41_error)
+          __PYX_ERR(0, 530, __pyx_L41_error)
         }
 
-        /* "ddtrace/internal/_encoding.pyx":530
+        /* "ddtrace/internal/_encoding.pyx":529
  *             try:
  *                 ret = self.pack_span(span, trace_id_64bits, dd_origin)
  *             except Exception as e:             # <<<<<<<<<<<<<<
@@ -14656,7 +14646,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       }
       goto __pyx_L30_except_error;
 
-      /* "ddtrace/internal/_encoding.pyx":528
+      /* "ddtrace/internal/_encoding.pyx":527
  *             )
  *         for span in trace:
  *             try:             # <<<<<<<<<<<<<<
@@ -14672,7 +14662,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
       __pyx_L35_try_end:;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":534
+    /* "ddtrace/internal/_encoding.pyx":533
  * 
  *             # No exception was raised, but we got an error code from msgpack
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -14682,7 +14672,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (unlikely(__pyx_t_2)) {
 
-      /* "ddtrace/internal/_encoding.pyx":535
+      /* "ddtrace/internal/_encoding.pyx":534
  *             # No exception was raised, but we got an error code from msgpack
  *             if ret != 0:
  *                 raise RuntimeError("couldn't pack span: {!r}".format(span))             # <<<<<<<<<<<<<<
@@ -14699,7 +14689,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_v_span};
         __pyx_t_16 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_format, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-        if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 535, __pyx_L1_error)
+        if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 534, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_16);
       }
       __pyx_t_6 = 1;
@@ -14709,14 +14699,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 535, __pyx_L1_error)
+        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 534, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_14);
       }
       __Pyx_Raise(__pyx_t_14, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-      __PYX_ERR(0, 535, __pyx_L1_error)
+      __PYX_ERR(0, 534, __pyx_L1_error)
 
-      /* "ddtrace/internal/_encoding.pyx":534
+      /* "ddtrace/internal/_encoding.pyx":533
  * 
  *             # No exception was raised, but we got an error code from msgpack
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -14725,7 +14715,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":527
+    /* "ddtrace/internal/_encoding.pyx":526
  *                 "failed to pack span: {!r}. Exception: {}".format(trace[0], e)
  *             )
  *         for span in trace:             # <<<<<<<<<<<<<<
@@ -14735,7 +14725,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":537
+  /* "ddtrace/internal/_encoding.pyx":536
  *                 raise RuntimeError("couldn't pack span: {!r}".format(span))
  * 
  *         return ret             # <<<<<<<<<<<<<<
@@ -14745,7 +14735,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   __pyx_r = __pyx_v_ret;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":496
+  /* "ddtrace/internal/_encoding.pyx":495
  *         raise NotImplementedError()
  * 
  *     cdef inline int _pack_trace(self, list trace) except? -1:             # <<<<<<<<<<<<<<
@@ -14773,7 +14763,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderB
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":539
+/* "ddtrace/internal/_encoding.pyx":538
  *         return ret
  * 
  *     cpdef put(self, list trace):             # <<<<<<<<<<<<<<
@@ -14830,7 +14820,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_put); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 539, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_put); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 538, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_11put)) {
         __Pyx_XDECREF(__pyx_r);
@@ -14854,7 +14844,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 539, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 538, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -14875,7 +14865,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":543
+  /* "ddtrace/internal/_encoding.pyx":542
  *         cdef int ret
  * 
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -14883,10 +14873,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
  *             size_before = self.size
 */
   /*with:*/ {
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 543, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 542, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 543, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 542, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -14905,7 +14895,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 543, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 542, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -14919,7 +14909,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":544
+          /* "ddtrace/internal/_encoding.pyx":543
  * 
  *         with self._lock:
  *             len_before = self.pk.length             # <<<<<<<<<<<<<<
@@ -14929,19 +14919,19 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
           __pyx_t_5 = __pyx_v_self->pk.length;
           __pyx_v_len_before = __pyx_t_5;
 
-          /* "ddtrace/internal/_encoding.pyx":545
+          /* "ddtrace/internal/_encoding.pyx":544
  *         with self._lock:
  *             len_before = self.pk.length
  *             size_before = self.size             # <<<<<<<<<<<<<<
  *             try:
  *                 ret = self._pack_trace(trace)
 */
-          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 545, __pyx_L7_error)
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 544, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_1);
           __pyx_v_size_before = __pyx_t_1;
           __pyx_t_1 = 0;
 
-          /* "ddtrace/internal/_encoding.pyx":546
+          /* "ddtrace/internal/_encoding.pyx":545
  *             len_before = self.pk.length
  *             size_before = self.size
  *             try:             # <<<<<<<<<<<<<<
@@ -14957,17 +14947,17 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
             __Pyx_XGOTREF(__pyx_t_12);
             /*try:*/ {
 
-              /* "ddtrace/internal/_encoding.pyx":547
+              /* "ddtrace/internal/_encoding.pyx":546
  *             size_before = self.size
  *             try:
  *                 ret = self._pack_trace(trace)             # <<<<<<<<<<<<<<
  *                 if ret:  # should not happen.
  *                     raise RuntimeError("internal error")
 */
-              __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__pack_trace(__pyx_v_self, __pyx_v_trace); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 547, __pyx_L13_error)
+              __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__pack_trace(__pyx_v_self, __pyx_v_trace); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 546, __pyx_L13_error)
               __pyx_v_ret = __pyx_t_13;
 
-              /* "ddtrace/internal/_encoding.pyx":548
+              /* "ddtrace/internal/_encoding.pyx":547
  *             try:
  *                 ret = self._pack_trace(trace)
  *                 if ret:  # should not happen.             # <<<<<<<<<<<<<<
@@ -14977,7 +14967,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
               __pyx_t_14 = (__pyx_v_ret != 0);
               if (unlikely(__pyx_t_14)) {
 
-                /* "ddtrace/internal/_encoding.pyx":549
+                /* "ddtrace/internal/_encoding.pyx":548
  *                 ret = self._pack_trace(trace)
  *                 if ret:  # should not happen.
  *                     raise RuntimeError("internal error")             # <<<<<<<<<<<<<<
@@ -14993,14 +14983,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
                   __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
                   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-                  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 549, __pyx_L13_error)
+                  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 548, __pyx_L13_error)
                   __Pyx_GOTREF(__pyx_t_1);
                 }
                 __Pyx_Raise(__pyx_t_1, 0, 0, 0);
                 __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-                __PYX_ERR(0, 549, __pyx_L13_error)
+                __PYX_ERR(0, 548, __pyx_L13_error)
 
-                /* "ddtrace/internal/_encoding.pyx":548
+                /* "ddtrace/internal/_encoding.pyx":547
  *             try:
  *                 ret = self._pack_trace(trace)
  *                 if ret:  # should not happen.             # <<<<<<<<<<<<<<
@@ -15009,28 +14999,28 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
 */
               }
 
-              /* "ddtrace/internal/_encoding.pyx":556
+              /* "ddtrace/internal/_encoding.pyx":555
  *                 # grow arbitrarily because of the PyMem_Realloc and if it does then
  *                 # free and reallocate with the appropriate size.
  *                 if self.size - size_before > self.max_item_size:             # <<<<<<<<<<<<<<
  *                     raise BufferItemTooLarge(self.size - size_before)
  * 
 */
-              __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L13_error)
+              __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 555, __pyx_L13_error)
               __Pyx_GOTREF(__pyx_t_1);
-              __pyx_t_2 = PyNumber_Subtract(__pyx_t_1, __pyx_v_size_before); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 556, __pyx_L13_error)
+              __pyx_t_2 = PyNumber_Subtract(__pyx_t_1, __pyx_v_size_before); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 555, __pyx_L13_error)
               __Pyx_GOTREF(__pyx_t_2);
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-              __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->__pyx_base.max_item_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L13_error)
+              __pyx_t_1 = __Pyx_PyLong_FromSize_t(__pyx_v_self->__pyx_base.max_item_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 555, __pyx_L13_error)
               __Pyx_GOTREF(__pyx_t_1);
-              __pyx_t_4 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L13_error)
+              __pyx_t_4 = PyObject_RichCompare(__pyx_t_2, __pyx_t_1, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 555, __pyx_L13_error)
               __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-              __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 556, __pyx_L13_error)
+              __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 555, __pyx_L13_error)
               __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
               if (unlikely(__pyx_t_14)) {
 
-                /* "ddtrace/internal/_encoding.pyx":557
+                /* "ddtrace/internal/_encoding.pyx":556
  *                 # free and reallocate with the appropriate size.
  *                 if self.size - size_before > self.max_item_size:
  *                     raise BufferItemTooLarge(self.size - size_before)             # <<<<<<<<<<<<<<
@@ -15038,11 +15028,11 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
  *                 if self.size > self.max_size:
 */
                 __pyx_t_1 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_BufferItemTooLarge); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 557, __pyx_L13_error)
+                __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_BufferItemTooLarge); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 556, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_2);
-                __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 557, __pyx_L13_error)
+                __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 556, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_3);
-                __pyx_t_15 = PyNumber_Subtract(__pyx_t_3, __pyx_v_size_before); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 557, __pyx_L13_error)
+                __pyx_t_15 = PyNumber_Subtract(__pyx_t_3, __pyx_v_size_before); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 556, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_15);
                 __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
                 __pyx_t_5 = 1;
@@ -15063,14 +15053,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
                   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
                   __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
                   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-                  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 557, __pyx_L13_error)
+                  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L13_error)
                   __Pyx_GOTREF(__pyx_t_4);
                 }
                 __Pyx_Raise(__pyx_t_4, 0, 0, 0);
                 __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-                __PYX_ERR(0, 557, __pyx_L13_error)
+                __PYX_ERR(0, 556, __pyx_L13_error)
 
-                /* "ddtrace/internal/_encoding.pyx":556
+                /* "ddtrace/internal/_encoding.pyx":555
  *                 # grow arbitrarily because of the PyMem_Realloc and if it does then
  *                 # free and reallocate with the appropriate size.
  *                 if self.size - size_before > self.max_item_size:             # <<<<<<<<<<<<<<
@@ -15079,25 +15069,25 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
 */
               }
 
-              /* "ddtrace/internal/_encoding.pyx":559
+              /* "ddtrace/internal/_encoding.pyx":558
  *                     raise BufferItemTooLarge(self.size - size_before)
  * 
  *                 if self.size > self.max_size:             # <<<<<<<<<<<<<<
  *                     raise BufferFull(self.size - size_before)
  * 
 */
-              __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 559, __pyx_L13_error)
+              __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 558, __pyx_L13_error)
               __Pyx_GOTREF(__pyx_t_4);
-              __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_self->__pyx_base.max_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 559, __pyx_L13_error)
+              __pyx_t_2 = __Pyx_PyLong_FromSize_t(__pyx_v_self->__pyx_base.max_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 558, __pyx_L13_error)
               __Pyx_GOTREF(__pyx_t_2);
-              __pyx_t_15 = PyObject_RichCompare(__pyx_t_4, __pyx_t_2, Py_GT); __Pyx_XGOTREF(__pyx_t_15); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 559, __pyx_L13_error)
+              __pyx_t_15 = PyObject_RichCompare(__pyx_t_4, __pyx_t_2, Py_GT); __Pyx_XGOTREF(__pyx_t_15); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 558, __pyx_L13_error)
               __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
               __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-              __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_15); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 559, __pyx_L13_error)
+              __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_15); if (unlikely((__pyx_t_14 < 0))) __PYX_ERR(0, 558, __pyx_L13_error)
               __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
               if (unlikely(__pyx_t_14)) {
 
-                /* "ddtrace/internal/_encoding.pyx":560
+                /* "ddtrace/internal/_encoding.pyx":559
  * 
  *                 if self.size > self.max_size:
  *                     raise BufferFull(self.size - size_before)             # <<<<<<<<<<<<<<
@@ -15105,11 +15095,11 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
  *                 self._count += 1
 */
                 __pyx_t_2 = NULL;
-                __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BufferFull); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 560, __pyx_L13_error)
+                __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BufferFull); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 559, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_4);
-                __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 560, __pyx_L13_error)
+                __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 559, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_1);
-                __pyx_t_3 = PyNumber_Subtract(__pyx_t_1, __pyx_v_size_before); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 560, __pyx_L13_error)
+                __pyx_t_3 = PyNumber_Subtract(__pyx_t_1, __pyx_v_size_before); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 559, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_3);
                 __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
                 __pyx_t_5 = 1;
@@ -15130,14 +15120,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
                   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
                   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
                   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-                  if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 560, __pyx_L13_error)
+                  if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 559, __pyx_L13_error)
                   __Pyx_GOTREF(__pyx_t_15);
                 }
                 __Pyx_Raise(__pyx_t_15, 0, 0, 0);
                 __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-                __PYX_ERR(0, 560, __pyx_L13_error)
+                __PYX_ERR(0, 559, __pyx_L13_error)
 
-                /* "ddtrace/internal/_encoding.pyx":559
+                /* "ddtrace/internal/_encoding.pyx":558
  *                     raise BufferItemTooLarge(self.size - size_before)
  * 
  *                 if self.size > self.max_size:             # <<<<<<<<<<<<<<
@@ -15146,7 +15136,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
 */
               }
 
-              /* "ddtrace/internal/_encoding.pyx":562
+              /* "ddtrace/internal/_encoding.pyx":561
  *                     raise BufferFull(self.size - size_before)
  * 
  *                 self._count += 1             # <<<<<<<<<<<<<<
@@ -15155,7 +15145,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
 */
               __pyx_v_self->_count = (__pyx_v_self->_count + 1);
 
-              /* "ddtrace/internal/_encoding.pyx":546
+              /* "ddtrace/internal/_encoding.pyx":545
  *             len_before = self.pk.length
  *             size_before = self.size
  *             try:             # <<<<<<<<<<<<<<
@@ -15174,7 +15164,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
             __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-            /* "ddtrace/internal/_encoding.pyx":563
+            /* "ddtrace/internal/_encoding.pyx":562
  * 
  *                 self._count += 1
  *             except Exception:             # <<<<<<<<<<<<<<
@@ -15184,12 +15174,12 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
             __pyx_t_13 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
             if (__pyx_t_13) {
               __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderBase.put", __pyx_clineno, __pyx_lineno, __pyx_filename);
-              if (__Pyx_GetException(&__pyx_t_15, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 563, __pyx_L15_except_error)
+              if (__Pyx_GetException(&__pyx_t_15, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 562, __pyx_L15_except_error)
               __Pyx_XGOTREF(__pyx_t_15);
               __Pyx_XGOTREF(__pyx_t_4);
               __Pyx_XGOTREF(__pyx_t_3);
 
-              /* "ddtrace/internal/_encoding.pyx":565
+              /* "ddtrace/internal/_encoding.pyx":564
  *             except Exception:
  *                 # rollback
  *                 self.pk.length = len_before             # <<<<<<<<<<<<<<
@@ -15198,7 +15188,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
 */
               __pyx_v_self->pk.length = __pyx_v_len_before;
 
-              /* "ddtrace/internal/_encoding.pyx":566
+              /* "ddtrace/internal/_encoding.pyx":565
  *                 # rollback
  *                 self.pk.length = len_before
  *                 raise             # <<<<<<<<<<<<<<
@@ -15210,11 +15200,11 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
               __Pyx_XGIVEREF(__pyx_t_3);
               __Pyx_ErrRestoreWithState(__pyx_t_15, __pyx_t_4, __pyx_t_3);
               __pyx_t_15 = 0;  __pyx_t_4 = 0;  __pyx_t_3 = 0; 
-              __PYX_ERR(0, 566, __pyx_L15_except_error)
+              __PYX_ERR(0, 565, __pyx_L15_except_error)
             }
             goto __pyx_L15_except_error;
 
-            /* "ddtrace/internal/_encoding.pyx":546
+            /* "ddtrace/internal/_encoding.pyx":545
  *             len_before = self.pk.length
  *             size_before = self.size
  *             try:             # <<<<<<<<<<<<<<
@@ -15230,7 +15220,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
             __pyx_L18_try_end:;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":543
+          /* "ddtrace/internal/_encoding.pyx":542
  *         cdef int ret
  * 
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -15250,20 +15240,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderBase.put", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_4, &__pyx_t_15) < 0) __PYX_ERR(0, 543, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_4, &__pyx_t_15) < 0) __PYX_ERR(0, 542, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_3);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_15);
-          __pyx_t_2 = PyTuple_Pack(3, __pyx_t_3, __pyx_t_4, __pyx_t_15); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 543, __pyx_L9_except_error)
+          __pyx_t_2 = PyTuple_Pack(3, __pyx_t_3, __pyx_t_4, __pyx_t_15); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 542, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_2, NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 543, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 542, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_12);
           __pyx_t_14 = __Pyx_PyObject_IsTrue(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (__pyx_t_14 < 0) __PYX_ERR(0, 543, __pyx_L9_except_error)
+          if (__pyx_t_14 < 0) __PYX_ERR(0, 542, __pyx_L9_except_error)
           __pyx_t_16 = (!__pyx_t_14);
           if (unlikely(__pyx_t_16)) {
             __Pyx_GIVEREF(__pyx_t_3);
@@ -15271,7 +15261,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
             __Pyx_XGIVEREF(__pyx_t_15);
             __Pyx_ErrRestoreWithState(__pyx_t_3, __pyx_t_4, __pyx_t_15);
             __pyx_t_3 = 0;  __pyx_t_4 = 0;  __pyx_t_15 = 0; 
-            __PYX_ERR(0, 543, __pyx_L9_except_error)
+            __PYX_ERR(0, 542, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -15297,7 +15287,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
         if (__pyx_t_6) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 543, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 542, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -15312,7 +15302,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(
     __pyx_L27:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":539
+  /* "ddtrace/internal/_encoding.pyx":538
  *         return ret
  * 
  *     cpdef put(self, list trace):             # <<<<<<<<<<<<<<
@@ -15378,32 +15368,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_trace,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 539, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 538, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 539, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 538, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 539, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 538, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 539, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 538, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 539, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 538, __pyx_L3_error)
     }
     __pyx_v_trace = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 539, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 538, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15414,7 +15404,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_trace), (&PyList_Type), 1, "trace", 1))) __PYX_ERR(0, 539, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_trace), (&PyList_Type), 1, "trace", 1))) __PYX_ERR(0, 538, __pyx_L1_error)
   __pyx_r = __pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_10put(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self), __pyx_v_trace);
 
   /* function exit code */
@@ -15443,7 +15433,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_10p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("put", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(__pyx_v_self, __pyx_v_trace, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 539, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_put(__pyx_v_self, __pyx_v_trace, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 538, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -15460,7 +15450,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_10p
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":568
+/* "ddtrace/internal/_encoding.pyx":567
  *                 raise
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -15504,7 +15494,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":571
+  /* "ddtrace/internal/_encoding.pyx":570
  *     def size(self):
  *         """Return the size in bytes of the encoder buffer."""
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -15512,10 +15502,10 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
  * 
 */
   /*with:*/ {
-    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 571, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 570, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 571, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 570, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -15534,7 +15524,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 571, __pyx_L3_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 570, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -15548,7 +15538,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
         __Pyx_XGOTREF(__pyx_t_8);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":572
+          /* "ddtrace/internal/_encoding.pyx":571
  *         """Return the size in bytes of the encoder buffer."""
  *         with self._lock:
  *             return self.pk.length + array_prefix_size(self._count) - MSGPACK_ARRAY_LENGTH_PREFIX_SIZE             # <<<<<<<<<<<<<<
@@ -15556,14 +15546,14 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
  *     # ---- Abstract methods ----
 */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_self->_count); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 572, __pyx_L7_error)
-          __pyx_t_2 = __Pyx_PyLong_FromSize_t(((__pyx_v_self->pk.length + __pyx_t_9) - 5)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 572, __pyx_L7_error)
+          __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_array_prefix_size(__pyx_v_self->_count); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 571, __pyx_L7_error)
+          __pyx_t_2 = __Pyx_PyLong_FromSize_t(((__pyx_v_self->pk.length + __pyx_t_9) - 5)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 571, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_r = __pyx_t_2;
           __pyx_t_2 = 0;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":571
+          /* "ddtrace/internal/_encoding.pyx":570
  *     def size(self):
  *         """Return the size in bytes of the encoder buffer."""
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -15577,20 +15567,20 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderBase.size.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 571, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_2, &__pyx_t_4, &__pyx_t_3) < 0) __PYX_ERR(0, 570, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_2);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_3);
-          __pyx_t_10 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 571, __pyx_L9_except_error)
+          __pyx_t_10 = PyTuple_Pack(3, __pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 570, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_10, NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 571, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 570, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_11);
           __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_11);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (__pyx_t_12 < 0) __PYX_ERR(0, 571, __pyx_L9_except_error)
+          if (__pyx_t_12 < 0) __PYX_ERR(0, 570, __pyx_L9_except_error)
           __pyx_t_13 = (!__pyx_t_12);
           if (unlikely(__pyx_t_13)) {
             __Pyx_GIVEREF(__pyx_t_2);
@@ -15598,7 +15588,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
             __Pyx_XGIVEREF(__pyx_t_3);
             __Pyx_ErrRestoreWithState(__pyx_t_2, __pyx_t_4, __pyx_t_3);
             __pyx_t_2 = 0;  __pyx_t_4 = 0;  __pyx_t_3 = 0; 
-            __PYX_ERR(0, 571, __pyx_L9_except_error)
+            __PYX_ERR(0, 570, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -15629,7 +15619,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
         if (__pyx_t_1) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 571, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 570, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -15641,7 +15631,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
         if (__pyx_t_1) {
           __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 571, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 570, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
@@ -15658,7 +15648,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
     __pyx_L16:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":568
+  /* "ddtrace/internal/_encoding.pyx":567
  *                 raise
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -15682,7 +15672,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_4si
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":576
+/* "ddtrace/internal/_encoding.pyx":575
  *     # ---- Abstract methods ----
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -15725,7 +15715,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_flus
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 576, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 575, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_13flush)) {
         __Pyx_XDECREF(__pyx_r);
@@ -15749,7 +15739,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_flus
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 576, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 575, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -15770,7 +15760,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_flus
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":577
+  /* "ddtrace/internal/_encoding.pyx":576
  * 
  *     cpdef flush(self):
  *         raise NotImplementedError()             # <<<<<<<<<<<<<<
@@ -15786,14 +15776,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_flus
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 577, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 576, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_Raise(__pyx_t_1, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __PYX_ERR(0, 577, __pyx_L1_error)
+  __PYX_ERR(0, 576, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":576
+  /* "ddtrace/internal/_encoding.pyx":575
  *     # ---- Abstract methods ----
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -15866,7 +15856,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_12f
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("flush", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 576, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 575, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -15883,7 +15873,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_12f
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":579
+/* "ddtrace/internal/_encoding.pyx":578
  *         raise NotImplementedError()
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:             # <<<<<<<<<<<<<<
@@ -15903,7 +15893,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_pack_span(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pack_span", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":580
+  /* "ddtrace/internal/_encoding.pyx":579
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:
  *         raise NotImplementedError()             # <<<<<<<<<<<<<<
@@ -15919,14 +15909,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_pack_span(
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 580, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 579, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_Raise(__pyx_t_1, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __PYX_ERR(0, 580, __pyx_L1_error)
+  __PYX_ERR(0, 579, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":579
+  /* "ddtrace/internal/_encoding.pyx":578
  *         raise NotImplementedError()
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:             # <<<<<<<<<<<<<<
@@ -16149,7 +16139,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_16_
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":586
+/* "ddtrace/internal/_encoding.pyx":585
  *     cdef bint top_level_span_event_encoding
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -16180,39 +16170,39 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_1__cinit__
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_max_size,&__pyx_mstate_global->__pyx_n_u_max_item_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 586, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 585, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 586, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 585, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 586, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 585, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 586, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 585, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 586, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 585, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 586, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 585, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 586, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 585, __pyx_L3_error)
     }
-    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 586, __pyx_L3_error)
-    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 586, __pyx_L3_error)
+    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 585, __pyx_L3_error)
+    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 585, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 586, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 585, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16244,23 +16234,23 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04___cinit__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":587
+  /* "ddtrace/internal/_encoding.pyx":586
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         self.top_level_span_event_encoding = agent_config.trace_native_span_events             # <<<<<<<<<<<<<<
  * 
  *     cpdef flush(self):
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_agent_config); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 587, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_agent_config); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 586, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_trace_native_span_events); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 587, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_trace_native_span_events); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 586, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 587, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 586, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_self->top_level_span_event_encoding = __pyx_t_3;
 
-  /* "ddtrace/internal/_encoding.pyx":586
+  /* "ddtrace/internal/_encoding.pyx":585
  *     cdef bint top_level_span_event_encoding
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -16281,7 +16271,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04___cinit__(
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":589
+/* "ddtrace/internal/_encoding.pyx":588
  *         self.top_level_span_event_encoding = agent_config.trace_native_span_events
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -16340,7 +16330,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 589, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 588, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_3flush)) {
         __Pyx_XDECREF(__pyx_r);
@@ -16364,7 +16354,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 589, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 588, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -16385,7 +16375,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":590
+  /* "ddtrace/internal/_encoding.pyx":589
  * 
  *     cpdef flush(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -16393,10 +16383,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
  *                 return [(self.get_bytes(), len(self))]
 */
   /*with:*/ {
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 590, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 589, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 590, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 589, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -16415,7 +16405,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 590, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 589, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -16429,7 +16419,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":591
+          /* "ddtrace/internal/_encoding.pyx":590
  *     cpdef flush(self):
  *         with self._lock:
  *             try:             # <<<<<<<<<<<<<<
@@ -16438,7 +16428,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
 */
           /*try:*/ {
 
-            /* "ddtrace/internal/_encoding.pyx":592
+            /* "ddtrace/internal/_encoding.pyx":591
  *         with self._lock:
  *             try:
  *                 return [(self.get_bytes(), len(self))]             # <<<<<<<<<<<<<<
@@ -16446,30 +16436,30 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
  *                 self._reset_buffer()
 */
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_bytes(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 592, __pyx_L14_error)
+            __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_bytes(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 591, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_1);
-            __pyx_t_10 = PyObject_Length(((PyObject *)__pyx_v_self)); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 592, __pyx_L14_error)
-            __pyx_t_4 = PyLong_FromSsize_t(__pyx_t_10); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 592, __pyx_L14_error)
+            __pyx_t_10 = PyObject_Length(((PyObject *)__pyx_v_self)); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 591, __pyx_L14_error)
+            __pyx_t_4 = PyLong_FromSsize_t(__pyx_t_10); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 591, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_4);
-            __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 592, __pyx_L14_error)
+            __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 591, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_2);
             __Pyx_GIVEREF(__pyx_t_1);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 592, __pyx_L14_error);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 591, __pyx_L14_error);
             __Pyx_GIVEREF(__pyx_t_4);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 592, __pyx_L14_error);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 591, __pyx_L14_error);
             __pyx_t_1 = 0;
             __pyx_t_4 = 0;
-            __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 592, __pyx_L14_error)
+            __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 591, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_GIVEREF(__pyx_t_2);
-            if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 592, __pyx_L14_error);
+            if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 591, __pyx_L14_error);
             __pyx_t_2 = 0;
             __pyx_r = __pyx_t_4;
             __pyx_t_4 = 0;
             goto __pyx_L13_return;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":594
+          /* "ddtrace/internal/_encoding.pyx":593
  *                 return [(self.get_bytes(), len(self))]
  *             finally:
  *                 self._reset_buffer()             # <<<<<<<<<<<<<<
@@ -16496,7 +16486,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
               __Pyx_XGOTREF(__pyx_t_19);
               __pyx_t_11 = __pyx_lineno; __pyx_t_12 = __pyx_clineno; __pyx_t_13 = __pyx_filename;
               {
-                __pyx_t_4 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 594, __pyx_L17_error)
+                __pyx_t_4 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 593, __pyx_L17_error)
                 __Pyx_GOTREF(__pyx_t_4);
                 __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
               }
@@ -16525,7 +16515,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
             __pyx_L13_return: {
               __pyx_t_19 = __pyx_r;
               __pyx_r = 0;
-              __pyx_t_4 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 594, __pyx_L7_error)
+              __pyx_t_4 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 593, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_4);
               __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
               __pyx_r = __pyx_t_19;
@@ -16534,7 +16524,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
             }
           }
 
-          /* "ddtrace/internal/_encoding.pyx":590
+          /* "ddtrace/internal/_encoding.pyx":589
  * 
  *     cpdef flush(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -16549,20 +16539,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderV04.flush", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_2, &__pyx_t_1) < 0) __PYX_ERR(0, 590, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_2, &__pyx_t_1) < 0) __PYX_ERR(0, 589, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_2);
           __Pyx_XGOTREF(__pyx_t_1);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 590, __pyx_L9_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 589, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_19 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 590, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 589, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_19);
           __pyx_t_20 = __Pyx_PyObject_IsTrue(__pyx_t_19);
           __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
-          if (__pyx_t_20 < 0) __PYX_ERR(0, 590, __pyx_L9_except_error)
+          if (__pyx_t_20 < 0) __PYX_ERR(0, 589, __pyx_L9_except_error)
           __pyx_t_21 = (!__pyx_t_20);
           if (unlikely(__pyx_t_21)) {
             __Pyx_GIVEREF(__pyx_t_4);
@@ -16570,7 +16560,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
             __Pyx_XGIVEREF(__pyx_t_1);
             __Pyx_ErrRestoreWithState(__pyx_t_4, __pyx_t_2, __pyx_t_1);
             __pyx_t_4 = 0;  __pyx_t_2 = 0;  __pyx_t_1 = 0; 
-            __PYX_ERR(0, 590, __pyx_L9_except_error)
+            __PYX_ERR(0, 589, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -16601,7 +16591,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
         if (__pyx_t_6) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 590, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 589, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -16613,7 +16603,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
         if (__pyx_t_6) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 590, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 589, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -16630,7 +16620,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush
     __pyx_L21:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":589
+  /* "ddtrace/internal/_encoding.pyx":588
  *         self.top_level_span_event_encoding = agent_config.trace_native_span_events
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -16705,7 +16695,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_2flu
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("flush", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 589, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 588, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -16722,7 +16712,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_2flu
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":596
+/* "ddtrace/internal/_encoding.pyx":595
  *                 self._reset_buffer()
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):             # <<<<<<<<<<<<<<
@@ -16737,18 +16727,18 @@ static void *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_get_dd_or
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":597
+  /* "ddtrace/internal/_encoding.pyx":596
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):
  *         return string_to_buff(dd_origin)             # <<<<<<<<<<<<<<
  * 
  *     cdef inline int _pack_links(self, list span_links):
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_string_to_buff(__pyx_v_dd_origin); if (unlikely(__pyx_t_1 == ((char const *)0) && PyErr_Occurred())) __PYX_ERR(0, 597, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_string_to_buff(__pyx_v_dd_origin); if (unlikely(__pyx_t_1 == ((char const *)0) && PyErr_Occurred())) __PYX_ERR(0, 596, __pyx_L1_error)
   __pyx_r = __pyx_t_1;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":596
+  /* "ddtrace/internal/_encoding.pyx":595
  *                 self._reset_buffer()
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):             # <<<<<<<<<<<<<<
@@ -16764,7 +16754,7 @@ static void *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_get_dd_or
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":599
+/* "ddtrace/internal/_encoding.pyx":598
  *         return string_to_buff(dd_origin)
  * 
  *     cdef inline int _pack_links(self, list span_links):             # <<<<<<<<<<<<<<
@@ -16810,7 +16800,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_pack_links", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":600
+  /* "ddtrace/internal/_encoding.pyx":599
  * 
  *     cdef inline int _pack_links(self, list span_links):
  *         ret = msgpack_pack_array(&self.pk, len(span_links))             # <<<<<<<<<<<<<<
@@ -16819,12 +16809,12 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   if (unlikely(__pyx_v_span_links == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 600, __pyx_L1_error)
+    __PYX_ERR(0, 599, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_span_links); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 600, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_span_links); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 599, __pyx_L1_error)
   __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->__pyx_base.pk), __pyx_t_1);
 
-  /* "ddtrace/internal/_encoding.pyx":601
+  /* "ddtrace/internal/_encoding.pyx":600
  *     cdef inline int _pack_links(self, list span_links):
  *         ret = msgpack_pack_array(&self.pk, len(span_links))
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -16834,7 +16824,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   __pyx_t_2 = (__pyx_v_ret != 0);
   if (__pyx_t_2) {
 
-    /* "ddtrace/internal/_encoding.pyx":602
+    /* "ddtrace/internal/_encoding.pyx":601
  *         ret = msgpack_pack_array(&self.pk, len(span_links))
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -16844,7 +16834,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":601
+    /* "ddtrace/internal/_encoding.pyx":600
  *     cdef inline int _pack_links(self, list span_links):
  *         ret = msgpack_pack_array(&self.pk, len(span_links))
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -16853,7 +16843,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":604
+  /* "ddtrace/internal/_encoding.pyx":603
  *             return ret
  * 
  *         for link in span_links:             # <<<<<<<<<<<<<<
@@ -16862,7 +16852,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   if (unlikely(__pyx_v_span_links == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 604, __pyx_L1_error)
+    __PYX_ERR(0, 603, __pyx_L1_error)
   }
   __pyx_t_3 = __pyx_v_span_links; __Pyx_INCREF(__pyx_t_3);
   __pyx_t_1 = 0;
@@ -16870,18 +16860,18 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 604, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 603, __pyx_L1_error)
       #endif
       if (__pyx_t_1 >= __pyx_temp) break;
     }
     __pyx_t_4 = __Pyx_PyList_GetItemRef(__pyx_t_3, __pyx_t_1);
     ++__pyx_t_1;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 604, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 603, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF_SET(__pyx_v_link, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":607
+    /* "ddtrace/internal/_encoding.pyx":606
  *             # SpanLink.to_dict() returns all serializable span link fields
  *             # v0.4 encoding is disabled by default. SpanLinks.to_dict() is optimized for the v0.5 format.
  *             d = link.to_dict()             # <<<<<<<<<<<<<<
@@ -16895,13 +16885,13 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_to_dict, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 607, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 606, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_XDECREF_SET(__pyx_v_d, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":609
+    /* "ddtrace/internal/_encoding.pyx":608
  *             d = link.to_dict()
  *             # Encode 128 bit trace ids usings two 64bit integers
  *             tid = int(d["trace_id"][:16], 16)             # <<<<<<<<<<<<<<
@@ -16911,9 +16901,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_5 = NULL;
     __Pyx_INCREF((PyObject *)(&PyLong_Type));
     __pyx_t_7 = ((PyObject *)(&PyLong_Type)); 
-    __pyx_t_8 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 609, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 608, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetSlice(__pyx_t_8, 0, 16, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 0, 1, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 609, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetSlice(__pyx_t_8, 0, 16, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 0, 1, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 608, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_6 = 1;
@@ -16923,34 +16913,34 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 609, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 608, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_XDECREF_SET(__pyx_v_tid, ((PyObject*)__pyx_t_4));
     __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":610
+    /* "ddtrace/internal/_encoding.pyx":609
  *             # Encode 128 bit trace ids usings two 64bit integers
  *             tid = int(d["trace_id"][:16], 16)
  *             if tid > 0:             # <<<<<<<<<<<<<<
  *                 d["trace_id_high"] = tid
  *             d["trace_id"] = int(d["trace_id"][16:], 16)
 */
-    __pyx_t_4 = PyObject_RichCompare(__pyx_v_tid, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 610, __pyx_L1_error)
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 610, __pyx_L1_error)
+    __pyx_t_4 = PyObject_RichCompare(__pyx_v_tid, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 609, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 609, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":611
+      /* "ddtrace/internal/_encoding.pyx":610
  *             tid = int(d["trace_id"][:16], 16)
  *             if tid > 0:
  *                 d["trace_id_high"] = tid             # <<<<<<<<<<<<<<
  *             d["trace_id"] = int(d["trace_id"][16:], 16)
  *             # span id should be uint64 in v0.4 (it is hex in v0.5)
 */
-      if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id_high, __pyx_v_tid) < 0))) __PYX_ERR(0, 611, __pyx_L1_error)
+      if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id_high, __pyx_v_tid) < 0))) __PYX_ERR(0, 610, __pyx_L1_error)
 
-      /* "ddtrace/internal/_encoding.pyx":610
+      /* "ddtrace/internal/_encoding.pyx":609
  *             # Encode 128 bit trace ids usings two 64bit integers
  *             tid = int(d["trace_id"][:16], 16)
  *             if tid > 0:             # <<<<<<<<<<<<<<
@@ -16959,7 +16949,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":612
+    /* "ddtrace/internal/_encoding.pyx":611
  *             if tid > 0:
  *                 d["trace_id_high"] = tid
  *             d["trace_id"] = int(d["trace_id"][16:], 16)             # <<<<<<<<<<<<<<
@@ -16969,9 +16959,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_7 = NULL;
     __Pyx_INCREF((PyObject *)(&PyLong_Type));
     __pyx_t_9 = ((PyObject *)(&PyLong_Type)); 
-    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 612, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 611, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_t_5, 16, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[2], 1, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 612, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetSlice(__pyx_t_5, 16, 0, NULL, NULL, &__pyx_mstate_global->__pyx_slice[2], 1, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 611, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_6 = 1;
@@ -16981,13 +16971,13 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 612, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 611, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id, __pyx_t_4) < 0))) __PYX_ERR(0, 612, __pyx_L1_error)
+    if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_trace_id, __pyx_t_4) < 0))) __PYX_ERR(0, 611, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":614
+    /* "ddtrace/internal/_encoding.pyx":613
  *             d["trace_id"] = int(d["trace_id"][16:], 16)
  *             # span id should be uint64 in v0.4 (it is hex in v0.5)
  *             d["span_id"] = int(d["span_id"], 16)             # <<<<<<<<<<<<<<
@@ -16997,7 +16987,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_9 = NULL;
     __Pyx_INCREF((PyObject *)(&PyLong_Type));
     __pyx_t_8 = ((PyObject *)(&PyLong_Type)); 
-    __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_span_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 614, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_span_id); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 613, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_6 = 1;
     {
@@ -17006,38 +16996,38 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 614, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 613, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_span_id, __pyx_t_4) < 0))) __PYX_ERR(0, 614, __pyx_L1_error)
+    if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_span_id, __pyx_t_4) < 0))) __PYX_ERR(0, 613, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":615
+    /* "ddtrace/internal/_encoding.pyx":614
  *             # span id should be uint64 in v0.4 (it is hex in v0.5)
  *             d["span_id"] = int(d["span_id"], 16)
  *             if "flags" in d:             # <<<<<<<<<<<<<<
  *                 # If traceflags set, the high bit (bit 31) should be set to 1 (uint32).
  *                 # This helps us distinguish between when the sample decision is zero or not set
 */
-    __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_n_u_flags, __pyx_v_d, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 615, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_n_u_flags, __pyx_v_d, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 614, __pyx_L1_error)
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":618
+      /* "ddtrace/internal/_encoding.pyx":617
  *                 # If traceflags set, the high bit (bit 31) should be set to 1 (uint32).
  *                 # This helps us distinguish between when the sample decision is zero or not set
  *                 d["flags"] = d["flags"] | (1 << 31)             # <<<<<<<<<<<<<<
  * 
  *             ret = msgpack_pack_map(&self.pk, len(d))
 */
-      __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_flags); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 618, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_Dict_GetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_flags); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 617, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_8 = PyNumber_Or(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 618, __pyx_L1_error)
+      __pyx_t_8 = PyNumber_Or(__pyx_t_4, __pyx_mstate_global->__pyx_int_2147483648); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 617, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_flags, __pyx_t_8) < 0))) __PYX_ERR(0, 618, __pyx_L1_error)
+      if (unlikely((PyObject_SetItem(__pyx_v_d, __pyx_mstate_global->__pyx_n_u_flags, __pyx_t_8) < 0))) __PYX_ERR(0, 617, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":615
+      /* "ddtrace/internal/_encoding.pyx":614
  *             # span id should be uint64 in v0.4 (it is hex in v0.5)
  *             d["span_id"] = int(d["span_id"], 16)
  *             if "flags" in d:             # <<<<<<<<<<<<<<
@@ -17046,17 +17036,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":620
+    /* "ddtrace/internal/_encoding.pyx":619
  *                 d["flags"] = d["flags"] | (1 << 31)
  * 
  *             ret = msgpack_pack_map(&self.pk, len(d))             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_10 = PyObject_Length(__pyx_v_d); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 620, __pyx_L1_error)
+    __pyx_t_10 = PyObject_Length(__pyx_v_d); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 619, __pyx_L1_error)
     __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_t_10);
 
-    /* "ddtrace/internal/_encoding.pyx":621
+    /* "ddtrace/internal/_encoding.pyx":620
  * 
  *             ret = msgpack_pack_map(&self.pk, len(d))
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17066,7 +17056,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":622
+      /* "ddtrace/internal/_encoding.pyx":621
  *             ret = msgpack_pack_map(&self.pk, len(d))
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -17077,7 +17067,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":621
+      /* "ddtrace/internal/_encoding.pyx":620
  * 
  *             ret = msgpack_pack_map(&self.pk, len(d))
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17086,7 +17076,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":624
+    /* "ddtrace/internal/_encoding.pyx":623
  *                 return ret
  * 
  *             for k, v in d.items():             # <<<<<<<<<<<<<<
@@ -17096,9 +17086,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_10 = 0;
     if (unlikely(__pyx_v_d == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 624, __pyx_L1_error)
+      __PYX_ERR(0, 623, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_dict_iterator(__pyx_v_d, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 624, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_dict_iterator(__pyx_v_d, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_12)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 623, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_8);
     __pyx_t_8 = __pyx_t_4;
@@ -17106,7 +17096,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     while (1) {
       __pyx_t_13 = __Pyx_dict_iter_next(__pyx_t_8, __pyx_t_11, &__pyx_t_10, &__pyx_t_4, &__pyx_t_7, NULL, __pyx_t_12);
       if (unlikely(__pyx_t_13 == 0)) break;
-      if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 624, __pyx_L1_error)
+      if (unlikely(__pyx_t_13 == -1)) __PYX_ERR(0, 623, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_4);
@@ -17114,17 +17104,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_7);
       __pyx_t_7 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":626
+      /* "ddtrace/internal/_encoding.pyx":625
  *             for k, v in d.items():
  *                 # pack the name of a span link field (ex: trace_id, span_id, flags, ...)
  *                 ret = pack_text(&self.pk, k)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 626, __pyx_L1_error)
+      __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 625, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_13;
 
-      /* "ddtrace/internal/_encoding.pyx":627
+      /* "ddtrace/internal/_encoding.pyx":626
  *                 # pack the name of a span link field (ex: trace_id, span_id, flags, ...)
  *                 ret = pack_text(&self.pk, k)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -17134,7 +17124,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":628
+        /* "ddtrace/internal/_encoding.pyx":627
  *                 ret = pack_text(&self.pk, k)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -17146,7 +17136,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":627
+        /* "ddtrace/internal/_encoding.pyx":626
  *                 # pack the name of a span link field (ex: trace_id, span_id, flags, ...)
  *                 ret = pack_text(&self.pk, k)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -17155,7 +17145,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":630
+      /* "ddtrace/internal/_encoding.pyx":629
  *                     return ret
  *                 # pack the value of a span link field (values can be number, string or dict)
  *                 if isinstance(v, (int, float)):             # <<<<<<<<<<<<<<
@@ -17173,17 +17163,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_L13_bool_binop_done:;
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":631
+        /* "ddtrace/internal/_encoding.pyx":630
  *                 # pack the value of a span link field (values can be number, string or dict)
  *                 if isinstance(v, (int, float)):
  *                     ret = pack_number(&self.pk, v)             # <<<<<<<<<<<<<<
  *                 elif isinstance(v, str):
  *                     ret = pack_text(&self.pk, v)
 */
-        __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 631, __pyx_L1_error)
+        __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 630, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_13;
 
-        /* "ddtrace/internal/_encoding.pyx":630
+        /* "ddtrace/internal/_encoding.pyx":629
  *                     return ret
  *                 # pack the value of a span link field (values can be number, string or dict)
  *                 if isinstance(v, (int, float)):             # <<<<<<<<<<<<<<
@@ -17193,7 +17183,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         goto __pyx_L12;
       }
 
-      /* "ddtrace/internal/_encoding.pyx":632
+      /* "ddtrace/internal/_encoding.pyx":631
  *                 if isinstance(v, (int, float)):
  *                     ret = pack_number(&self.pk, v)
  *                 elif isinstance(v, str):             # <<<<<<<<<<<<<<
@@ -17203,17 +17193,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_2 = PyUnicode_Check(__pyx_v_v); 
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":633
+        /* "ddtrace/internal/_encoding.pyx":632
  *                     ret = pack_number(&self.pk, v)
  *                 elif isinstance(v, str):
  *                     ret = pack_text(&self.pk, v)             # <<<<<<<<<<<<<<
  *                 elif k == "attributes":
  *                     # span links can contain attributes, this is analougous to span tags
 */
-        __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 633, __pyx_L1_error)
+        __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 632, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_13;
 
-        /* "ddtrace/internal/_encoding.pyx":632
+        /* "ddtrace/internal/_encoding.pyx":631
  *                 if isinstance(v, (int, float)):
  *                     ret = pack_number(&self.pk, v)
  *                 elif isinstance(v, str):             # <<<<<<<<<<<<<<
@@ -17223,17 +17213,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         goto __pyx_L12;
       }
 
-      /* "ddtrace/internal/_encoding.pyx":634
+      /* "ddtrace/internal/_encoding.pyx":633
  *                 elif isinstance(v, str):
  *                     ret = pack_text(&self.pk, v)
  *                 elif k == "attributes":             # <<<<<<<<<<<<<<
  *                     # span links can contain attributes, this is analougous to span tags
  *                     # attributes are serialized as a nested dict with string keys and values
 */
-      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_k, __pyx_mstate_global->__pyx_n_u_attributes, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 634, __pyx_L1_error)
+      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_k, __pyx_mstate_global->__pyx_n_u_attributes, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 633, __pyx_L1_error)
       if (likely(__pyx_t_2)) {
 
-        /* "ddtrace/internal/_encoding.pyx":637
+        /* "ddtrace/internal/_encoding.pyx":636
  *                     # span links can contain attributes, this is analougous to span tags
  *                     # attributes are serialized as a nested dict with string keys and values
  *                     attributes = v.items()             # <<<<<<<<<<<<<<
@@ -17247,23 +17237,23 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_7 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_items, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 637, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 636, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
         }
         __Pyx_XDECREF_SET(__pyx_v_attributes, __pyx_t_7);
         __pyx_t_7 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":638
+        /* "ddtrace/internal/_encoding.pyx":637
  *                     # attributes are serialized as a nested dict with string keys and values
  *                     attributes = v.items()
  *                     ret = msgpack_pack_map(&self.pk, len(attributes))             # <<<<<<<<<<<<<<
  *                     for attr_k, attr_v in attributes:
  *                         ret = pack_text(&self.pk, attr_k)
 */
-        __pyx_t_15 = PyObject_Length(__pyx_v_attributes); if (unlikely(__pyx_t_15 == ((Py_ssize_t)-1))) __PYX_ERR(0, 638, __pyx_L1_error)
+        __pyx_t_15 = PyObject_Length(__pyx_v_attributes); if (unlikely(__pyx_t_15 == ((Py_ssize_t)-1))) __PYX_ERR(0, 637, __pyx_L1_error)
         __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_t_15);
 
-        /* "ddtrace/internal/_encoding.pyx":639
+        /* "ddtrace/internal/_encoding.pyx":638
  *                     attributes = v.items()
  *                     ret = msgpack_pack_map(&self.pk, len(attributes))
  *                     for attr_k, attr_v in attributes:             # <<<<<<<<<<<<<<
@@ -17275,9 +17265,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __pyx_t_15 = 0;
           __pyx_t_16 = NULL;
         } else {
-          __pyx_t_15 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_v_attributes); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 639, __pyx_L1_error)
+          __pyx_t_15 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_v_attributes); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 638, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 639, __pyx_L1_error)
+          __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 638, __pyx_L1_error)
         }
         for (;;) {
           if (likely(!__pyx_t_16)) {
@@ -17285,7 +17275,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_7);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 639, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 638, __pyx_L1_error)
                 #endif
                 if (__pyx_t_15 >= __pyx_temp) break;
               }
@@ -17295,7 +17285,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_7);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 639, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 638, __pyx_L1_error)
                 #endif
                 if (__pyx_t_15 >= __pyx_temp) break;
               }
@@ -17306,13 +17296,13 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
               #endif
               ++__pyx_t_15;
             }
-            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 639, __pyx_L1_error)
+            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 638, __pyx_L1_error)
           } else {
             __pyx_t_4 = __pyx_t_16(__pyx_t_7);
             if (unlikely(!__pyx_t_4)) {
               PyObject* exc_type = PyErr_Occurred();
               if (exc_type) {
-                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 639, __pyx_L1_error)
+                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 638, __pyx_L1_error)
                 PyErr_Clear();
               }
               break;
@@ -17325,7 +17315,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
             if (unlikely(size != 2)) {
               if (size > 2) __Pyx_RaiseTooManyValuesError(2);
               else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-              __PYX_ERR(0, 639, __pyx_L1_error)
+              __PYX_ERR(0, 638, __pyx_L1_error)
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
             if (likely(PyTuple_CheckExact(sequence))) {
@@ -17335,22 +17325,22 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
               __Pyx_INCREF(__pyx_t_5);
             } else {
               __pyx_t_9 = __Pyx_PyList_GetItemRef(sequence, 0);
-              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 639, __pyx_L1_error)
+              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 638, __pyx_L1_error)
               __Pyx_XGOTREF(__pyx_t_9);
               __pyx_t_5 = __Pyx_PyList_GetItemRef(sequence, 1);
-              if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 639, __pyx_L1_error)
+              if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 638, __pyx_L1_error)
               __Pyx_XGOTREF(__pyx_t_5);
             }
             #else
-            __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 639, __pyx_L1_error)
+            __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 638, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_9);
-            __pyx_t_5 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 639, __pyx_L1_error)
+            __pyx_t_5 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 638, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_5);
             #endif
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           } else {
             Py_ssize_t index = -1;
-            __pyx_t_17 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 639, __pyx_L1_error)
+            __pyx_t_17 = PyObject_GetIter(__pyx_t_4); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 638, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_17);
             __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
             __pyx_t_18 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_17);
@@ -17358,7 +17348,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
             __Pyx_GOTREF(__pyx_t_9);
             index = 1; __pyx_t_5 = __pyx_t_18(__pyx_t_17); if (unlikely(!__pyx_t_5)) goto __pyx_L17_unpacking_failed;
             __Pyx_GOTREF(__pyx_t_5);
-            if (__Pyx_IternextUnpackEndCheck(__pyx_t_18(__pyx_t_17), 2) < 0) __PYX_ERR(0, 639, __pyx_L1_error)
+            if (__Pyx_IternextUnpackEndCheck(__pyx_t_18(__pyx_t_17), 2) < 0) __PYX_ERR(0, 638, __pyx_L1_error)
             __pyx_t_18 = NULL;
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
             goto __pyx_L18_unpacking_done;
@@ -17366,7 +17356,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
             __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
             __pyx_t_18 = NULL;
             if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-            __PYX_ERR(0, 639, __pyx_L1_error)
+            __PYX_ERR(0, 638, __pyx_L1_error)
             __pyx_L18_unpacking_done:;
           }
           __Pyx_XDECREF_SET(__pyx_v_attr_k, __pyx_t_9);
@@ -17374,17 +17364,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __Pyx_XDECREF_SET(__pyx_v_attr_v, __pyx_t_5);
           __pyx_t_5 = 0;
 
-          /* "ddtrace/internal/_encoding.pyx":640
+          /* "ddtrace/internal/_encoding.pyx":639
  *                     ret = msgpack_pack_map(&self.pk, len(attributes))
  *                     for attr_k, attr_v in attributes:
  *                         ret = pack_text(&self.pk, attr_k)             # <<<<<<<<<<<<<<
  *                         if ret != 0:
  *                             return ret
 */
-          __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr_k); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 640, __pyx_L1_error)
+          __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr_k); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 639, __pyx_L1_error)
           __pyx_v_ret = __pyx_t_13;
 
-          /* "ddtrace/internal/_encoding.pyx":641
+          /* "ddtrace/internal/_encoding.pyx":640
  *                     for attr_k, attr_v in attributes:
  *                         ret = pack_text(&self.pk, attr_k)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -17394,7 +17384,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __pyx_t_2 = (__pyx_v_ret != 0);
           if (__pyx_t_2) {
 
-            /* "ddtrace/internal/_encoding.pyx":642
+            /* "ddtrace/internal/_encoding.pyx":641
  *                         ret = pack_text(&self.pk, attr_k)
  *                         if ret != 0:
  *                             return ret             # <<<<<<<<<<<<<<
@@ -17407,7 +17397,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
             __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
             goto __pyx_L0;
 
-            /* "ddtrace/internal/_encoding.pyx":641
+            /* "ddtrace/internal/_encoding.pyx":640
  *                     for attr_k, attr_v in attributes:
  *                         ret = pack_text(&self.pk, attr_k)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -17416,17 +17406,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":643
+          /* "ddtrace/internal/_encoding.pyx":642
  *                         if ret != 0:
  *                             return ret
  *                         ret = pack_text(&self.pk, attr_v)             # <<<<<<<<<<<<<<
  *                         if ret != 0:
  *                             return ret
 */
-          __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr_v); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 643, __pyx_L1_error)
+          __pyx_t_13 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr_v); if (unlikely(__pyx_t_13 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 642, __pyx_L1_error)
           __pyx_v_ret = __pyx_t_13;
 
-          /* "ddtrace/internal/_encoding.pyx":644
+          /* "ddtrace/internal/_encoding.pyx":643
  *                             return ret
  *                         ret = pack_text(&self.pk, attr_v)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -17436,7 +17426,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __pyx_t_2 = (__pyx_v_ret != 0);
           if (__pyx_t_2) {
 
-            /* "ddtrace/internal/_encoding.pyx":645
+            /* "ddtrace/internal/_encoding.pyx":644
  *                         ret = pack_text(&self.pk, attr_v)
  *                         if ret != 0:
  *                             return ret             # <<<<<<<<<<<<<<
@@ -17449,7 +17439,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
             __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
             goto __pyx_L0;
 
-            /* "ddtrace/internal/_encoding.pyx":644
+            /* "ddtrace/internal/_encoding.pyx":643
  *                             return ret
  *                         ret = pack_text(&self.pk, attr_v)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -17458,7 +17448,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":639
+          /* "ddtrace/internal/_encoding.pyx":638
  *                     attributes = v.items()
  *                     ret = msgpack_pack_map(&self.pk, len(attributes))
  *                     for attr_k, attr_v in attributes:             # <<<<<<<<<<<<<<
@@ -17468,7 +17458,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         }
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":634
+        /* "ddtrace/internal/_encoding.pyx":633
  *                 elif isinstance(v, str):
  *                     ret = pack_text(&self.pk, v)
  *                 elif k == "attributes":             # <<<<<<<<<<<<<<
@@ -17478,7 +17468,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         goto __pyx_L12;
       }
 
-      /* "ddtrace/internal/_encoding.pyx":647
+      /* "ddtrace/internal/_encoding.pyx":646
  *                             return ret
  *                 else:
  *                     raise ValueError(f"Failed to encode SpanLink. {k}={v} contains an unsupported type, {type(v)}")             # <<<<<<<<<<<<<<
@@ -17489,13 +17479,13 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_4 = NULL;
         __Pyx_INCREF(__pyx_builtin_ValueError);
         __pyx_t_5 = __pyx_builtin_ValueError; 
-        __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 647, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_v_k, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 646, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
-        __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_v_v, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 647, __pyx_L1_error)
+        __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_v_v, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 646, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_17);
-        __pyx_t_19 = __Pyx_PyObject_CallOneArg(((PyObject *)__pyx_mstate_global->__pyx_ptype_7cpython_4type_type), __pyx_v_v); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 647, __pyx_L1_error)
+        __pyx_t_19 = __Pyx_PyObject_CallOneArg(((PyObject *)__pyx_mstate_global->__pyx_ptype_7cpython_4type_type), __pyx_v_v); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 646, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_19);
-        __pyx_t_20 = __Pyx_PyObject_FormatSimple(__pyx_t_19, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 647, __pyx_L1_error)
+        __pyx_t_20 = __Pyx_PyObject_FormatSimple(__pyx_t_19, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 646, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_20);
         __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
         __pyx_t_21[0] = __pyx_mstate_global->__pyx_kp_u_Failed_to_encode_SpanLink;
@@ -17505,7 +17495,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_21[4] = __pyx_mstate_global->__pyx_kp_u_contains_an_unsupported_type;
         __pyx_t_21[5] = __pyx_t_20;
         __pyx_t_19 = __Pyx_PyUnicode_Join(__pyx_t_21, 6, 27 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17) + 31 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_20), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_20));
-        if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 647, __pyx_L1_error)
+        if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 646, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_19);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
@@ -17517,16 +17507,16 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 647, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 646, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
         }
         __Pyx_Raise(__pyx_t_7, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        __PYX_ERR(0, 647, __pyx_L1_error)
+        __PYX_ERR(0, 646, __pyx_L1_error)
       }
       __pyx_L12:;
 
-      /* "ddtrace/internal/_encoding.pyx":648
+      /* "ddtrace/internal/_encoding.pyx":647
  *                 else:
  *                     raise ValueError(f"Failed to encode SpanLink. {k}={v} contains an unsupported type, {type(v)}")
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -17536,7 +17526,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":649
+        /* "ddtrace/internal/_encoding.pyx":648
  *                     raise ValueError(f"Failed to encode SpanLink. {k}={v} contains an unsupported type, {type(v)}")
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -17548,7 +17538,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":648
+        /* "ddtrace/internal/_encoding.pyx":647
  *                 else:
  *                     raise ValueError(f"Failed to encode SpanLink. {k}={v} contains an unsupported type, {type(v)}")
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -17559,7 +17549,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     }
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":604
+    /* "ddtrace/internal/_encoding.pyx":603
  *             return ret
  * 
  *         for link in span_links:             # <<<<<<<<<<<<<<
@@ -17569,7 +17559,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":650
+  /* "ddtrace/internal/_encoding.pyx":649
  *                 if ret != 0:
  *                     return ret
  *         return 0             # <<<<<<<<<<<<<<
@@ -17579,7 +17569,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":599
+  /* "ddtrace/internal/_encoding.pyx":598
  *         return string_to_buff(dd_origin)
  * 
  *     cdef inline int _pack_links(self, list span_links):             # <<<<<<<<<<<<<<
@@ -17613,7 +17603,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":652
+/* "ddtrace/internal/_encoding.pyx":651
  *         return 0
  * 
  *     cdef inline int _pack_span_events(self, list span_events) except? -1:             # <<<<<<<<<<<<<<
@@ -17646,7 +17636,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_pack_span_events", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":658
+  /* "ddtrace/internal/_encoding.pyx":657
  *         cdef object attr_v
  *         cdef object event
  *         ret = msgpack_pack_array(&self.pk, len(span_events))             # <<<<<<<<<<<<<<
@@ -17655,12 +17645,12 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   if (unlikely(__pyx_v_span_events == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(0, 658, __pyx_L1_error)
+    __PYX_ERR(0, 657, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_span_events); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 658, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyList_GET_SIZE(__pyx_v_span_events); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(0, 657, __pyx_L1_error)
   __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->__pyx_base.pk), __pyx_t_1);
 
-  /* "ddtrace/internal/_encoding.pyx":659
+  /* "ddtrace/internal/_encoding.pyx":658
  *         cdef object event
  *         ret = msgpack_pack_array(&self.pk, len(span_events))
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -17670,7 +17660,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   __pyx_t_2 = (__pyx_v_ret != 0);
   if (__pyx_t_2) {
 
-    /* "ddtrace/internal/_encoding.pyx":660
+    /* "ddtrace/internal/_encoding.pyx":659
  *         ret = msgpack_pack_array(&self.pk, len(span_events))
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -17680,7 +17670,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":659
+    /* "ddtrace/internal/_encoding.pyx":658
  *         cdef object event
  *         ret = msgpack_pack_array(&self.pk, len(span_events))
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -17689,7 +17679,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":662
+  /* "ddtrace/internal/_encoding.pyx":661
  *             return ret
  * 
  *         for event in span_events:             # <<<<<<<<<<<<<<
@@ -17698,7 +17688,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   if (unlikely(__pyx_v_span_events == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 662, __pyx_L1_error)
+    __PYX_ERR(0, 661, __pyx_L1_error)
   }
   __pyx_t_3 = __pyx_v_span_events; __Pyx_INCREF(__pyx_t_3);
   __pyx_t_1 = 0;
@@ -17706,18 +17696,18 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 662, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 661, __pyx_L1_error)
       #endif
       if (__pyx_t_1 >= __pyx_temp) break;
     }
     __pyx_t_4 = __Pyx_PyList_GetItemRef(__pyx_t_3, __pyx_t_1);
     ++__pyx_t_1;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 662, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 661, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_XDECREF_SET(__pyx_v_event, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":663
+    /* "ddtrace/internal/_encoding.pyx":662
  * 
  *         for event in span_events:
  *             L = 2 + bool(event.attributes)             # <<<<<<<<<<<<<<
@@ -17727,7 +17717,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_5 = NULL;
     __Pyx_INCREF((PyObject *)__pyx_mstate_global->__pyx_ptype_7cpython_4bool_bool);
     __pyx_t_6 = ((PyObject *)__pyx_mstate_global->__pyx_ptype_7cpython_4bool_bool); 
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 663, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 662, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_8 = 1;
     {
@@ -17736,17 +17726,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 663, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 662, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_4);
     }
-    __pyx_t_6 = PyNumber_Add(__pyx_mstate_global->__pyx_int_2, ((PyObject *)__pyx_t_4)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 663, __pyx_L1_error)
+    __pyx_t_6 = PyNumber_Add(__pyx_mstate_global->__pyx_int_2, ((PyObject *)__pyx_t_4)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 662, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF((PyObject *)__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_6); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 663, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_As_int(__pyx_t_6); if (unlikely((__pyx_t_9 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 662, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_v_L = __pyx_t_9;
 
-    /* "ddtrace/internal/_encoding.pyx":664
+    /* "ddtrace/internal/_encoding.pyx":663
  *         for event in span_events:
  *             L = 2 + bool(event.attributes)
  *             ret = msgpack_pack_map(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -17755,7 +17745,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_v_L);
 
-    /* "ddtrace/internal/_encoding.pyx":665
+    /* "ddtrace/internal/_encoding.pyx":664
  *             L = 2 + bool(event.attributes)
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17765,7 +17755,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":666
+      /* "ddtrace/internal/_encoding.pyx":665
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -17776,7 +17766,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":665
+      /* "ddtrace/internal/_encoding.pyx":664
  *             L = 2 + bool(event.attributes)
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17785,17 +17775,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":668
+    /* "ddtrace/internal/_encoding.pyx":667
  *                 return ret
  * 
  *             ret = pack_bytes(&self.pk, <char*> b"name", 4)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"name")), 4); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 668, __pyx_L1_error)
+    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"name")), 4); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 667, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_9;
 
-    /* "ddtrace/internal/_encoding.pyx":669
+    /* "ddtrace/internal/_encoding.pyx":668
  * 
  *             ret = pack_bytes(&self.pk, <char*> b"name", 4)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17805,7 +17795,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":670
+      /* "ddtrace/internal/_encoding.pyx":669
  *             ret = pack_bytes(&self.pk, <char*> b"name", 4)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -17816,7 +17806,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":669
+      /* "ddtrace/internal/_encoding.pyx":668
  * 
  *             ret = pack_bytes(&self.pk, <char*> b"name", 4)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17825,20 +17815,20 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":672
+    /* "ddtrace/internal/_encoding.pyx":671
  *                 return ret
  * 
  *             ret = pack_text(&self.pk, event.name)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 672, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 671, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_6); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 672, __pyx_L1_error)
+    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_6); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 671, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_v_ret = __pyx_t_9;
 
-    /* "ddtrace/internal/_encoding.pyx":673
+    /* "ddtrace/internal/_encoding.pyx":672
  * 
  *             ret = pack_text(&self.pk, event.name)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17848,7 +17838,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":674
+      /* "ddtrace/internal/_encoding.pyx":673
  *             ret = pack_text(&self.pk, event.name)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -17859,7 +17849,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":673
+      /* "ddtrace/internal/_encoding.pyx":672
  * 
  *             ret = pack_text(&self.pk, event.name)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17868,17 +17858,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":676
+    /* "ddtrace/internal/_encoding.pyx":675
  *                 return ret
  * 
  *             ret = pack_bytes(&self.pk, <char*> b"time_unix_nano", 14)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"time_unix_nano")), 14); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 676, __pyx_L1_error)
+    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"time_unix_nano")), 14); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 675, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_9;
 
-    /* "ddtrace/internal/_encoding.pyx":677
+    /* "ddtrace/internal/_encoding.pyx":676
  * 
  *             ret = pack_bytes(&self.pk, <char*> b"time_unix_nano", 14)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17888,7 +17878,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":678
+      /* "ddtrace/internal/_encoding.pyx":677
  *             ret = pack_bytes(&self.pk, <char*> b"time_unix_nano", 14)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -17899,7 +17889,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":677
+      /* "ddtrace/internal/_encoding.pyx":676
  * 
  *             ret = pack_bytes(&self.pk, <char*> b"time_unix_nano", 14)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17908,20 +17898,20 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":680
+    /* "ddtrace/internal/_encoding.pyx":679
  *                 return ret
  * 
  *             ret = pack_number(&self.pk, event.time_unix_nano)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_time_unix_nano); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 680, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_time_unix_nano); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 679, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_6); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 680, __pyx_L1_error)
+    __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_6); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 679, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_v_ret = __pyx_t_9;
 
-    /* "ddtrace/internal/_encoding.pyx":681
+    /* "ddtrace/internal/_encoding.pyx":680
  * 
  *             ret = pack_number(&self.pk, event.time_unix_nano)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17931,7 +17921,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":682
+      /* "ddtrace/internal/_encoding.pyx":681
  *             ret = pack_number(&self.pk, event.time_unix_nano)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -17942,7 +17932,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":681
+      /* "ddtrace/internal/_encoding.pyx":680
  * 
  *             ret = pack_number(&self.pk, event.time_unix_nano)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -17951,30 +17941,30 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":684
+    /* "ddtrace/internal/_encoding.pyx":683
  *                 return ret
  * 
  *             if event.attributes:             # <<<<<<<<<<<<<<
  *                 ret = pack_bytes(&self.pk, <char*> b"attributes", 10)
  *                 if ret != 0:
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 684, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 683, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 684, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 683, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":685
+      /* "ddtrace/internal/_encoding.pyx":684
  * 
  *             if event.attributes:
  *                 ret = pack_bytes(&self.pk, <char*> b"attributes", 10)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"attributes")), 10); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 685, __pyx_L1_error)
+      __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"attributes")), 10); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 684, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_9;
 
-      /* "ddtrace/internal/_encoding.pyx":686
+      /* "ddtrace/internal/_encoding.pyx":685
  *             if event.attributes:
  *                 ret = pack_bytes(&self.pk, <char*> b"attributes", 10)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -17984,7 +17974,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":687
+        /* "ddtrace/internal/_encoding.pyx":686
  *                 ret = pack_bytes(&self.pk, <char*> b"attributes", 10)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -17995,7 +17985,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":686
+        /* "ddtrace/internal/_encoding.pyx":685
  *             if event.attributes:
  *                 ret = pack_bytes(&self.pk, <char*> b"attributes", 10)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -18004,20 +17994,20 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":689
+      /* "ddtrace/internal/_encoding.pyx":688
  *                     return ret
  * 
  *                 ret = msgpack_pack_map(&self.pk, len(event.attributes))             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 689, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 688, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_10 = PyObject_Length(__pyx_t_6); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 689, __pyx_L1_error)
+      __pyx_t_10 = PyObject_Length(__pyx_t_6); if (unlikely(__pyx_t_10 == ((Py_ssize_t)-1))) __PYX_ERR(0, 688, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_t_10);
 
-      /* "ddtrace/internal/_encoding.pyx":690
+      /* "ddtrace/internal/_encoding.pyx":689
  * 
  *                 ret = msgpack_pack_map(&self.pk, len(event.attributes))
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -18027,7 +18017,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":691
+        /* "ddtrace/internal/_encoding.pyx":690
  *                 ret = msgpack_pack_map(&self.pk, len(event.attributes))
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -18038,7 +18028,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":690
+        /* "ddtrace/internal/_encoding.pyx":689
  * 
  *                 ret = msgpack_pack_map(&self.pk, len(event.attributes))
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -18047,7 +18037,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":693
+      /* "ddtrace/internal/_encoding.pyx":692
  *                     return ret
  * 
  *                 for attr_k, attr_v in event.attributes.items():             # <<<<<<<<<<<<<<
@@ -18055,13 +18045,13 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
  *                     if ret != 0:
 */
       __pyx_t_10 = 0;
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 693, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_event, __pyx_mstate_global->__pyx_n_u_attributes); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 692, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (unlikely(__pyx_t_4 == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-        __PYX_ERR(0, 693, __pyx_L1_error)
+        __PYX_ERR(0, 692, __pyx_L1_error)
       }
-      __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_9)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 693, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_9)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 692, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_XDECREF(__pyx_t_6);
@@ -18070,26 +18060,26 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       while (1) {
         __pyx_t_12 = __Pyx_dict_iter_next(__pyx_t_6, __pyx_t_11, &__pyx_t_10, &__pyx_t_7, &__pyx_t_4, NULL, __pyx_t_9);
         if (unlikely(__pyx_t_12 == 0)) break;
-        if (unlikely(__pyx_t_12 == -1)) __PYX_ERR(0, 693, __pyx_L1_error)
+        if (unlikely(__pyx_t_12 == -1)) __PYX_ERR(0, 692, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_GOTREF(__pyx_t_4);
-        if (!(likely(PyUnicode_CheckExact(__pyx_t_7))||((__pyx_t_7) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_7))) __PYX_ERR(0, 693, __pyx_L1_error)
+        if (!(likely(PyUnicode_CheckExact(__pyx_t_7))||((__pyx_t_7) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_7))) __PYX_ERR(0, 692, __pyx_L1_error)
         __Pyx_XDECREF_SET(__pyx_v_attr_k, ((PyObject*)__pyx_t_7));
         __pyx_t_7 = 0;
         __Pyx_XDECREF_SET(__pyx_v_attr_v, __pyx_t_4);
         __pyx_t_4 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":694
+        /* "ddtrace/internal/_encoding.pyx":693
  * 
  *                 for attr_k, attr_v in event.attributes.items():
  *                     ret = pack_text(&self.pk, attr_k)             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         return ret
 */
-        __pyx_t_12 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr_k); if (unlikely(__pyx_t_12 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 694, __pyx_L1_error)
+        __pyx_t_12 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr_k); if (unlikely(__pyx_t_12 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 693, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_12;
 
-        /* "ddtrace/internal/_encoding.pyx":695
+        /* "ddtrace/internal/_encoding.pyx":694
  *                 for attr_k, attr_v in event.attributes.items():
  *                     ret = pack_text(&self.pk, attr_k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18099,7 +18089,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_2 = (__pyx_v_ret != 0);
         if (__pyx_t_2) {
 
-          /* "ddtrace/internal/_encoding.pyx":696
+          /* "ddtrace/internal/_encoding.pyx":695
  *                     ret = pack_text(&self.pk, attr_k)
  *                     if ret != 0:
  *                         return ret             # <<<<<<<<<<<<<<
@@ -18111,7 +18101,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           goto __pyx_L0;
 
-          /* "ddtrace/internal/_encoding.pyx":695
+          /* "ddtrace/internal/_encoding.pyx":694
  *                 for attr_k, attr_v in event.attributes.items():
  *                     ret = pack_text(&self.pk, attr_k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18120,17 +18110,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":698
+        /* "ddtrace/internal/_encoding.pyx":697
  *                         return ret
  * 
  *                     ret = self.pack_span_event_attributes(attr_v)             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         return ret
 */
-        __pyx_t_12 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->pack_span_event_attributes(__pyx_v_self, __pyx_v_attr_v, NULL); if (unlikely(__pyx_t_12 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 698, __pyx_L1_error)
+        __pyx_t_12 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->pack_span_event_attributes(__pyx_v_self, __pyx_v_attr_v, NULL); if (unlikely(__pyx_t_12 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 697, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_12;
 
-        /* "ddtrace/internal/_encoding.pyx":699
+        /* "ddtrace/internal/_encoding.pyx":698
  * 
  *                     ret = self.pack_span_event_attributes(attr_v)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18140,7 +18130,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_2 = (__pyx_v_ret != 0);
         if (__pyx_t_2) {
 
-          /* "ddtrace/internal/_encoding.pyx":700
+          /* "ddtrace/internal/_encoding.pyx":699
  *                     ret = self.pack_span_event_attributes(attr_v)
  *                     if ret != 0:
  *                         return ret             # <<<<<<<<<<<<<<
@@ -18152,7 +18142,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           goto __pyx_L0;
 
-          /* "ddtrace/internal/_encoding.pyx":699
+          /* "ddtrace/internal/_encoding.pyx":698
  * 
  *                     ret = self.pack_span_event_attributes(attr_v)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18163,7 +18153,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":684
+      /* "ddtrace/internal/_encoding.pyx":683
  *                 return ret
  * 
  *             if event.attributes:             # <<<<<<<<<<<<<<
@@ -18172,7 +18162,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":662
+    /* "ddtrace/internal/_encoding.pyx":661
  *             return ret
  * 
  *         for event in span_events:             # <<<<<<<<<<<<<<
@@ -18182,7 +18172,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":701
+  /* "ddtrace/internal/_encoding.pyx":700
  *                     if ret != 0:
  *                         return ret
  *         return ret             # <<<<<<<<<<<<<<
@@ -18192,7 +18182,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   __pyx_r = __pyx_v_ret;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":652
+  /* "ddtrace/internal/_encoding.pyx":651
  *         return 0
  * 
  *     cdef inline int _pack_span_events(self, list span_events) except? -1:             # <<<<<<<<<<<<<<
@@ -18217,7 +18207,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":703
+/* "ddtrace/internal/_encoding.pyx":702
  *         return ret
  * 
  *     cdef inline int _pack_meta(self, object meta, char *dd_origin, str span_events) except? -1:             # <<<<<<<<<<<<<<
@@ -18250,7 +18240,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_pack_meta", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":708
+  /* "ddtrace/internal/_encoding.pyx":707
  *         cdef dict d
  * 
  *         if PyDict_CheckExact(meta):             # <<<<<<<<<<<<<<
@@ -18260,7 +18250,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   __pyx_t_1 = PyDict_CheckExact(__pyx_v_meta);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":709
+    /* "ddtrace/internal/_encoding.pyx":708
  * 
  *         if PyDict_CheckExact(meta):
  *             d = <dict> meta             # <<<<<<<<<<<<<<
@@ -18272,7 +18262,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_v_d = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":710
+    /* "ddtrace/internal/_encoding.pyx":709
  *         if PyDict_CheckExact(meta):
  *             d = <dict> meta
  *             L = len(d) + (dd_origin is not NULL) + (len(span_events) > 0)             # <<<<<<<<<<<<<<
@@ -18281,17 +18271,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     if (unlikely(__pyx_v_d == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(0, 710, __pyx_L1_error)
+      __PYX_ERR(0, 709, __pyx_L1_error)
     }
-    __pyx_t_3 = PyDict_Size(__pyx_v_d); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 710, __pyx_L1_error)
+    __pyx_t_3 = PyDict_Size(__pyx_v_d); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 709, __pyx_L1_error)
     if (unlikely(__pyx_v_span_events == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(0, 710, __pyx_L1_error)
+      __PYX_ERR(0, 709, __pyx_L1_error)
     }
-    __pyx_t_4 = __Pyx_PyUnicode_GET_LENGTH(__pyx_v_span_events); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 710, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_GET_LENGTH(__pyx_v_span_events); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 709, __pyx_L1_error)
     __pyx_v_L = ((__pyx_t_3 + (__pyx_v_dd_origin != NULL)) + (__pyx_t_4 > 0));
 
-    /* "ddtrace/internal/_encoding.pyx":711
+    /* "ddtrace/internal/_encoding.pyx":710
  *             d = <dict> meta
  *             L = len(d) + (dd_origin is not NULL) + (len(span_events) > 0)
  *             if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -18301,7 +18291,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_1 = (__pyx_v_L > __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
     if (unlikely(__pyx_t_1)) {
 
-      /* "ddtrace/internal/_encoding.pyx":712
+      /* "ddtrace/internal/_encoding.pyx":711
  *             L = len(d) + (dd_origin is not NULL) + (len(span_events) > 0)
  *             if L > ITEM_LIMIT:
  *                 raise ValueError("dict is too large")             # <<<<<<<<<<<<<<
@@ -18317,14 +18307,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 712, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 711, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 712, __pyx_L1_error)
+      __PYX_ERR(0, 711, __pyx_L1_error)
 
-      /* "ddtrace/internal/_encoding.pyx":711
+      /* "ddtrace/internal/_encoding.pyx":710
  *             d = <dict> meta
  *             L = len(d) + (dd_origin is not NULL) + (len(span_events) > 0)
  *             if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -18333,7 +18323,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":714
+    /* "ddtrace/internal/_encoding.pyx":713
  *                 raise ValueError("dict is too large")
  * 
  *             ret = msgpack_pack_map(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -18342,7 +18332,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_v_L);
 
-    /* "ddtrace/internal/_encoding.pyx":715
+    /* "ddtrace/internal/_encoding.pyx":714
  * 
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret == 0:             # <<<<<<<<<<<<<<
@@ -18352,7 +18342,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_1 = (__pyx_v_ret == 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":716
+      /* "ddtrace/internal/_encoding.pyx":715
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret == 0:
  *                 for k, v in d.items():             # <<<<<<<<<<<<<<
@@ -18362,9 +18352,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_4 = 0;
       if (unlikely(__pyx_v_d == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-        __PYX_ERR(0, 716, __pyx_L1_error)
+        __PYX_ERR(0, 715, __pyx_L1_error)
       }
-      __pyx_t_6 = __Pyx_dict_iterator(__pyx_v_d, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 716, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_dict_iterator(__pyx_v_d, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_8)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 715, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_XDECREF(__pyx_t_2);
       __pyx_t_2 = __pyx_t_6;
@@ -18372,7 +18362,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       while (1) {
         __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_3, &__pyx_t_4, &__pyx_t_6, &__pyx_t_5, NULL, __pyx_t_8);
         if (unlikely(__pyx_t_9 == 0)) break;
-        if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 716, __pyx_L1_error)
+        if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 715, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_6);
@@ -18380,17 +18370,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_5);
         __pyx_t_5 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":717
+        /* "ddtrace/internal/_encoding.pyx":716
  *             if ret == 0:
  *                 for k, v in d.items():
  *                     ret = pack_text(&self.pk, k)             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         break
 */
-        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 717, __pyx_L1_error)
+        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 716, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_9;
 
-        /* "ddtrace/internal/_encoding.pyx":718
+        /* "ddtrace/internal/_encoding.pyx":717
  *                 for k, v in d.items():
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18400,7 +18390,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_1 = (__pyx_v_ret != 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":719
+          /* "ddtrace/internal/_encoding.pyx":718
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:
  *                         break             # <<<<<<<<<<<<<<
@@ -18409,7 +18399,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
           goto __pyx_L7_break;
 
-          /* "ddtrace/internal/_encoding.pyx":718
+          /* "ddtrace/internal/_encoding.pyx":717
  *                 for k, v in d.items():
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18418,17 +18408,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":720
+        /* "ddtrace/internal/_encoding.pyx":719
  *                     if ret != 0:
  *                         break
  *                     ret = pack_text(&self.pk, v)             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         break
 */
-        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 720, __pyx_L1_error)
+        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 719, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_9;
 
-        /* "ddtrace/internal/_encoding.pyx":721
+        /* "ddtrace/internal/_encoding.pyx":720
  *                         break
  *                     ret = pack_text(&self.pk, v)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18438,7 +18428,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_1 = (__pyx_v_ret != 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":722
+          /* "ddtrace/internal/_encoding.pyx":721
  *                     ret = pack_text(&self.pk, v)
  *                     if ret != 0:
  *                         break             # <<<<<<<<<<<<<<
@@ -18447,7 +18437,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
           goto __pyx_L7_break;
 
-          /* "ddtrace/internal/_encoding.pyx":721
+          /* "ddtrace/internal/_encoding.pyx":720
  *                         break
  *                     ret = pack_text(&self.pk, v)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18459,7 +18449,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_L7_break:;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":723
+      /* "ddtrace/internal/_encoding.pyx":722
  *                     if ret != 0:
  *                         break
  *                 if dd_origin is not NULL:             # <<<<<<<<<<<<<<
@@ -18469,17 +18459,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_1 = (__pyx_v_dd_origin != NULL);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":724
+        /* "ddtrace/internal/_encoding.pyx":723
  *                         break
  *                 if dd_origin is not NULL:
  *                     ret = pack_bytes(&self.pk, _ORIGIN_KEY, _ORIGIN_KEY_LEN)             # <<<<<<<<<<<<<<
  *                     if ret == 0:
  *                         ret = pack_bytes(&self.pk, dd_origin, strlen(dd_origin))
 */
-        __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), __pyx_v_7ddtrace_8internal_9_encoding__ORIGIN_KEY, __pyx_v_7ddtrace_8internal_9_encoding__ORIGIN_KEY_LEN); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 724, __pyx_L1_error)
+        __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), __pyx_v_7ddtrace_8internal_9_encoding__ORIGIN_KEY, __pyx_v_7ddtrace_8internal_9_encoding__ORIGIN_KEY_LEN); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 723, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_8;
 
-        /* "ddtrace/internal/_encoding.pyx":725
+        /* "ddtrace/internal/_encoding.pyx":724
  *                 if dd_origin is not NULL:
  *                     ret = pack_bytes(&self.pk, _ORIGIN_KEY, _ORIGIN_KEY_LEN)
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -18489,17 +18479,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_1 = (__pyx_v_ret == 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":726
+          /* "ddtrace/internal/_encoding.pyx":725
  *                     ret = pack_bytes(&self.pk, _ORIGIN_KEY, _ORIGIN_KEY_LEN)
  *                     if ret == 0:
  *                         ret = pack_bytes(&self.pk, dd_origin, strlen(dd_origin))             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         return ret
 */
-          __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), __pyx_v_dd_origin, strlen(__pyx_v_dd_origin)); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 726, __pyx_L1_error)
+          __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), __pyx_v_dd_origin, strlen(__pyx_v_dd_origin)); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 725, __pyx_L1_error)
           __pyx_v_ret = __pyx_t_8;
 
-          /* "ddtrace/internal/_encoding.pyx":725
+          /* "ddtrace/internal/_encoding.pyx":724
  *                 if dd_origin is not NULL:
  *                     ret = pack_bytes(&self.pk, _ORIGIN_KEY, _ORIGIN_KEY_LEN)
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -18508,7 +18498,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":727
+        /* "ddtrace/internal/_encoding.pyx":726
  *                     if ret == 0:
  *                         ret = pack_bytes(&self.pk, dd_origin, strlen(dd_origin))
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18518,7 +18508,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_1 = (__pyx_v_ret != 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":728
+          /* "ddtrace/internal/_encoding.pyx":727
  *                         ret = pack_bytes(&self.pk, dd_origin, strlen(dd_origin))
  *                     if ret != 0:
  *                         return ret             # <<<<<<<<<<<<<<
@@ -18528,7 +18518,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
           __pyx_r = __pyx_v_ret;
           goto __pyx_L0;
 
-          /* "ddtrace/internal/_encoding.pyx":727
+          /* "ddtrace/internal/_encoding.pyx":726
  *                     if ret == 0:
  *                         ret = pack_bytes(&self.pk, dd_origin, strlen(dd_origin))
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18537,7 +18527,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":723
+        /* "ddtrace/internal/_encoding.pyx":722
  *                     if ret != 0:
  *                         break
  *                 if dd_origin is not NULL:             # <<<<<<<<<<<<<<
@@ -18546,7 +18536,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":729
+      /* "ddtrace/internal/_encoding.pyx":728
  *                     if ret != 0:
  *                         return ret
  *                 if span_events:             # <<<<<<<<<<<<<<
@@ -18557,26 +18547,26 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       else
       {
         Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_span_events);
-        if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 729, __pyx_L1_error)
+        if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 728, __pyx_L1_error)
         __pyx_t_1 = (__pyx_temp != 0);
       }
 
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":730
+        /* "ddtrace/internal/_encoding.pyx":729
  *                         return ret
  *                 if span_events:
  *                     ret = pack_text(&self.pk, SPAN_EVENTS_KEY)             # <<<<<<<<<<<<<<
  *                     if ret == 0:
  *                         ret = pack_text(&self.pk, span_events)
 */
-        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SPAN_EVENTS_KEY); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 730, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SPAN_EVENTS_KEY); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 729, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_2); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 730, __pyx_L1_error)
+        __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_2); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 729, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_v_ret = __pyx_t_8;
 
-        /* "ddtrace/internal/_encoding.pyx":731
+        /* "ddtrace/internal/_encoding.pyx":730
  *                 if span_events:
  *                     ret = pack_text(&self.pk, SPAN_EVENTS_KEY)
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -18586,17 +18576,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_1 = (__pyx_v_ret == 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":732
+          /* "ddtrace/internal/_encoding.pyx":731
  *                     ret = pack_text(&self.pk, SPAN_EVENTS_KEY)
  *                     if ret == 0:
  *                         ret = pack_text(&self.pk, span_events)             # <<<<<<<<<<<<<<
  *             return ret
  * 
 */
-          __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_span_events); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 732, __pyx_L1_error)
+          __pyx_t_8 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_span_events); if (unlikely(__pyx_t_8 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 731, __pyx_L1_error)
           __pyx_v_ret = __pyx_t_8;
 
-          /* "ddtrace/internal/_encoding.pyx":731
+          /* "ddtrace/internal/_encoding.pyx":730
  *                 if span_events:
  *                     ret = pack_text(&self.pk, SPAN_EVENTS_KEY)
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -18605,7 +18595,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":729
+        /* "ddtrace/internal/_encoding.pyx":728
  *                     if ret != 0:
  *                         return ret
  *                 if span_events:             # <<<<<<<<<<<<<<
@@ -18614,7 +18604,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":715
+      /* "ddtrace/internal/_encoding.pyx":714
  * 
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret == 0:             # <<<<<<<<<<<<<<
@@ -18623,7 +18613,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":733
+    /* "ddtrace/internal/_encoding.pyx":732
  *                     if ret == 0:
  *                         ret = pack_text(&self.pk, span_events)
  *             return ret             # <<<<<<<<<<<<<<
@@ -18633,7 +18623,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":708
+    /* "ddtrace/internal/_encoding.pyx":707
  *         cdef dict d
  * 
  *         if PyDict_CheckExact(meta):             # <<<<<<<<<<<<<<
@@ -18642,7 +18632,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":735
+  /* "ddtrace/internal/_encoding.pyx":734
  *             return ret
  * 
  *         raise TypeError("Unhandled meta type: %r" % type(meta))             # <<<<<<<<<<<<<<
@@ -18661,10 +18651,10 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 735, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 734, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_10);
   }
-  __pyx_t_12 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Unhandled_meta_type_r, ((PyObject *)__pyx_t_10)); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 735, __pyx_L1_error)
+  __pyx_t_12 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Unhandled_meta_type_r, ((PyObject *)__pyx_t_10)); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 734, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_DECREF((PyObject *)__pyx_t_10); __pyx_t_10 = 0;
   __pyx_t_7 = 1;
@@ -18674,14 +18664,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 735, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 734, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_Raise(__pyx_t_2, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __PYX_ERR(0, 735, __pyx_L1_error)
+  __PYX_ERR(0, 734, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":703
+  /* "ddtrace/internal/_encoding.pyx":702
  *         return ret
  * 
  *     cdef inline int _pack_meta(self, object meta, char *dd_origin, str span_events) except? -1:             # <<<<<<<<<<<<<<
@@ -18707,7 +18697,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":737
+/* "ddtrace/internal/_encoding.pyx":736
  *         raise TypeError("Unhandled meta type: %r" % type(meta))
  * 
  *     cdef inline int _pack_metrics(self, object metrics) except? -1:             # <<<<<<<<<<<<<<
@@ -18740,7 +18730,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_pack_metrics", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":742
+  /* "ddtrace/internal/_encoding.pyx":741
  *         cdef dict d
  * 
  *         if PyDict_CheckExact(metrics):             # <<<<<<<<<<<<<<
@@ -18750,7 +18740,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   __pyx_t_1 = PyDict_CheckExact(__pyx_v_metrics);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":743
+    /* "ddtrace/internal/_encoding.pyx":742
  * 
  *         if PyDict_CheckExact(metrics):
  *             d = <dict> metrics             # <<<<<<<<<<<<<<
@@ -18762,7 +18752,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_v_d = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":744
+    /* "ddtrace/internal/_encoding.pyx":743
  *         if PyDict_CheckExact(metrics):
  *             d = <dict> metrics
  *             L = len(d)             # <<<<<<<<<<<<<<
@@ -18771,12 +18761,12 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     if (unlikely(__pyx_v_d == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(0, 744, __pyx_L1_error)
+      __PYX_ERR(0, 743, __pyx_L1_error)
     }
-    __pyx_t_3 = PyDict_Size(__pyx_v_d); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 744, __pyx_L1_error)
+    __pyx_t_3 = PyDict_Size(__pyx_v_d); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 743, __pyx_L1_error)
     __pyx_v_L = __pyx_t_3;
 
-    /* "ddtrace/internal/_encoding.pyx":745
+    /* "ddtrace/internal/_encoding.pyx":744
  *             d = <dict> metrics
  *             L = len(d)
  *             if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -18786,7 +18776,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_1 = (__pyx_v_L > __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
     if (unlikely(__pyx_t_1)) {
 
-      /* "ddtrace/internal/_encoding.pyx":746
+      /* "ddtrace/internal/_encoding.pyx":745
  *             L = len(d)
  *             if L > ITEM_LIMIT:
  *                 raise ValueError("dict is too large")             # <<<<<<<<<<<<<<
@@ -18802,14 +18792,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 746, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 745, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 746, __pyx_L1_error)
+      __PYX_ERR(0, 745, __pyx_L1_error)
 
-      /* "ddtrace/internal/_encoding.pyx":745
+      /* "ddtrace/internal/_encoding.pyx":744
  *             d = <dict> metrics
  *             L = len(d)
  *             if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -18818,7 +18808,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":748
+    /* "ddtrace/internal/_encoding.pyx":747
  *                 raise ValueError("dict is too large")
  * 
  *             ret = msgpack_pack_map(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -18827,7 +18817,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_v_L);
 
-    /* "ddtrace/internal/_encoding.pyx":749
+    /* "ddtrace/internal/_encoding.pyx":748
  * 
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret == 0:             # <<<<<<<<<<<<<<
@@ -18837,7 +18827,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_1 = (__pyx_v_ret == 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":750
+      /* "ddtrace/internal/_encoding.pyx":749
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret == 0:
  *                 for k, v in d.items():             # <<<<<<<<<<<<<<
@@ -18847,9 +18837,9 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_t_3 = 0;
       if (unlikely(__pyx_v_d == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-        __PYX_ERR(0, 750, __pyx_L1_error)
+        __PYX_ERR(0, 749, __pyx_L1_error)
       }
-      __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_d, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 750, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_d, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_7), (&__pyx_t_8)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 749, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_2);
       __pyx_t_2 = __pyx_t_5;
@@ -18857,7 +18847,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       while (1) {
         __pyx_t_9 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_7, &__pyx_t_3, &__pyx_t_5, &__pyx_t_4, NULL, __pyx_t_8);
         if (unlikely(__pyx_t_9 == 0)) break;
-        if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 750, __pyx_L1_error)
+        if (unlikely(__pyx_t_9 == -1)) __PYX_ERR(0, 749, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_5);
@@ -18865,17 +18855,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_4);
         __pyx_t_4 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":751
+        /* "ddtrace/internal/_encoding.pyx":750
  *             if ret == 0:
  *                 for k, v in d.items():
  *                     ret = pack_text(&self.pk, k)             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         break
 */
-        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 751, __pyx_L1_error)
+        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 750, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_9;
 
-        /* "ddtrace/internal/_encoding.pyx":752
+        /* "ddtrace/internal/_encoding.pyx":751
  *                 for k, v in d.items():
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18885,7 +18875,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_1 = (__pyx_v_ret != 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":753
+          /* "ddtrace/internal/_encoding.pyx":752
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:
  *                         break             # <<<<<<<<<<<<<<
@@ -18894,7 +18884,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
           goto __pyx_L7_break;
 
-          /* "ddtrace/internal/_encoding.pyx":752
+          /* "ddtrace/internal/_encoding.pyx":751
  *                 for k, v in d.items():
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18903,17 +18893,17 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":754
+        /* "ddtrace/internal/_encoding.pyx":753
  *                     if ret != 0:
  *                         break
  *                     ret = pack_number(&self.pk, v)             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         break
 */
-        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 754, __pyx_L1_error)
+        __pyx_t_9 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_9 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 753, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_9;
 
-        /* "ddtrace/internal/_encoding.pyx":755
+        /* "ddtrace/internal/_encoding.pyx":754
  *                         break
  *                     ret = pack_number(&self.pk, v)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18923,7 +18913,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
         __pyx_t_1 = (__pyx_v_ret != 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":756
+          /* "ddtrace/internal/_encoding.pyx":755
  *                     ret = pack_number(&self.pk, v)
  *                     if ret != 0:
  *                         break             # <<<<<<<<<<<<<<
@@ -18932,7 +18922,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
           goto __pyx_L7_break;
 
-          /* "ddtrace/internal/_encoding.pyx":755
+          /* "ddtrace/internal/_encoding.pyx":754
  *                         break
  *                     ret = pack_number(&self.pk, v)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -18944,7 +18934,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
       __pyx_L7_break:;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":749
+      /* "ddtrace/internal/_encoding.pyx":748
  * 
  *             ret = msgpack_pack_map(&self.pk, L)
  *             if ret == 0:             # <<<<<<<<<<<<<<
@@ -18953,7 +18943,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":757
+    /* "ddtrace/internal/_encoding.pyx":756
  *                     if ret != 0:
  *                         break
  *             return ret             # <<<<<<<<<<<<<<
@@ -18963,7 +18953,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":742
+    /* "ddtrace/internal/_encoding.pyx":741
  *         cdef dict d
  * 
  *         if PyDict_CheckExact(metrics):             # <<<<<<<<<<<<<<
@@ -18972,7 +18962,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":759
+  /* "ddtrace/internal/_encoding.pyx":758
  *             return ret
  * 
  *         raise TypeError("Unhandled metrics type: %r" % type(metrics))             # <<<<<<<<<<<<<<
@@ -18991,10 +18981,10 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 759, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 758, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_10);
   }
-  __pyx_t_12 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Unhandled_metrics_type_r, ((PyObject *)__pyx_t_10)); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 759, __pyx_L1_error)
+  __pyx_t_12 = PyUnicode_Format(__pyx_mstate_global->__pyx_kp_u_Unhandled_metrics_type_r, ((PyObject *)__pyx_t_10)); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 758, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
   __Pyx_DECREF((PyObject *)__pyx_t_10); __pyx_t_10 = 0;
   __pyx_t_6 = 1;
@@ -19004,14 +18994,14 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 759, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 758, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __Pyx_Raise(__pyx_t_2, 0, 0, 0);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __PYX_ERR(0, 759, __pyx_L1_error)
+  __PYX_ERR(0, 758, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":737
+  /* "ddtrace/internal/_encoding.pyx":736
  *         raise TypeError("Unhandled meta type: %r" % type(meta))
  * 
  *     cdef inline int _pack_metrics(self, object metrics) except? -1:             # <<<<<<<<<<<<<<
@@ -19037,7 +19027,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":761
+/* "ddtrace/internal/_encoding.pyx":760
  *         raise TypeError("Unhandled metrics type: %r" % type(metrics))
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:             # <<<<<<<<<<<<<<
@@ -19088,107 +19078,107 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pack_span", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":768
+  /* "ddtrace/internal/_encoding.pyx":767
  *         cdef int has_metrics
  * 
  *         has_error = <bint> (span.error != 0)             # <<<<<<<<<<<<<<
  *         has_span_type = <bint> (span.span_type is not None)
  *         has_span_events = <bint> (len(span._events) > 0)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_error); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 768, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_error); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 767, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 768, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_1, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 767, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_has_error = __pyx_t_2;
 
-  /* "ddtrace/internal/_encoding.pyx":769
+  /* "ddtrace/internal/_encoding.pyx":768
  * 
  *         has_error = <bint> (span.error != 0)
  *         has_span_type = <bint> (span.span_type is not None)             # <<<<<<<<<<<<<<
  *         has_span_events = <bint> (len(span._events) > 0)
  *         has_metrics = <bint> (len(span._metrics) > 0)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 769, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 768, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_has_span_type = __pyx_t_2;
 
-  /* "ddtrace/internal/_encoding.pyx":770
+  /* "ddtrace/internal/_encoding.pyx":769
  *         has_error = <bint> (span.error != 0)
  *         has_span_type = <bint> (span.span_type is not None)
  *         has_span_events = <bint> (len(span._events) > 0)             # <<<<<<<<<<<<<<
  *         has_metrics = <bint> (len(span._metrics) > 0)
  *         has_parent_id = <bint> (span.parent_id is not None)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 770, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 769, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 770, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 769, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_has_span_events = (__pyx_t_3 > 0);
 
-  /* "ddtrace/internal/_encoding.pyx":771
+  /* "ddtrace/internal/_encoding.pyx":770
  *         has_span_type = <bint> (span.span_type is not None)
  *         has_span_events = <bint> (len(span._events) > 0)
  *         has_metrics = <bint> (len(span._metrics) > 0)             # <<<<<<<<<<<<<<
  *         has_parent_id = <bint> (span.parent_id is not None)
  *         has_links = <bint> (len(span._links) > 0)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 771, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 770, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 771, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 770, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_has_metrics = (__pyx_t_3 > 0);
 
-  /* "ddtrace/internal/_encoding.pyx":772
+  /* "ddtrace/internal/_encoding.pyx":771
  *         has_span_events = <bint> (len(span._events) > 0)
  *         has_metrics = <bint> (len(span._metrics) > 0)
  *         has_parent_id = <bint> (span.parent_id is not None)             # <<<<<<<<<<<<<<
  *         has_links = <bint> (len(span._links) > 0)
  *         has_meta_struct = <bint> (len(span._meta_struct) > 0)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_parent_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 772, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_parent_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 771, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 != Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_has_parent_id = __pyx_t_2;
 
-  /* "ddtrace/internal/_encoding.pyx":773
+  /* "ddtrace/internal/_encoding.pyx":772
  *         has_metrics = <bint> (len(span._metrics) > 0)
  *         has_parent_id = <bint> (span.parent_id is not None)
  *         has_links = <bint> (len(span._links) > 0)             # <<<<<<<<<<<<<<
  *         has_meta_struct = <bint> (len(span._meta_struct) > 0)
  *         has_meta = <bint> (
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 773, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 772, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 773, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 772, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_has_links = (__pyx_t_3 > 0);
 
-  /* "ddtrace/internal/_encoding.pyx":774
+  /* "ddtrace/internal/_encoding.pyx":773
  *         has_parent_id = <bint> (span.parent_id is not None)
  *         has_links = <bint> (len(span._links) > 0)
  *         has_meta_struct = <bint> (len(span._meta_struct) > 0)             # <<<<<<<<<<<<<<
  *         has_meta = <bint> (
  *             len(span._meta) > 0
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 774, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 773, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 774, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 773, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_has_meta_struct = (__pyx_t_3 > 0);
 
-  /* "ddtrace/internal/_encoding.pyx":776
+  /* "ddtrace/internal/_encoding.pyx":775
  *         has_meta_struct = <bint> (len(span._meta_struct) > 0)
  *         has_meta = <bint> (
  *             len(span._meta) > 0             # <<<<<<<<<<<<<<
  *             or dd_origin is not NULL
  *             or (not self.top_level_span_event_encoding and has_span_events)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 776, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 775, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 776, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 775, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_2 = (__pyx_t_3 > 0);
   if (!__pyx_t_2) {
@@ -19197,7 +19187,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":777
+  /* "ddtrace/internal/_encoding.pyx":776
  *         has_meta = <bint> (
  *             len(span._meta) > 0
  *             or dd_origin is not NULL             # <<<<<<<<<<<<<<
@@ -19211,7 +19201,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     goto __pyx_L3_bool_binop_done;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":778
+  /* "ddtrace/internal/_encoding.pyx":777
  *             len(span._meta) > 0
  *             or dd_origin is not NULL
  *             or (not self.top_level_span_event_encoding and has_span_events)             # <<<<<<<<<<<<<<
@@ -19228,7 +19218,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
   __pyx_L3_bool_binop_done:;
   __pyx_v_has_meta = __pyx_t_4;
 
-  /* "ddtrace/internal/_encoding.pyx":782
+  /* "ddtrace/internal/_encoding.pyx":781
  * 
  *         # do not include in meta
  *         L = 7 + has_span_type + has_meta + has_metrics + has_error + has_parent_id + has_links + has_meta_struct             # <<<<<<<<<<<<<<
@@ -19237,7 +19227,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
   __pyx_v_L = (((((((7 + __pyx_v_has_span_type) + __pyx_v_has_meta) + __pyx_v_has_metrics) + __pyx_v_has_error) + __pyx_v_has_parent_id) + __pyx_v_has_links) + __pyx_v_has_meta_struct);
 
-  /* "ddtrace/internal/_encoding.pyx":783
+  /* "ddtrace/internal/_encoding.pyx":782
  *         # do not include in meta
  *         L = 7 + has_span_type + has_meta + has_metrics + has_error + has_parent_id + has_links + has_meta_struct
  *         if self.top_level_span_event_encoding:             # <<<<<<<<<<<<<<
@@ -19246,7 +19236,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
   if (__pyx_v_self->top_level_span_event_encoding) {
 
-    /* "ddtrace/internal/_encoding.pyx":784
+    /* "ddtrace/internal/_encoding.pyx":783
  *         L = 7 + has_span_type + has_meta + has_metrics + has_error + has_parent_id + has_links + has_meta_struct
  *         if self.top_level_span_event_encoding:
  *             L += has_span_events             # <<<<<<<<<<<<<<
@@ -19255,7 +19245,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     __pyx_v_L = (__pyx_v_L + __pyx_v_has_span_events);
 
-    /* "ddtrace/internal/_encoding.pyx":783
+    /* "ddtrace/internal/_encoding.pyx":782
  *         # do not include in meta
  *         L = 7 + has_span_type + has_meta + has_metrics + has_error + has_parent_id + has_links + has_meta_struct
  *         if self.top_level_span_event_encoding:             # <<<<<<<<<<<<<<
@@ -19264,7 +19254,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":786
+  /* "ddtrace/internal/_encoding.pyx":785
  *             L += has_span_events
  * 
  *         ret = msgpack_pack_map(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -19273,7 +19263,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
   __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_v_L);
 
-  /* "ddtrace/internal/_encoding.pyx":788
+  /* "ddtrace/internal/_encoding.pyx":787
  *         ret = msgpack_pack_map(&self.pk, L)
  * 
  *         if ret == 0:             # <<<<<<<<<<<<<<
@@ -19283,17 +19273,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
   __pyx_t_2 = (__pyx_v_ret == 0);
   if (__pyx_t_2) {
 
-    /* "ddtrace/internal/_encoding.pyx":789
+    /* "ddtrace/internal/_encoding.pyx":788
  * 
  *         if ret == 0:
  *             ret = pack_bytes(&self.pk, <char *> b"trace_id", 8)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"trace_id")), 8); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 789, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"trace_id")), 8); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 788, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":790
+    /* "ddtrace/internal/_encoding.pyx":789
  *         if ret == 0:
  *             ret = pack_bytes(&self.pk, <char *> b"trace_id", 8)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19303,7 +19293,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":791
+      /* "ddtrace/internal/_encoding.pyx":790
  *             ret = pack_bytes(&self.pk, <char *> b"trace_id", 8)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19313,7 +19303,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":790
+      /* "ddtrace/internal/_encoding.pyx":789
  *         if ret == 0:
  *             ret = pack_bytes(&self.pk, <char *> b"trace_id", 8)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19322,7 +19312,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":792
+    /* "ddtrace/internal/_encoding.pyx":791
  *             if ret != 0:
  *                 return ret
  *             ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)             # <<<<<<<<<<<<<<
@@ -19331,7 +19321,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     __pyx_v_ret = msgpack_pack_unsigned_long_long((&__pyx_v_self->__pyx_base.pk), __pyx_v_trace_id_64bits);
 
-    /* "ddtrace/internal/_encoding.pyx":793
+    /* "ddtrace/internal/_encoding.pyx":792
  *                 return ret
  *             ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19341,7 +19331,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":794
+      /* "ddtrace/internal/_encoding.pyx":793
  *             ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19351,7 +19341,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":793
+      /* "ddtrace/internal/_encoding.pyx":792
  *                 return ret
  *             ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19360,7 +19350,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":796
+    /* "ddtrace/internal/_encoding.pyx":795
  *                 return ret
  * 
  *             if has_parent_id:             # <<<<<<<<<<<<<<
@@ -19369,17 +19359,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     if (__pyx_v_has_parent_id) {
 
-      /* "ddtrace/internal/_encoding.pyx":797
+      /* "ddtrace/internal/_encoding.pyx":796
  * 
  *             if has_parent_id:
  *                 ret = pack_bytes(&self.pk, <char *> b"parent_id", 9)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"parent_id")), 9); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 797, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"parent_id")), 9); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 796, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":798
+      /* "ddtrace/internal/_encoding.pyx":797
  *             if has_parent_id:
  *                 ret = pack_bytes(&self.pk, <char *> b"parent_id", 9)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -19389,7 +19379,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":799
+        /* "ddtrace/internal/_encoding.pyx":798
  *                 ret = pack_bytes(&self.pk, <char *> b"parent_id", 9)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -19399,7 +19389,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":798
+        /* "ddtrace/internal/_encoding.pyx":797
  *             if has_parent_id:
  *                 ret = pack_bytes(&self.pk, <char *> b"parent_id", 9)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -19408,20 +19398,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":800
+      /* "ddtrace/internal/_encoding.pyx":799
  *                 if ret != 0:
  *                     return ret
  *                 ret = pack_number(&self.pk, span.parent_id)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_parent_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 800, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_parent_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 799, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 800, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 799, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":801
+      /* "ddtrace/internal/_encoding.pyx":800
  *                     return ret
  *                 ret = pack_number(&self.pk, span.parent_id)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -19431,7 +19421,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":802
+        /* "ddtrace/internal/_encoding.pyx":801
  *                 ret = pack_number(&self.pk, span.parent_id)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -19441,7 +19431,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":801
+        /* "ddtrace/internal/_encoding.pyx":800
  *                     return ret
  *                 ret = pack_number(&self.pk, span.parent_id)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -19450,7 +19440,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":796
+      /* "ddtrace/internal/_encoding.pyx":795
  *                 return ret
  * 
  *             if has_parent_id:             # <<<<<<<<<<<<<<
@@ -19459,17 +19449,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":804
+    /* "ddtrace/internal/_encoding.pyx":803
  *                     return ret
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"span_id", 7)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"span_id")), 7); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 804, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"span_id")), 7); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 803, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":805
+    /* "ddtrace/internal/_encoding.pyx":804
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"span_id", 7)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19479,7 +19469,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":806
+      /* "ddtrace/internal/_encoding.pyx":805
  *             ret = pack_bytes(&self.pk, <char *> b"span_id", 7)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19489,7 +19479,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":805
+      /* "ddtrace/internal/_encoding.pyx":804
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"span_id", 7)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19498,20 +19488,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":807
+    /* "ddtrace/internal/_encoding.pyx":806
  *             if ret != 0:
  *                 return ret
  *             ret = pack_number(&self.pk, span.span_id)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 807, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_id); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 806, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 807, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 806, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":808
+    /* "ddtrace/internal/_encoding.pyx":807
  *                 return ret
  *             ret = pack_number(&self.pk, span.span_id)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19521,7 +19511,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":809
+      /* "ddtrace/internal/_encoding.pyx":808
  *             ret = pack_number(&self.pk, span.span_id)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19531,7 +19521,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":808
+      /* "ddtrace/internal/_encoding.pyx":807
  *                 return ret
  *             ret = pack_number(&self.pk, span.span_id)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19540,17 +19530,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":811
+    /* "ddtrace/internal/_encoding.pyx":810
  *                 return ret
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"service", 7)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"service")), 7); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 811, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"service")), 7); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 810, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":812
+    /* "ddtrace/internal/_encoding.pyx":811
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"service", 7)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19560,7 +19550,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":813
+      /* "ddtrace/internal/_encoding.pyx":812
  *             ret = pack_bytes(&self.pk, <char *> b"service", 7)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19570,7 +19560,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":812
+      /* "ddtrace/internal/_encoding.pyx":811
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"service", 7)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19579,20 +19569,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":814
+    /* "ddtrace/internal/_encoding.pyx":813
  *             if ret != 0:
  *                 return ret
  *             ret = pack_text(&self.pk, span.service)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_service); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 814, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_service); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 813, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 814, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 813, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":815
+    /* "ddtrace/internal/_encoding.pyx":814
  *                 return ret
  *             ret = pack_text(&self.pk, span.service)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19602,7 +19592,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":816
+      /* "ddtrace/internal/_encoding.pyx":815
  *             ret = pack_text(&self.pk, span.service)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19612,7 +19602,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":815
+      /* "ddtrace/internal/_encoding.pyx":814
  *                 return ret
  *             ret = pack_text(&self.pk, span.service)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19621,17 +19611,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":818
+    /* "ddtrace/internal/_encoding.pyx":817
  *                 return ret
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"resource", 8)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"resource")), 8); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 818, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"resource")), 8); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 817, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":819
+    /* "ddtrace/internal/_encoding.pyx":818
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"resource", 8)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19641,7 +19631,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":820
+      /* "ddtrace/internal/_encoding.pyx":819
  *             ret = pack_bytes(&self.pk, <char *> b"resource", 8)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19651,7 +19641,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":819
+      /* "ddtrace/internal/_encoding.pyx":818
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"resource", 8)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19660,20 +19650,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":821
+    /* "ddtrace/internal/_encoding.pyx":820
  *             if ret != 0:
  *                 return ret
  *             ret = pack_text(&self.pk, span.resource)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_resource); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 821, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_resource); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 820, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 821, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 820, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":822
+    /* "ddtrace/internal/_encoding.pyx":821
  *                 return ret
  *             ret = pack_text(&self.pk, span.resource)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19683,7 +19673,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":823
+      /* "ddtrace/internal/_encoding.pyx":822
  *             ret = pack_text(&self.pk, span.resource)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19693,7 +19683,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":822
+      /* "ddtrace/internal/_encoding.pyx":821
  *                 return ret
  *             ret = pack_text(&self.pk, span.resource)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19702,17 +19692,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":825
+    /* "ddtrace/internal/_encoding.pyx":824
  *                 return ret
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"name", 4)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"name")), 4); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 825, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"name")), 4); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 824, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":826
+    /* "ddtrace/internal/_encoding.pyx":825
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"name", 4)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19722,7 +19712,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":827
+      /* "ddtrace/internal/_encoding.pyx":826
  *             ret = pack_bytes(&self.pk, <char *> b"name", 4)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19732,7 +19722,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":826
+      /* "ddtrace/internal/_encoding.pyx":825
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"name", 4)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19741,20 +19731,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":828
+    /* "ddtrace/internal/_encoding.pyx":827
  *             if ret != 0:
  *                 return ret
  *             ret = pack_text(&self.pk, span.name)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 828, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 827, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 828, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 827, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":829
+    /* "ddtrace/internal/_encoding.pyx":828
  *                 return ret
  *             ret = pack_text(&self.pk, span.name)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19764,7 +19754,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":830
+      /* "ddtrace/internal/_encoding.pyx":829
  *             ret = pack_text(&self.pk, span.name)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19774,7 +19764,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":829
+      /* "ddtrace/internal/_encoding.pyx":828
  *                 return ret
  *             ret = pack_text(&self.pk, span.name)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19783,17 +19773,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":832
+    /* "ddtrace/internal/_encoding.pyx":831
  *                 return ret
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"start", 5)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"start")), 5); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 832, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"start")), 5); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 831, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":833
+    /* "ddtrace/internal/_encoding.pyx":832
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"start", 5)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19803,7 +19793,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":834
+      /* "ddtrace/internal/_encoding.pyx":833
  *             ret = pack_bytes(&self.pk, <char *> b"start", 5)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19813,7 +19803,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":833
+      /* "ddtrace/internal/_encoding.pyx":832
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"start", 5)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19822,20 +19812,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":835
+    /* "ddtrace/internal/_encoding.pyx":834
  *             if ret != 0:
  *                 return ret
  *             ret = pack_number(&self.pk, span.start_ns)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_start_ns); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 835, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_start_ns); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 834, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 835, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 834, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":836
+    /* "ddtrace/internal/_encoding.pyx":835
  *                 return ret
  *             ret = pack_number(&self.pk, span.start_ns)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19845,7 +19835,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":837
+      /* "ddtrace/internal/_encoding.pyx":836
  *             ret = pack_number(&self.pk, span.start_ns)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19855,7 +19845,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":836
+      /* "ddtrace/internal/_encoding.pyx":835
  *                 return ret
  *             ret = pack_number(&self.pk, span.start_ns)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19864,17 +19854,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":839
+    /* "ddtrace/internal/_encoding.pyx":838
  *                 return ret
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"duration", 8)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"duration")), 8); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 839, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"duration")), 8); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 838, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":840
+    /* "ddtrace/internal/_encoding.pyx":839
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"duration", 8)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19884,7 +19874,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":841
+      /* "ddtrace/internal/_encoding.pyx":840
  *             ret = pack_bytes(&self.pk, <char *> b"duration", 8)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19894,7 +19884,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":840
+      /* "ddtrace/internal/_encoding.pyx":839
  * 
  *             ret = pack_bytes(&self.pk, <char *> b"duration", 8)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19903,20 +19893,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":842
+    /* "ddtrace/internal/_encoding.pyx":841
  *             if ret != 0:
  *                 return ret
  *             ret = pack_number(&self.pk, span.duration_ns)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_duration_ns); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 842, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_duration_ns); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 841, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 842, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 841, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_ret = __pyx_t_4;
 
-    /* "ddtrace/internal/_encoding.pyx":843
+    /* "ddtrace/internal/_encoding.pyx":842
  *                 return ret
  *             ret = pack_number(&self.pk, span.duration_ns)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19926,7 +19916,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_ret != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":844
+      /* "ddtrace/internal/_encoding.pyx":843
  *             ret = pack_number(&self.pk, span.duration_ns)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -19936,7 +19926,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":843
+      /* "ddtrace/internal/_encoding.pyx":842
  *                 return ret
  *             ret = pack_number(&self.pk, span.duration_ns)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -19945,7 +19935,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":846
+    /* "ddtrace/internal/_encoding.pyx":845
  *                 return ret
  * 
  *             if has_error:             # <<<<<<<<<<<<<<
@@ -19954,17 +19944,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     if (__pyx_v_has_error) {
 
-      /* "ddtrace/internal/_encoding.pyx":847
+      /* "ddtrace/internal/_encoding.pyx":846
  * 
  *             if has_error:
  *                 ret = pack_bytes(&self.pk, <char *> b"error", 5)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"error")), 5); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 847, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"error")), 5); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 846, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":848
+      /* "ddtrace/internal/_encoding.pyx":847
  *             if has_error:
  *                 ret = pack_bytes(&self.pk, <char *> b"error", 5)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -19974,7 +19964,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":849
+        /* "ddtrace/internal/_encoding.pyx":848
  *                 ret = pack_bytes(&self.pk, <char *> b"error", 5)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -19984,7 +19974,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":848
+        /* "ddtrace/internal/_encoding.pyx":847
  *             if has_error:
  *                 ret = pack_bytes(&self.pk, <char *> b"error", 5)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -19993,7 +19983,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":850
+      /* "ddtrace/internal/_encoding.pyx":849
  *                 if ret != 0:
  *                     return ret
  *                 ret = msgpack_pack_long(&self.pk, <long> 1)             # <<<<<<<<<<<<<<
@@ -20002,7 +19992,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       __pyx_v_ret = msgpack_pack_long((&__pyx_v_self->__pyx_base.pk), ((long)1));
 
-      /* "ddtrace/internal/_encoding.pyx":851
+      /* "ddtrace/internal/_encoding.pyx":850
  *                     return ret
  *                 ret = msgpack_pack_long(&self.pk, <long> 1)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20012,7 +20002,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":852
+        /* "ddtrace/internal/_encoding.pyx":851
  *                 ret = msgpack_pack_long(&self.pk, <long> 1)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20022,7 +20012,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":851
+        /* "ddtrace/internal/_encoding.pyx":850
  *                     return ret
  *                 ret = msgpack_pack_long(&self.pk, <long> 1)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20031,7 +20021,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":846
+      /* "ddtrace/internal/_encoding.pyx":845
  *                 return ret
  * 
  *             if has_error:             # <<<<<<<<<<<<<<
@@ -20040,7 +20030,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":854
+    /* "ddtrace/internal/_encoding.pyx":853
  *                     return ret
  * 
  *             if has_span_type:             # <<<<<<<<<<<<<<
@@ -20050,17 +20040,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_has_span_type != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":855
+      /* "ddtrace/internal/_encoding.pyx":854
  * 
  *             if has_span_type:
  *                 ret = pack_bytes(&self.pk, <char *> b"type", 4)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"type")), 4); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 855, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"type")), 4); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 854, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":856
+      /* "ddtrace/internal/_encoding.pyx":855
  *             if has_span_type:
  *                 ret = pack_bytes(&self.pk, <char *> b"type", 4)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20070,7 +20060,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":857
+        /* "ddtrace/internal/_encoding.pyx":856
  *                 ret = pack_bytes(&self.pk, <char *> b"type", 4)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20080,7 +20070,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":856
+        /* "ddtrace/internal/_encoding.pyx":855
  *             if has_span_type:
  *                 ret = pack_bytes(&self.pk, <char *> b"type", 4)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20089,20 +20079,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":858
+      /* "ddtrace/internal/_encoding.pyx":857
  *                 if ret != 0:
  *                     return ret
  *                 ret = pack_text(&self.pk, span.span_type)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 858, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_type); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 857, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 858, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 857, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":859
+      /* "ddtrace/internal/_encoding.pyx":858
  *                     return ret
  *                 ret = pack_text(&self.pk, span.span_type)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20112,7 +20102,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":860
+        /* "ddtrace/internal/_encoding.pyx":859
  *                 ret = pack_text(&self.pk, span.span_type)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20122,7 +20112,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":859
+        /* "ddtrace/internal/_encoding.pyx":858
  *                     return ret
  *                 ret = pack_text(&self.pk, span.span_type)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20131,7 +20121,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":854
+      /* "ddtrace/internal/_encoding.pyx":853
  *                     return ret
  * 
  *             if has_span_type:             # <<<<<<<<<<<<<<
@@ -20140,7 +20130,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":862
+    /* "ddtrace/internal/_encoding.pyx":861
  *                     return ret
  * 
  *             if has_links:             # <<<<<<<<<<<<<<
@@ -20149,17 +20139,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     if (__pyx_v_has_links) {
 
-      /* "ddtrace/internal/_encoding.pyx":863
+      /* "ddtrace/internal/_encoding.pyx":862
  * 
  *             if has_links:
  *                 ret = pack_bytes(&self.pk, <char *> b"span_links", 10)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"span_links")), 10); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 863, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"span_links")), 10); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 862, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":864
+      /* "ddtrace/internal/_encoding.pyx":863
  *             if has_links:
  *                 ret = pack_bytes(&self.pk, <char *> b"span_links", 10)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20169,7 +20159,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":865
+        /* "ddtrace/internal/_encoding.pyx":864
  *                 ret = pack_bytes(&self.pk, <char *> b"span_links", 10)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20179,7 +20169,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":864
+        /* "ddtrace/internal/_encoding.pyx":863
  *             if has_links:
  *                 ret = pack_bytes(&self.pk, <char *> b"span_links", 10)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20188,21 +20178,21 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":866
+      /* "ddtrace/internal/_encoding.pyx":865
  *                 if ret != 0:
  *                     return ret
  *                 ret = self._pack_links(span._links)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 866, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 865, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 866, __pyx_L1_error)
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_links(__pyx_v_self, ((PyObject*)__pyx_t_1)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 866, __pyx_L1_error)
+      if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 865, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_links(__pyx_v_self, ((PyObject*)__pyx_t_1)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 865, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":867
+      /* "ddtrace/internal/_encoding.pyx":866
  *                     return ret
  *                 ret = self._pack_links(span._links)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20212,7 +20202,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":868
+        /* "ddtrace/internal/_encoding.pyx":867
  *                 ret = self._pack_links(span._links)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20222,7 +20212,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":867
+        /* "ddtrace/internal/_encoding.pyx":866
  *                     return ret
  *                 ret = self._pack_links(span._links)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20231,7 +20221,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":862
+      /* "ddtrace/internal/_encoding.pyx":861
  *                     return ret
  * 
  *             if has_links:             # <<<<<<<<<<<<<<
@@ -20240,7 +20230,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":870
+    /* "ddtrace/internal/_encoding.pyx":869
  *                     return ret
  * 
  *             if has_span_events and self.top_level_span_event_encoding:             # <<<<<<<<<<<<<<
@@ -20256,17 +20246,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_L36_bool_binop_done:;
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":871
+      /* "ddtrace/internal/_encoding.pyx":870
  * 
  *             if has_span_events and self.top_level_span_event_encoding:
  *                 ret = pack_bytes(&self.pk, <char *> b"span_events", 11)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"span_events")), 11); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 871, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"span_events")), 11); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 870, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":872
+      /* "ddtrace/internal/_encoding.pyx":871
  *             if has_span_events and self.top_level_span_event_encoding:
  *                 ret = pack_bytes(&self.pk, <char *> b"span_events", 11)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20276,7 +20266,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":873
+        /* "ddtrace/internal/_encoding.pyx":872
  *                 ret = pack_bytes(&self.pk, <char *> b"span_events", 11)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20286,7 +20276,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":872
+        /* "ddtrace/internal/_encoding.pyx":871
  *             if has_span_events and self.top_level_span_event_encoding:
  *                 ret = pack_bytes(&self.pk, <char *> b"span_events", 11)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20295,21 +20285,21 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":874
+      /* "ddtrace/internal/_encoding.pyx":873
  *                 if ret != 0:
  *                     return ret
  *                 ret = self._pack_span_events(span._events)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 874, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 873, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 874, __pyx_L1_error)
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_span_events(__pyx_v_self, ((PyObject*)__pyx_t_1)); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 874, __pyx_L1_error)
+      if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 873, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_span_events(__pyx_v_self, ((PyObject*)__pyx_t_1)); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 873, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":875
+      /* "ddtrace/internal/_encoding.pyx":874
  *                     return ret
  *                 ret = self._pack_span_events(span._events)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20319,7 +20309,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":876
+        /* "ddtrace/internal/_encoding.pyx":875
  *                 ret = self._pack_span_events(span._events)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20329,7 +20319,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":875
+        /* "ddtrace/internal/_encoding.pyx":874
  *                     return ret
  *                 ret = self._pack_span_events(span._events)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20338,7 +20328,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":870
+      /* "ddtrace/internal/_encoding.pyx":869
  *                     return ret
  * 
  *             if has_span_events and self.top_level_span_event_encoding:             # <<<<<<<<<<<<<<
@@ -20347,7 +20337,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":878
+    /* "ddtrace/internal/_encoding.pyx":877
  *                     return ret
  * 
  *             if has_meta:             # <<<<<<<<<<<<<<
@@ -20357,17 +20347,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_has_meta != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":879
+      /* "ddtrace/internal/_encoding.pyx":878
  * 
  *             if has_meta:
  *                 ret = pack_bytes(&self.pk, <char *> b"meta", 4)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"meta")), 4); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 879, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"meta")), 4); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 878, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":880
+      /* "ddtrace/internal/_encoding.pyx":879
  *             if has_meta:
  *                 ret = pack_bytes(&self.pk, <char *> b"meta", 4)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20377,7 +20367,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":881
+        /* "ddtrace/internal/_encoding.pyx":880
  *                 ret = pack_bytes(&self.pk, <char *> b"meta", 4)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20387,7 +20377,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":880
+        /* "ddtrace/internal/_encoding.pyx":879
  *             if has_meta:
  *                 ret = pack_bytes(&self.pk, <char *> b"meta", 4)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20396,7 +20386,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":883
+      /* "ddtrace/internal/_encoding.pyx":882
  *                     return ret
  * 
  *                 span_events = ""             # <<<<<<<<<<<<<<
@@ -20406,7 +20396,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_);
       __pyx_v_span_events = __pyx_mstate_global->__pyx_kp_u_;
 
-      /* "ddtrace/internal/_encoding.pyx":884
+      /* "ddtrace/internal/_encoding.pyx":883
  * 
  *                 span_events = ""
  *                 if has_span_events and not self.top_level_span_event_encoding:             # <<<<<<<<<<<<<<
@@ -20423,7 +20413,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_L43_bool_binop_done:;
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":885
+        /* "ddtrace/internal/_encoding.pyx":884
  *                 span_events = ""
  *                 if has_span_events and not self.top_level_span_event_encoding:
  *                     span_events = json_dumps([vars(event)()  for event in span._events])             # <<<<<<<<<<<<<<
@@ -20431,21 +20421,21 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
  *                 if ret != 0:
 */
         __pyx_t_6 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_json_dumps); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 885, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_json_dumps); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 884, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         { /* enter inner scope */
-          __pyx_t_8 = PyList_New(0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 885, __pyx_L47_error)
+          __pyx_t_8 = PyList_New(0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 884, __pyx_L47_error)
           __Pyx_GOTREF(__pyx_t_8);
-          __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 885, __pyx_L47_error)
+          __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 884, __pyx_L47_error)
           __Pyx_GOTREF(__pyx_t_9);
           if (likely(PyList_CheckExact(__pyx_t_9)) || PyTuple_CheckExact(__pyx_t_9)) {
             __pyx_t_10 = __pyx_t_9; __Pyx_INCREF(__pyx_t_10);
             __pyx_t_3 = 0;
             __pyx_t_11 = NULL;
           } else {
-            __pyx_t_3 = -1; __pyx_t_10 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 885, __pyx_L47_error)
+            __pyx_t_3 = -1; __pyx_t_10 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 884, __pyx_L47_error)
             __Pyx_GOTREF(__pyx_t_10);
-            __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 885, __pyx_L47_error)
+            __pyx_t_11 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 884, __pyx_L47_error)
           }
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
           for (;;) {
@@ -20454,7 +20444,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
                 {
                   Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_10);
                   #if !CYTHON_ASSUME_SAFE_SIZE
-                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 885, __pyx_L47_error)
+                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 884, __pyx_L47_error)
                   #endif
                   if (__pyx_t_3 >= __pyx_temp) break;
                 }
@@ -20464,7 +20454,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
                 {
                   Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_10);
                   #if !CYTHON_ASSUME_SAFE_SIZE
-                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 885, __pyx_L47_error)
+                  if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 884, __pyx_L47_error)
                   #endif
                   if (__pyx_t_3 >= __pyx_temp) break;
                 }
@@ -20475,13 +20465,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
                 #endif
                 ++__pyx_t_3;
               }
-              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 885, __pyx_L47_error)
+              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 884, __pyx_L47_error)
             } else {
               __pyx_t_9 = __pyx_t_11(__pyx_t_10);
               if (unlikely(!__pyx_t_9)) {
                 PyObject* exc_type = PyErr_Occurred();
                 if (exc_type) {
-                  if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 885, __pyx_L47_error)
+                  if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 884, __pyx_L47_error)
                   PyErr_Clear();
                 }
                 break;
@@ -20500,7 +20490,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
               __pyx_t_13 = __Pyx_PyObject_FastCall(__pyx_t_15, __pyx_callargs+__pyx_t_16, (2-__pyx_t_16) | (__pyx_t_16*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
               __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
               __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-              if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 885, __pyx_L47_error)
+              if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 884, __pyx_L47_error)
               __Pyx_GOTREF(__pyx_t_13);
             }
             __pyx_t_16 = 1;
@@ -20520,10 +20510,10 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
               __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+__pyx_t_16, (1-__pyx_t_16) | (__pyx_t_16*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
               __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
               __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 885, __pyx_L47_error)
+              if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 884, __pyx_L47_error)
               __Pyx_GOTREF(__pyx_t_9);
             }
-            if (unlikely(__Pyx_ListComp_Append(__pyx_t_8, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 885, __pyx_L47_error)
+            if (unlikely(__Pyx_ListComp_Append(__pyx_t_8, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 884, __pyx_L47_error)
             __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
           }
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -20552,13 +20542,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
           __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 885, __pyx_L1_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 884, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
         __Pyx_DECREF_SET(__pyx_v_span_events, __pyx_t_1);
         __pyx_t_1 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":884
+        /* "ddtrace/internal/_encoding.pyx":883
  * 
  *                 span_events = ""
  *                 if has_span_events and not self.top_level_span_event_encoding:             # <<<<<<<<<<<<<<
@@ -20567,21 +20557,21 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":886
+      /* "ddtrace/internal/_encoding.pyx":885
  *                 if has_span_events and not self.top_level_span_event_encoding:
  *                     span_events = json_dumps([vars(event)()  for event in span._events])
  *                 ret = self._pack_meta(span._meta, <char *> dd_origin, span_events)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 886, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 885, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!(likely(PyUnicode_CheckExact(__pyx_v_span_events))||((__pyx_v_span_events) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_v_span_events))) __PYX_ERR(0, 886, __pyx_L1_error)
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_meta(__pyx_v_self, __pyx_t_1, ((char *)__pyx_v_dd_origin), ((PyObject*)__pyx_v_span_events)); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 886, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_v_span_events))||((__pyx_v_span_events) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_v_span_events))) __PYX_ERR(0, 885, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_meta(__pyx_v_self, __pyx_t_1, ((char *)__pyx_v_dd_origin), ((PyObject*)__pyx_v_span_events)); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 885, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":887
+      /* "ddtrace/internal/_encoding.pyx":886
  *                     span_events = json_dumps([vars(event)()  for event in span._events])
  *                 ret = self._pack_meta(span._meta, <char *> dd_origin, span_events)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20591,7 +20581,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":888
+        /* "ddtrace/internal/_encoding.pyx":887
  *                 ret = self._pack_meta(span._meta, <char *> dd_origin, span_events)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20601,7 +20591,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":887
+        /* "ddtrace/internal/_encoding.pyx":886
  *                     span_events = json_dumps([vars(event)()  for event in span._events])
  *                 ret = self._pack_meta(span._meta, <char *> dd_origin, span_events)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20610,7 +20600,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":878
+      /* "ddtrace/internal/_encoding.pyx":877
  *                     return ret
  * 
  *             if has_meta:             # <<<<<<<<<<<<<<
@@ -20619,7 +20609,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":890
+    /* "ddtrace/internal/_encoding.pyx":889
  *                     return ret
  * 
  *             if has_meta_struct:             # <<<<<<<<<<<<<<
@@ -20628,17 +20618,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     if (__pyx_v_has_meta_struct) {
 
-      /* "ddtrace/internal/_encoding.pyx":891
+      /* "ddtrace/internal/_encoding.pyx":890
  * 
  *             if has_meta_struct:
  *                 ret = pack_bytes(&self.pk, <char *> b"meta_struct", 11)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"meta_struct")), 11); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 891, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"meta_struct")), 11); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 890, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":892
+      /* "ddtrace/internal/_encoding.pyx":891
  *             if has_meta_struct:
  *                 ret = pack_bytes(&self.pk, <char *> b"meta_struct", 11)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20648,7 +20638,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":893
+        /* "ddtrace/internal/_encoding.pyx":892
  *                 ret = pack_bytes(&self.pk, <char *> b"meta_struct", 11)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20658,7 +20648,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":892
+        /* "ddtrace/internal/_encoding.pyx":891
  *             if has_meta_struct:
  *                 ret = pack_bytes(&self.pk, <char *> b"meta_struct", 11)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20667,20 +20657,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":895
+      /* "ddtrace/internal/_encoding.pyx":894
  *                     return ret
  * 
  *                 ret = msgpack_pack_map(&self.pk, len(span._meta_struct))             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 895, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta_struct); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 894, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 895, __pyx_L1_error)
+      __pyx_t_3 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 894, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_t_3);
 
-      /* "ddtrace/internal/_encoding.pyx":896
+      /* "ddtrace/internal/_encoding.pyx":895
  * 
  *                 ret = msgpack_pack_map(&self.pk, len(span._meta_struct))
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20690,7 +20680,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":897
+        /* "ddtrace/internal/_encoding.pyx":896
  *                 ret = msgpack_pack_map(&self.pk, len(span._meta_struct))
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20700,7 +20690,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":896
+        /* "ddtrace/internal/_encoding.pyx":895
  * 
  *                 ret = msgpack_pack_map(&self.pk, len(span._meta_struct))
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20709,7 +20699,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":898
+      /* "ddtrace/internal/_encoding.pyx":897
  *                 if ret != 0:
  *                     return ret
  *                 for k, v in span._meta_struct.items():             # <<<<<<<<<<<<<<
@@ -20717,13 +20707,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
  *                     if ret != 0:
 */
       __pyx_t_3 = 0;
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta_struct); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 898, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta_struct); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 897, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       if (unlikely(__pyx_t_7 == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-        __PYX_ERR(0, 898, __pyx_L1_error)
+        __PYX_ERR(0, 897, __pyx_L1_error)
       }
-      __pyx_t_8 = __Pyx_dict_iterator(__pyx_t_7, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_17), (&__pyx_t_4)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 898, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_dict_iterator(__pyx_t_7, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_17), (&__pyx_t_4)); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 897, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_1);
@@ -20732,7 +20722,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       while (1) {
         __pyx_t_18 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_17, &__pyx_t_3, &__pyx_t_8, &__pyx_t_7, NULL, __pyx_t_4);
         if (unlikely(__pyx_t_18 == 0)) break;
-        if (unlikely(__pyx_t_18 == -1)) __PYX_ERR(0, 898, __pyx_L1_error)
+        if (unlikely(__pyx_t_18 == -1)) __PYX_ERR(0, 897, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_8);
@@ -20740,17 +20730,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_7);
         __pyx_t_7 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":899
+        /* "ddtrace/internal/_encoding.pyx":898
  *                     return ret
  *                 for k, v in span._meta_struct.items():
  *                     ret = pack_text(&self.pk, k)             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         return ret
 */
-        __pyx_t_18 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_18 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 899, __pyx_L1_error)
+        __pyx_t_18 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_k); if (unlikely(__pyx_t_18 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 898, __pyx_L1_error)
         __pyx_v_ret = __pyx_t_18;
 
-        /* "ddtrace/internal/_encoding.pyx":900
+        /* "ddtrace/internal/_encoding.pyx":899
  *                 for k, v in span._meta_struct.items():
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -20760,7 +20750,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_t_2 = (__pyx_v_ret != 0);
         if (__pyx_t_2) {
 
-          /* "ddtrace/internal/_encoding.pyx":901
+          /* "ddtrace/internal/_encoding.pyx":900
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:
  *                         return ret             # <<<<<<<<<<<<<<
@@ -20771,7 +20761,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           goto __pyx_L0;
 
-          /* "ddtrace/internal/_encoding.pyx":900
+          /* "ddtrace/internal/_encoding.pyx":899
  *                 for k, v in span._meta_struct.items():
  *                     ret = pack_text(&self.pk, k)
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -20780,7 +20770,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":902
+        /* "ddtrace/internal/_encoding.pyx":901
  *                     if ret != 0:
  *                         return ret
  *                     value_packed = packb(v)             # <<<<<<<<<<<<<<
@@ -20788,7 +20778,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
  *                     if ret == 0:
 */
         __pyx_t_8 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_packb); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 902, __pyx_L1_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_packb); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 901, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_16 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -20807,23 +20797,23 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
           __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+__pyx_t_16, (2-__pyx_t_16) | (__pyx_t_16*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 902, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 901, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
         }
         __Pyx_XDECREF_SET(__pyx_v_value_packed, __pyx_t_7);
         __pyx_t_7 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":903
+        /* "ddtrace/internal/_encoding.pyx":902
  *                         return ret
  *                     value_packed = packb(v)
  *                     ret = msgpack_pack_bin(&self.pk, len(value_packed))             # <<<<<<<<<<<<<<
  *                     if ret == 0:
  *                         ret = msgpack_pack_raw_body(&self.pk, <char *> value_packed, len(value_packed))
 */
-        __pyx_t_19 = PyObject_Length(__pyx_v_value_packed); if (unlikely(__pyx_t_19 == ((Py_ssize_t)-1))) __PYX_ERR(0, 903, __pyx_L1_error)
+        __pyx_t_19 = PyObject_Length(__pyx_v_value_packed); if (unlikely(__pyx_t_19 == ((Py_ssize_t)-1))) __PYX_ERR(0, 902, __pyx_L1_error)
         __pyx_v_ret = msgpack_pack_bin((&__pyx_v_self->__pyx_base.pk), __pyx_t_19);
 
-        /* "ddtrace/internal/_encoding.pyx":904
+        /* "ddtrace/internal/_encoding.pyx":903
  *                     value_packed = packb(v)
  *                     ret = msgpack_pack_bin(&self.pk, len(value_packed))
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -20833,18 +20823,18 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_t_2 = (__pyx_v_ret == 0);
         if (__pyx_t_2) {
 
-          /* "ddtrace/internal/_encoding.pyx":905
+          /* "ddtrace/internal/_encoding.pyx":904
  *                     ret = msgpack_pack_bin(&self.pk, len(value_packed))
  *                     if ret == 0:
  *                         ret = msgpack_pack_raw_body(&self.pk, <char *> value_packed, len(value_packed))             # <<<<<<<<<<<<<<
  *                     if ret != 0:
  *                         return ret
 */
-          __pyx_t_20 = __Pyx_PyObject_AsWritableString(__pyx_v_value_packed); if (unlikely((!__pyx_t_20) && PyErr_Occurred())) __PYX_ERR(0, 905, __pyx_L1_error)
-          __pyx_t_19 = PyObject_Length(__pyx_v_value_packed); if (unlikely(__pyx_t_19 == ((Py_ssize_t)-1))) __PYX_ERR(0, 905, __pyx_L1_error)
+          __pyx_t_20 = __Pyx_PyObject_AsWritableString(__pyx_v_value_packed); if (unlikely((!__pyx_t_20) && PyErr_Occurred())) __PYX_ERR(0, 904, __pyx_L1_error)
+          __pyx_t_19 = PyObject_Length(__pyx_v_value_packed); if (unlikely(__pyx_t_19 == ((Py_ssize_t)-1))) __PYX_ERR(0, 904, __pyx_L1_error)
           __pyx_v_ret = msgpack_pack_raw_body((&__pyx_v_self->__pyx_base.pk), ((char *)__pyx_t_20), __pyx_t_19);
 
-          /* "ddtrace/internal/_encoding.pyx":904
+          /* "ddtrace/internal/_encoding.pyx":903
  *                     value_packed = packb(v)
  *                     ret = msgpack_pack_bin(&self.pk, len(value_packed))
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -20853,7 +20843,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":906
+        /* "ddtrace/internal/_encoding.pyx":905
  *                     if ret == 0:
  *                         ret = msgpack_pack_raw_body(&self.pk, <char *> value_packed, len(value_packed))
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -20863,7 +20853,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_t_2 = (__pyx_v_ret != 0);
         if (__pyx_t_2) {
 
-          /* "ddtrace/internal/_encoding.pyx":907
+          /* "ddtrace/internal/_encoding.pyx":906
  *                         ret = msgpack_pack_raw_body(&self.pk, <char *> value_packed, len(value_packed))
  *                     if ret != 0:
  *                         return ret             # <<<<<<<<<<<<<<
@@ -20874,7 +20864,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           goto __pyx_L0;
 
-          /* "ddtrace/internal/_encoding.pyx":906
+          /* "ddtrace/internal/_encoding.pyx":905
  *                     if ret == 0:
  *                         ret = msgpack_pack_raw_body(&self.pk, <char *> value_packed, len(value_packed))
  *                     if ret != 0:             # <<<<<<<<<<<<<<
@@ -20885,7 +20875,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       }
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":890
+      /* "ddtrace/internal/_encoding.pyx":889
  *                     return ret
  * 
  *             if has_meta_struct:             # <<<<<<<<<<<<<<
@@ -20894,7 +20884,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":909
+    /* "ddtrace/internal/_encoding.pyx":908
  *                         return ret
  * 
  *             if has_metrics:             # <<<<<<<<<<<<<<
@@ -20904,17 +20894,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
     __pyx_t_2 = (__pyx_v_has_metrics != 0);
     if (__pyx_t_2) {
 
-      /* "ddtrace/internal/_encoding.pyx":910
+      /* "ddtrace/internal/_encoding.pyx":909
  * 
  *             if has_metrics:
  *                 ret = pack_bytes(&self.pk, <char *> b"metrics", 7)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"metrics")), 7); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 910, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"metrics")), 7); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 909, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":911
+      /* "ddtrace/internal/_encoding.pyx":910
  *             if has_metrics:
  *                 ret = pack_bytes(&self.pk, <char *> b"metrics", 7)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20924,7 +20914,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":912
+        /* "ddtrace/internal/_encoding.pyx":911
  *                 ret = pack_bytes(&self.pk, <char *> b"metrics", 7)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20934,7 +20924,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":911
+        /* "ddtrace/internal/_encoding.pyx":910
  *             if has_metrics:
  *                 ret = pack_bytes(&self.pk, <char *> b"metrics", 7)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20943,20 +20933,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":913
+      /* "ddtrace/internal/_encoding.pyx":912
  *                 if ret != 0:
  *                     return ret
  *                 ret = self._pack_metrics(span._metrics)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 913, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 912, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_metrics(__pyx_v_self, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 913, __pyx_L1_error)
+      __pyx_t_4 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_metrics(__pyx_v_self, __pyx_t_1); if (unlikely(__pyx_t_4 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 912, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_v_ret = __pyx_t_4;
 
-      /* "ddtrace/internal/_encoding.pyx":914
+      /* "ddtrace/internal/_encoding.pyx":913
  *                     return ret
  *                 ret = self._pack_metrics(span._metrics)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20966,7 +20956,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
       __pyx_t_2 = (__pyx_v_ret != 0);
       if (__pyx_t_2) {
 
-        /* "ddtrace/internal/_encoding.pyx":915
+        /* "ddtrace/internal/_encoding.pyx":914
  *                 ret = self._pack_metrics(span._metrics)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -20976,7 +20966,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
         __pyx_r = __pyx_v_ret;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":914
+        /* "ddtrace/internal/_encoding.pyx":913
  *                     return ret
  *                 ret = self._pack_metrics(span._metrics)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -20985,7 +20975,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":909
+      /* "ddtrace/internal/_encoding.pyx":908
  *                         return ret
  * 
  *             if has_metrics:             # <<<<<<<<<<<<<<
@@ -20994,7 +20984,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":788
+    /* "ddtrace/internal/_encoding.pyx":787
  *         ret = msgpack_pack_map(&self.pk, L)
  * 
  *         if ret == 0:             # <<<<<<<<<<<<<<
@@ -21003,7 +20993,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":917
+  /* "ddtrace/internal/_encoding.pyx":916
  *                     return ret
  * 
  *         return ret             # <<<<<<<<<<<<<<
@@ -21013,7 +21003,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
   __pyx_r = __pyx_v_ret;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":761
+  /* "ddtrace/internal/_encoding.pyx":760
  *         raise TypeError("Unhandled metrics type: %r" % type(metrics))
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:             # <<<<<<<<<<<<<<
@@ -21045,7 +21035,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span(s
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":919
+/* "ddtrace/internal/_encoding.pyx":918
  *         return ret
  * 
  *     cdef int pack_span_event_attributes(self, object attr, int depth=0) except ? -1:             # <<<<<<<<<<<<<<
@@ -21081,7 +21071,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     }
   }
 
-  /* "ddtrace/internal/_encoding.pyx":923
+  /* "ddtrace/internal/_encoding.pyx":922
  *         cdef object elt
  * 
  *         ret = msgpack_pack_map(&self.pk, 2)             # <<<<<<<<<<<<<<
@@ -21090,7 +21080,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
   __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), 2);
 
-  /* "ddtrace/internal/_encoding.pyx":924
+  /* "ddtrace/internal/_encoding.pyx":923
  * 
  *         ret = msgpack_pack_map(&self.pk, 2)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -21100,7 +21090,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":925
+    /* "ddtrace/internal/_encoding.pyx":924
  *         ret = msgpack_pack_map(&self.pk, 2)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -21110,7 +21100,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":924
+    /* "ddtrace/internal/_encoding.pyx":923
  * 
  *         ret = msgpack_pack_map(&self.pk, 2)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -21119,17 +21109,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":926
+  /* "ddtrace/internal/_encoding.pyx":925
  *         if ret != 0:
  *             return ret
  *         ret = pack_bytes(&self.pk, <char*> b"type", 4)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"type")), 4); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 926, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"type")), 4); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 925, __pyx_L1_error)
   __pyx_v_ret = __pyx_t_2;
 
-  /* "ddtrace/internal/_encoding.pyx":927
+  /* "ddtrace/internal/_encoding.pyx":926
  *             return ret
  *         ret = pack_bytes(&self.pk, <char*> b"type", 4)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -21139,7 +21129,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":928
+    /* "ddtrace/internal/_encoding.pyx":927
  *         ret = pack_bytes(&self.pk, <char*> b"type", 4)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -21149,7 +21139,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":927
+    /* "ddtrace/internal/_encoding.pyx":926
  *             return ret
  *         ret = pack_bytes(&self.pk, <char*> b"type", 4)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -21158,7 +21148,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":930
+  /* "ddtrace/internal/_encoding.pyx":929
  *             return ret
  * 
  *         if isinstance(attr, str):             # <<<<<<<<<<<<<<
@@ -21168,7 +21158,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_t_1 = PyUnicode_Check(__pyx_v_attr); 
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":931
+    /* "ddtrace/internal/_encoding.pyx":930
  * 
  *         if isinstance(attr, str):
  *             ret = msgpack_pack_uint8(&self.pk, 0)             # <<<<<<<<<<<<<<
@@ -21177,7 +21167,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     __pyx_v_ret = msgpack_pack_uint8((&__pyx_v_self->__pyx_base.pk), 0);
 
-    /* "ddtrace/internal/_encoding.pyx":932
+    /* "ddtrace/internal/_encoding.pyx":931
  *         if isinstance(attr, str):
  *             ret = msgpack_pack_uint8(&self.pk, 0)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21187,7 +21177,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":933
+      /* "ddtrace/internal/_encoding.pyx":932
  *             ret = msgpack_pack_uint8(&self.pk, 0)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21197,7 +21187,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":932
+      /* "ddtrace/internal/_encoding.pyx":931
  *         if isinstance(attr, str):
  *             ret = msgpack_pack_uint8(&self.pk, 0)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21206,17 +21196,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":934
+    /* "ddtrace/internal/_encoding.pyx":933
  *             if ret != 0:
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"string_value", 12)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"string_value")), 12); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 934, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"string_value")), 12); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 933, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":935
+    /* "ddtrace/internal/_encoding.pyx":934
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"string_value", 12)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21226,7 +21216,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":936
+      /* "ddtrace/internal/_encoding.pyx":935
  *             ret = pack_bytes(&self.pk, <char*> b"string_value", 12)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21236,7 +21226,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":935
+      /* "ddtrace/internal/_encoding.pyx":934
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"string_value", 12)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21245,17 +21235,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":937
+    /* "ddtrace/internal/_encoding.pyx":936
  *             if ret != 0:
  *                 return ret
  *             ret = pack_text(&self.pk, attr)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 937, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_text((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 936, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":938
+    /* "ddtrace/internal/_encoding.pyx":937
  *                 return ret
  *             ret = pack_text(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21265,7 +21255,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":939
+      /* "ddtrace/internal/_encoding.pyx":938
  *             ret = pack_text(&self.pk, attr)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21275,7 +21265,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":938
+      /* "ddtrace/internal/_encoding.pyx":937
  *                 return ret
  *             ret = pack_text(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21284,7 +21274,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":930
+    /* "ddtrace/internal/_encoding.pyx":929
  *             return ret
  * 
  *         if isinstance(attr, str):             # <<<<<<<<<<<<<<
@@ -21294,7 +21284,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     goto __pyx_L5;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":940
+  /* "ddtrace/internal/_encoding.pyx":939
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, bool):             # <<<<<<<<<<<<<<
@@ -21304,7 +21294,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_attr, __pyx_mstate_global->__pyx_ptype_7cpython_4bool_bool); 
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":941
+    /* "ddtrace/internal/_encoding.pyx":940
  *                 return ret
  *         elif isinstance(attr, bool):
  *             ret = msgpack_pack_uint8(&self.pk, 1)             # <<<<<<<<<<<<<<
@@ -21313,7 +21303,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     __pyx_v_ret = msgpack_pack_uint8((&__pyx_v_self->__pyx_base.pk), 1);
 
-    /* "ddtrace/internal/_encoding.pyx":942
+    /* "ddtrace/internal/_encoding.pyx":941
  *         elif isinstance(attr, bool):
  *             ret = msgpack_pack_uint8(&self.pk, 1)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21323,7 +21313,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":943
+      /* "ddtrace/internal/_encoding.pyx":942
  *             ret = msgpack_pack_uint8(&self.pk, 1)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21333,7 +21323,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":942
+      /* "ddtrace/internal/_encoding.pyx":941
  *         elif isinstance(attr, bool):
  *             ret = msgpack_pack_uint8(&self.pk, 1)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21342,17 +21332,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":944
+    /* "ddtrace/internal/_encoding.pyx":943
  *             if ret != 0:
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"bool_value", 10)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"bool_value")), 10); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 944, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"bool_value")), 10); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 943, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":945
+    /* "ddtrace/internal/_encoding.pyx":944
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"bool_value", 10)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21362,7 +21352,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":946
+      /* "ddtrace/internal/_encoding.pyx":945
  *             ret = pack_bytes(&self.pk, <char*> b"bool_value", 10)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21372,7 +21362,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":945
+      /* "ddtrace/internal/_encoding.pyx":944
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"bool_value", 10)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21381,18 +21371,18 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":947
+    /* "ddtrace/internal/_encoding.pyx":946
  *             if ret != 0:
  *                 return ret
  *             ret = pack_bool(&self.pk, attr)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_attr); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 947, __pyx_L1_error)
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bool((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 947, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_attr); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 946, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bool((&__pyx_v_self->__pyx_base.pk), __pyx_t_1); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 946, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":948
+    /* "ddtrace/internal/_encoding.pyx":947
  *                 return ret
  *             ret = pack_bool(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21402,7 +21392,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":949
+      /* "ddtrace/internal/_encoding.pyx":948
  *             ret = pack_bool(&self.pk, attr)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21412,7 +21402,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":948
+      /* "ddtrace/internal/_encoding.pyx":947
  *                 return ret
  *             ret = pack_bool(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21421,7 +21411,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":940
+    /* "ddtrace/internal/_encoding.pyx":939
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, bool):             # <<<<<<<<<<<<<<
@@ -21431,7 +21421,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     goto __pyx_L5;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":950
+  /* "ddtrace/internal/_encoding.pyx":949
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, int):             # <<<<<<<<<<<<<<
@@ -21441,7 +21431,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_t_1 = PyLong_Check(__pyx_v_attr); 
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":951
+    /* "ddtrace/internal/_encoding.pyx":950
  *                 return ret
  *         elif isinstance(attr, int):
  *             ret = msgpack_pack_uint8(&self.pk, 2)             # <<<<<<<<<<<<<<
@@ -21450,7 +21440,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     __pyx_v_ret = msgpack_pack_uint8((&__pyx_v_self->__pyx_base.pk), 2);
 
-    /* "ddtrace/internal/_encoding.pyx":952
+    /* "ddtrace/internal/_encoding.pyx":951
  *         elif isinstance(attr, int):
  *             ret = msgpack_pack_uint8(&self.pk, 2)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21460,7 +21450,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":953
+      /* "ddtrace/internal/_encoding.pyx":952
  *             ret = msgpack_pack_uint8(&self.pk, 2)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21470,7 +21460,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":952
+      /* "ddtrace/internal/_encoding.pyx":951
  *         elif isinstance(attr, int):
  *             ret = msgpack_pack_uint8(&self.pk, 2)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21479,17 +21469,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":954
+    /* "ddtrace/internal/_encoding.pyx":953
  *             if ret != 0:
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"int_value", 9)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"int_value")), 9); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 954, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"int_value")), 9); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 953, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":955
+    /* "ddtrace/internal/_encoding.pyx":954
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"int_value", 9)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21499,7 +21489,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":956
+      /* "ddtrace/internal/_encoding.pyx":955
  *             ret = pack_bytes(&self.pk, <char*> b"int_value", 9)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21509,7 +21499,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":955
+      /* "ddtrace/internal/_encoding.pyx":954
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"int_value", 9)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21518,17 +21508,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":957
+    /* "ddtrace/internal/_encoding.pyx":956
  *             if ret != 0:
  *                 return ret
  *             ret = pack_number(&self.pk, attr)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 957, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 956, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":958
+    /* "ddtrace/internal/_encoding.pyx":957
  *                 return ret
  *             ret = pack_number(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21538,7 +21528,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":959
+      /* "ddtrace/internal/_encoding.pyx":958
  *             ret = pack_number(&self.pk, attr)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21548,7 +21538,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":958
+      /* "ddtrace/internal/_encoding.pyx":957
  *                 return ret
  *             ret = pack_number(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21557,7 +21547,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":950
+    /* "ddtrace/internal/_encoding.pyx":949
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, int):             # <<<<<<<<<<<<<<
@@ -21567,7 +21557,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     goto __pyx_L5;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":960
+  /* "ddtrace/internal/_encoding.pyx":959
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, float):             # <<<<<<<<<<<<<<
@@ -21577,7 +21567,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_t_1 = PyFloat_Check(__pyx_v_attr); 
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":961
+    /* "ddtrace/internal/_encoding.pyx":960
  *                 return ret
  *         elif isinstance(attr, float):
  *             ret = msgpack_pack_uint8(&self.pk, 3)             # <<<<<<<<<<<<<<
@@ -21586,7 +21576,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     __pyx_v_ret = msgpack_pack_uint8((&__pyx_v_self->__pyx_base.pk), 3);
 
-    /* "ddtrace/internal/_encoding.pyx":962
+    /* "ddtrace/internal/_encoding.pyx":961
  *         elif isinstance(attr, float):
  *             ret = msgpack_pack_uint8(&self.pk, 3)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21596,7 +21586,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":963
+      /* "ddtrace/internal/_encoding.pyx":962
  *             ret = msgpack_pack_uint8(&self.pk, 3)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21606,7 +21596,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":962
+      /* "ddtrace/internal/_encoding.pyx":961
  *         elif isinstance(attr, float):
  *             ret = msgpack_pack_uint8(&self.pk, 3)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21615,17 +21605,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":964
+    /* "ddtrace/internal/_encoding.pyx":963
  *             if ret != 0:
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"double_value", 12)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"double_value")), 12); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 964, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"double_value")), 12); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 963, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":965
+    /* "ddtrace/internal/_encoding.pyx":964
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"double_value", 12)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21635,7 +21625,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":966
+      /* "ddtrace/internal/_encoding.pyx":965
  *             ret = pack_bytes(&self.pk, <char*> b"double_value", 12)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21645,7 +21635,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":965
+      /* "ddtrace/internal/_encoding.pyx":964
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"double_value", 12)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21654,17 +21644,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":967
+    /* "ddtrace/internal/_encoding.pyx":966
  *             if ret != 0:
  *                 return ret
  *             ret = pack_number(&self.pk, attr)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 967, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_attr); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 966, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":968
+    /* "ddtrace/internal/_encoding.pyx":967
  *                 return ret
  *             ret = pack_number(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21674,7 +21664,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":969
+      /* "ddtrace/internal/_encoding.pyx":968
  *             ret = pack_number(&self.pk, attr)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21684,7 +21674,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":968
+      /* "ddtrace/internal/_encoding.pyx":967
  *                 return ret
  *             ret = pack_number(&self.pk, attr)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21693,7 +21683,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":960
+    /* "ddtrace/internal/_encoding.pyx":959
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, float):             # <<<<<<<<<<<<<<
@@ -21703,7 +21693,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     goto __pyx_L5;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":970
+  /* "ddtrace/internal/_encoding.pyx":969
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, list):             # <<<<<<<<<<<<<<
@@ -21713,7 +21703,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_t_1 = PyList_Check(__pyx_v_attr); 
   if (likely(__pyx_t_1)) {
 
-    /* "ddtrace/internal/_encoding.pyx":971
+    /* "ddtrace/internal/_encoding.pyx":970
  *                 return ret
  *         elif isinstance(attr, list):
  *             if depth != 0:             # <<<<<<<<<<<<<<
@@ -21723,7 +21713,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_depth != 0);
     if (unlikely(__pyx_t_1)) {
 
-      /* "ddtrace/internal/_encoding.pyx":972
+      /* "ddtrace/internal/_encoding.pyx":971
  *         elif isinstance(attr, list):
  *             if depth != 0:
  *                 raise ValueError("Nested list found; cannot encode")             # <<<<<<<<<<<<<<
@@ -21739,14 +21729,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
         __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 972, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 971, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_Raise(__pyx_t_3, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      __PYX_ERR(0, 972, __pyx_L1_error)
+      __PYX_ERR(0, 971, __pyx_L1_error)
 
-      /* "ddtrace/internal/_encoding.pyx":971
+      /* "ddtrace/internal/_encoding.pyx":970
  *                 return ret
  *         elif isinstance(attr, list):
  *             if depth != 0:             # <<<<<<<<<<<<<<
@@ -21755,7 +21745,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":973
+    /* "ddtrace/internal/_encoding.pyx":972
  *             if depth != 0:
  *                 raise ValueError("Nested list found; cannot encode")
  *             ret = msgpack_pack_uint8(&self.pk, 4)             # <<<<<<<<<<<<<<
@@ -21764,7 +21754,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     __pyx_v_ret = msgpack_pack_uint8((&__pyx_v_self->__pyx_base.pk), 4);
 
-    /* "ddtrace/internal/_encoding.pyx":974
+    /* "ddtrace/internal/_encoding.pyx":973
  *                 raise ValueError("Nested list found; cannot encode")
  *             ret = msgpack_pack_uint8(&self.pk, 4)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21774,7 +21764,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":975
+      /* "ddtrace/internal/_encoding.pyx":974
  *             ret = msgpack_pack_uint8(&self.pk, 4)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21784,7 +21774,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":974
+      /* "ddtrace/internal/_encoding.pyx":973
  *                 raise ValueError("Nested list found; cannot encode")
  *             ret = msgpack_pack_uint8(&self.pk, 4)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21793,17 +21783,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":976
+    /* "ddtrace/internal/_encoding.pyx":975
  *             if ret != 0:
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"array_value", 11)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"array_value")), 11); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 976, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"array_value")), 11); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 975, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":977
+    /* "ddtrace/internal/_encoding.pyx":976
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"array_value", 11)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21813,7 +21803,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":978
+      /* "ddtrace/internal/_encoding.pyx":977
  *             ret = pack_bytes(&self.pk, <char*> b"array_value", 11)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21823,7 +21813,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":977
+      /* "ddtrace/internal/_encoding.pyx":976
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"array_value", 11)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21832,7 +21822,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":979
+    /* "ddtrace/internal/_encoding.pyx":978
  *             if ret != 0:
  *                 return ret
  *             ret = msgpack_pack_map(&self.pk, 1)             # <<<<<<<<<<<<<<
@@ -21841,7 +21831,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), 1);
 
-    /* "ddtrace/internal/_encoding.pyx":980
+    /* "ddtrace/internal/_encoding.pyx":979
  *                 return ret
  *             ret = msgpack_pack_map(&self.pk, 1)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21851,7 +21841,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":981
+      /* "ddtrace/internal/_encoding.pyx":980
  *             ret = msgpack_pack_map(&self.pk, 1)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21861,7 +21851,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":980
+      /* "ddtrace/internal/_encoding.pyx":979
  *                 return ret
  *             ret = msgpack_pack_map(&self.pk, 1)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21870,17 +21860,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":982
+    /* "ddtrace/internal/_encoding.pyx":981
  *             if ret != 0:
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"values", 6)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"values")), 6); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 982, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_7ddtrace_8internal_9_encoding_pack_bytes((&__pyx_v_self->__pyx_base.pk), ((char *)((char *)"values")), 6); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 981, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_2;
 
-    /* "ddtrace/internal/_encoding.pyx":983
+    /* "ddtrace/internal/_encoding.pyx":982
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"values", 6)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21890,7 +21880,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":984
+      /* "ddtrace/internal/_encoding.pyx":983
  *             ret = pack_bytes(&self.pk, <char*> b"values", 6)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21900,7 +21890,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":983
+      /* "ddtrace/internal/_encoding.pyx":982
  *                 return ret
  *             ret = pack_bytes(&self.pk, <char*> b"values", 6)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21909,17 +21899,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":985
+    /* "ddtrace/internal/_encoding.pyx":984
  *             if ret != 0:
  *                 return ret
  *             ret = msgpack_pack_array(&self.pk, len(attr))             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_7 = PyObject_Length(__pyx_v_attr); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 985, __pyx_L1_error)
+    __pyx_t_7 = PyObject_Length(__pyx_v_attr); if (unlikely(__pyx_t_7 == ((Py_ssize_t)-1))) __PYX_ERR(0, 984, __pyx_L1_error)
     __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->__pyx_base.pk), __pyx_t_7);
 
-    /* "ddtrace/internal/_encoding.pyx":986
+    /* "ddtrace/internal/_encoding.pyx":985
  *                 return ret
  *             ret = msgpack_pack_array(&self.pk, len(attr))
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21929,7 +21919,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":987
+      /* "ddtrace/internal/_encoding.pyx":986
  *             ret = msgpack_pack_array(&self.pk, len(attr))
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -21939,7 +21929,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":986
+      /* "ddtrace/internal/_encoding.pyx":985
  *                 return ret
  *             ret = msgpack_pack_array(&self.pk, len(attr))
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -21948,7 +21938,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":989
+    /* "ddtrace/internal/_encoding.pyx":988
  *                 return ret
  * 
  *             for elt in attr:             # <<<<<<<<<<<<<<
@@ -21960,9 +21950,9 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_t_7 = 0;
       __pyx_t_8 = NULL;
     } else {
-      __pyx_t_7 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_attr); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 989, __pyx_L1_error)
+      __pyx_t_7 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_attr); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 988, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 989, __pyx_L1_error)
+      __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 988, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_8)) {
@@ -21970,7 +21960,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 989, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 988, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
@@ -21980,7 +21970,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 989, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 988, __pyx_L1_error)
             #endif
             if (__pyx_t_7 >= __pyx_temp) break;
           }
@@ -21991,13 +21981,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
           #endif
           ++__pyx_t_7;
         }
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 989, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 988, __pyx_L1_error)
       } else {
         __pyx_t_5 = __pyx_t_8(__pyx_t_3);
         if (unlikely(!__pyx_t_5)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 989, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 988, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
@@ -22007,7 +21997,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __Pyx_XDECREF_SET(__pyx_v_elt, __pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":990
+      /* "ddtrace/internal/_encoding.pyx":989
  * 
  *             for elt in attr:
  *                 ret = self.pack_span_event_attributes(elt, depth+1)             # <<<<<<<<<<<<<<
@@ -22016,10 +22006,10 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
       __pyx_t_9.__pyx_n = 1;
       __pyx_t_9.depth = (__pyx_v_depth + 1);
-      __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->pack_span_event_attributes(__pyx_v_self, __pyx_v_elt, &__pyx_t_9); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 990, __pyx_L1_error)
+      __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *)__pyx_v_self->__pyx_base.__pyx_vtab)->pack_span_event_attributes(__pyx_v_self, __pyx_v_elt, &__pyx_t_9); if (unlikely(__pyx_t_2 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 989, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_2;
 
-      /* "ddtrace/internal/_encoding.pyx":991
+      /* "ddtrace/internal/_encoding.pyx":990
  *             for elt in attr:
  *                 ret = self.pack_span_event_attributes(elt, depth+1)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -22029,7 +22019,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_t_1 = (__pyx_v_ret != 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":992
+        /* "ddtrace/internal/_encoding.pyx":991
  *                 ret = self.pack_span_event_attributes(elt, depth+1)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -22040,7 +22030,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":991
+        /* "ddtrace/internal/_encoding.pyx":990
  *             for elt in attr:
  *                 ret = self.pack_span_event_attributes(elt, depth+1)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -22049,7 +22039,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":989
+      /* "ddtrace/internal/_encoding.pyx":988
  *                 return ret
  * 
  *             for elt in attr:             # <<<<<<<<<<<<<<
@@ -22059,7 +22049,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":970
+    /* "ddtrace/internal/_encoding.pyx":969
  *             if ret != 0:
  *                 return ret
  *         elif isinstance(attr, list):             # <<<<<<<<<<<<<<
@@ -22069,7 +22059,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
     goto __pyx_L5;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":994
+  /* "ddtrace/internal/_encoding.pyx":993
  *                     return ret
  *         else:
  *             raise ValueError(f"Unsupported type for SpanEvent attribute: {type(attr)}")             # <<<<<<<<<<<<<<
@@ -22089,13 +22079,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 994, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 993, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_10);
     }
-    __pyx_t_12 = __Pyx_PyObject_FormatSimple(((PyObject *)__pyx_t_10), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 994, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_FormatSimple(((PyObject *)__pyx_t_10), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 993, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_DECREF((PyObject *)__pyx_t_10); __pyx_t_10 = 0;
-    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unsupported_type_for_SpanEvent_a, __pyx_t_12); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 994, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u_Unsupported_type_for_SpanEvent_a, __pyx_t_12); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 993, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __pyx_t_6 = 1;
@@ -22105,16 +22095,16 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 994, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 993, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(0, 994, __pyx_L1_error)
+    __PYX_ERR(0, 993, __pyx_L1_error)
   }
   __pyx_L5:;
 
-  /* "ddtrace/internal/_encoding.pyx":996
+  /* "ddtrace/internal/_encoding.pyx":995
  *             raise ValueError(f"Unsupported type for SpanEvent attribute: {type(attr)}")
  * 
  *         return ret             # <<<<<<<<<<<<<<
@@ -22124,7 +22114,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_e
   __pyx_r = __pyx_v_ret;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":919
+  /* "ddtrace/internal/_encoding.pyx":918
  *         return ret
  * 
  *     cdef int pack_span_event_attributes(self, object attr, int depth=0) except ? -1:             # <<<<<<<<<<<<<<
@@ -22352,7 +22342,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_6__s
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1001
+/* "ddtrace/internal/_encoding.pyx":1000
  *     cdef MsgpackStringTable _st
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -22383,39 +22373,39 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_1__cinit__
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_max_size,&__pyx_mstate_global->__pyx_n_u_max_item_size,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1001, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1000, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1001, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1000, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1001, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1000, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 1001, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < 0) __PYX_ERR(0, 1000, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 1001, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, i); __PYX_ERR(0, 1000, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1001, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1000, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_VARARGS(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1001, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 1000, __pyx_L3_error)
     }
-    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1001, __pyx_L3_error)
-    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1001, __pyx_L3_error)
+    __pyx_v_max_size = __Pyx_PyLong_As_size_t(values[0]); if (unlikely((__pyx_v_max_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1000, __pyx_L3_error)
+    __pyx_v_max_item_size = __Pyx_PyLong_As_size_t(values[1]); if (unlikely((__pyx_v_max_item_size == (size_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1000, __pyx_L3_error)
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 1001, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 1000, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -22449,7 +22439,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05___cinit__(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1002
+  /* "ddtrace/internal/_encoding.pyx":1001
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):
  *         self._st = MsgpackStringTable(max_size)             # <<<<<<<<<<<<<<
@@ -22459,7 +22449,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05___cinit__(
   __pyx_t_2 = NULL;
   __Pyx_INCREF((PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable);
   __pyx_t_3 = ((PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable); 
-  __pyx_t_4 = __Pyx_PyLong_FromSize_t(__pyx_v_max_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1002, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyLong_FromSize_t(__pyx_v_max_size); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1001, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   {
@@ -22468,7 +22458,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05___cinit__(
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1002, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1001, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __Pyx_GIVEREF((PyObject *)__pyx_t_1);
@@ -22477,7 +22467,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05___cinit__(
   __pyx_v_self->_st = ((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1001
+  /* "ddtrace/internal/_encoding.pyx":1000
  *     cdef MsgpackStringTable _st
  * 
  *     def __cinit__(self, size_t max_size, size_t max_item_size):             # <<<<<<<<<<<<<<
@@ -22500,7 +22490,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05___cinit__(
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1004
+/* "ddtrace/internal/_encoding.pyx":1003
  *         self._st = MsgpackStringTable(max_size)
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -22561,7 +22551,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1004, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_flush); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1003, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_3flush)) {
         __Pyx_XDECREF(__pyx_r);
@@ -22585,7 +22575,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1004, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1003, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -22606,7 +22596,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1005
+  /* "ddtrace/internal/_encoding.pyx":1004
  * 
  *     cpdef flush(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -22614,10 +22604,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
  *                 self._st.append_raw(
 */
   /*with:*/ {
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1005, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1004, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1005, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1004, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -22636,7 +22626,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1005, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1004, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -22650,7 +22640,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":1006
+          /* "ddtrace/internal/_encoding.pyx":1005
  *     cpdef flush(self):
  *         with self._lock:
  *             try:             # <<<<<<<<<<<<<<
@@ -22659,20 +22649,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
 */
           /*try:*/ {
 
-            /* "ddtrace/internal/_encoding.pyx":1008
+            /* "ddtrace/internal/_encoding.pyx":1007
  *             try:
  *                 self._st.append_raw(
  *                     PyLong_FromLong(<long> self.get_buffer()),             # <<<<<<<<<<<<<<
  *                     <Py_ssize_t> super(MsgpackEncoderV05, self).size,
  *                 )
 */
-            __pyx_t_10 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1008, __pyx_L14_error)
-            __pyx_t_1 = PyLong_FromLong(((long)__pyx_t_10)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1008, __pyx_L14_error)
+            __pyx_t_10 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base.get_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 1007, __pyx_L14_error)
+            __pyx_t_1 = PyLong_FromLong(((long)__pyx_t_10)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1007, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_1);
-            __pyx_t_11 = __Pyx_PyLong_As_long(__pyx_t_1); if (unlikely((__pyx_t_11 == (long)-1) && PyErr_Occurred())) __PYX_ERR(0, 1008, __pyx_L14_error)
+            __pyx_t_11 = __Pyx_PyLong_As_long(__pyx_t_1); if (unlikely((__pyx_t_11 == (long)-1) && PyErr_Occurred())) __PYX_ERR(0, 1007, __pyx_L14_error)
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-            /* "ddtrace/internal/_encoding.pyx":1009
+            /* "ddtrace/internal/_encoding.pyx":1008
  *                 self._st.append_raw(
  *                     PyLong_FromLong(<long> self.get_buffer()),
  *                     <Py_ssize_t> super(MsgpackEncoderV05, self).size,             # <<<<<<<<<<<<<<
@@ -22688,27 +22678,27 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
               __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
               __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
               __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-              if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1009, __pyx_L14_error)
+              if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1008, __pyx_L14_error)
               __Pyx_GOTREF(__pyx_t_1);
             }
-            __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1009, __pyx_L14_error)
+            __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1008, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_2);
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-            __pyx_t_12 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_12 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1009, __pyx_L14_error)
+            __pyx_t_12 = __Pyx_PyIndex_AsSsize_t(__pyx_t_2); if (unlikely((__pyx_t_12 == (Py_ssize_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1008, __pyx_L14_error)
             __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-            /* "ddtrace/internal/_encoding.pyx":1007
+            /* "ddtrace/internal/_encoding.pyx":1006
  *         with self._lock:
  *             try:
  *                 self._st.append_raw(             # <<<<<<<<<<<<<<
  *                     PyLong_FromLong(<long> self.get_buffer()),
  *                     <Py_ssize_t> super(MsgpackEncoderV05, self).size,
 */
-            __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->append_raw(__pyx_v_self->_st, __pyx_t_11, ((Py_ssize_t)__pyx_t_12)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1007, __pyx_L14_error)
+            __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->append_raw(__pyx_v_self->_st, __pyx_t_11, ((Py_ssize_t)__pyx_t_12)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1006, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_2);
             __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-            /* "ddtrace/internal/_encoding.pyx":1011
+            /* "ddtrace/internal/_encoding.pyx":1010
  *                     <Py_ssize_t> super(MsgpackEncoderV05, self).size,
  *                 )
  *                 return [(self._st.flush(), len(self))]             # <<<<<<<<<<<<<<
@@ -22716,30 +22706,30 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
  *                 self._reset_buffer()
 */
             __Pyx_XDECREF(__pyx_r);
-            __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->flush(__pyx_v_self->_st, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1011, __pyx_L14_error)
+            __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->flush(__pyx_v_self->_st, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1010, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_2);
-            __pyx_t_12 = PyObject_Length(((PyObject *)__pyx_v_self)); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1011, __pyx_L14_error)
-            __pyx_t_1 = PyLong_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1011, __pyx_L14_error)
+            __pyx_t_12 = PyObject_Length(((PyObject *)__pyx_v_self)); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1010, __pyx_L14_error)
+            __pyx_t_1 = PyLong_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1010, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_1);
-            __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1011, __pyx_L14_error)
+            __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1010, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_GIVEREF(__pyx_t_2);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 1011, __pyx_L14_error);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 1010, __pyx_L14_error);
             __Pyx_GIVEREF(__pyx_t_1);
-            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 1011, __pyx_L14_error);
+            if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 1010, __pyx_L14_error);
             __pyx_t_2 = 0;
             __pyx_t_1 = 0;
-            __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1011, __pyx_L14_error)
+            __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1010, __pyx_L14_error)
             __Pyx_GOTREF(__pyx_t_1);
             __Pyx_GIVEREF(__pyx_t_4);
-            if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_t_4) != (0)) __PYX_ERR(0, 1011, __pyx_L14_error);
+            if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_t_4) != (0)) __PYX_ERR(0, 1010, __pyx_L14_error);
             __pyx_t_4 = 0;
             __pyx_r = __pyx_t_1;
             __pyx_t_1 = 0;
             goto __pyx_L13_return;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":1013
+          /* "ddtrace/internal/_encoding.pyx":1012
  *                 return [(self._st.flush(), len(self))]
  *             finally:
  *                 self._reset_buffer()             # <<<<<<<<<<<<<<
@@ -22766,7 +22756,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
               __Pyx_XGOTREF(__pyx_t_21);
               __pyx_t_13 = __pyx_lineno; __pyx_t_14 = __pyx_clineno; __pyx_t_15 = __pyx_filename;
               {
-                __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1013, __pyx_L17_error)
+                __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1012, __pyx_L17_error)
                 __Pyx_GOTREF(__pyx_t_1);
                 __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
               }
@@ -22795,7 +22785,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
             __pyx_L13_return: {
               __pyx_t_21 = __pyx_r;
               __pyx_r = 0;
-              __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1013, __pyx_L7_error)
+              __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._reset_buffer(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *)__pyx_v_self)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1012, __pyx_L7_error)
               __Pyx_GOTREF(__pyx_t_1);
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
               __pyx_r = __pyx_t_21;
@@ -22804,7 +22794,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
             }
           }
 
-          /* "ddtrace/internal/_encoding.pyx":1005
+          /* "ddtrace/internal/_encoding.pyx":1004
  * 
  *     cpdef flush(self):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -22819,20 +22809,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderV05.flush", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 1005, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_4, &__pyx_t_2) < 0) __PYX_ERR(0, 1004, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_2);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1005, __pyx_L9_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_1, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1004, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_21 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 1005, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 1004, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_21);
           __pyx_t_22 = __Pyx_PyObject_IsTrue(__pyx_t_21);
           __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-          if (__pyx_t_22 < 0) __PYX_ERR(0, 1005, __pyx_L9_except_error)
+          if (__pyx_t_22 < 0) __PYX_ERR(0, 1004, __pyx_L9_except_error)
           __pyx_t_23 = (!__pyx_t_22);
           if (unlikely(__pyx_t_23)) {
             __Pyx_GIVEREF(__pyx_t_1);
@@ -22840,7 +22830,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
             __Pyx_XGIVEREF(__pyx_t_2);
             __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_4, __pyx_t_2);
             __pyx_t_1 = 0;  __pyx_t_4 = 0;  __pyx_t_2 = 0; 
-            __PYX_ERR(0, 1005, __pyx_L9_except_error)
+            __PYX_ERR(0, 1004, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -22871,7 +22861,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
         if (__pyx_t_6) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1005, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1004, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -22883,7 +22873,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
         if (__pyx_t_6) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1005, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1004, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -22900,7 +22890,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush
     __pyx_L21:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1004
+  /* "ddtrace/internal/_encoding.pyx":1003
  *         self._st = MsgpackStringTable(max_size)
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
@@ -22975,7 +22965,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_2flu
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("flush", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1004, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_flush(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1003, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -22992,7 +22982,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_2flu
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1015
+/* "ddtrace/internal/_encoding.pyx":1014
  *                 self._reset_buffer()
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -23035,7 +23025,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1018
+  /* "ddtrace/internal/_encoding.pyx":1017
  *     def size(self):
  *         """Return the size in bytes of the encoder buffer."""
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -23043,10 +23033,10 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
  * 
 */
   /*with:*/ {
-    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1018, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1017, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1018, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1017, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -23065,7 +23055,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1018, __pyx_L3_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1017, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -23079,7 +23069,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
         __Pyx_XGOTREF(__pyx_t_8);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":1019
+          /* "ddtrace/internal/_encoding.pyx":1018
  *         """Return the size in bytes of the encoder buffer."""
  *         with self._lock:
  *             return self._st.size + super(MsgpackEncoderV05, self).size             # <<<<<<<<<<<<<<
@@ -23087,7 +23077,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
  *     cpdef put(self, list trace):
 */
           __Pyx_XDECREF(__pyx_r);
-          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->_st), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1019, __pyx_L7_error)
+          __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->_st), __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1018, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_2);
           __pyx_t_3 = NULL;
           __Pyx_INCREF(__pyx_builtin_super);
@@ -23098,13 +23088,13 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
             __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
             __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1019, __pyx_L7_error)
+            if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1018, __pyx_L7_error)
             __Pyx_GOTREF(__pyx_t_4);
           }
-          __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1019, __pyx_L7_error)
+          __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_size); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1018, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          __pyx_t_4 = PyNumber_Add(__pyx_t_2, __pyx_t_9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1019, __pyx_L7_error)
+          __pyx_t_4 = PyNumber_Add(__pyx_t_2, __pyx_t_9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1018, __pyx_L7_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -23112,7 +23102,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
           __pyx_t_4 = 0;
           goto __pyx_L11_try_return;
 
-          /* "ddtrace/internal/_encoding.pyx":1018
+          /* "ddtrace/internal/_encoding.pyx":1017
  *     def size(self):
  *         """Return the size in bytes of the encoder buffer."""
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -23127,20 +23117,20 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderV05.size.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_9, &__pyx_t_2) < 0) __PYX_ERR(0, 1018, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_9, &__pyx_t_2) < 0) __PYX_ERR(0, 1017, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_9);
           __Pyx_XGOTREF(__pyx_t_2);
-          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_9, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1018, __pyx_L9_except_error)
+          __pyx_t_3 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_9, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1017, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_3);
           __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_3, NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1018, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1017, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (__pyx_t_11 < 0) __PYX_ERR(0, 1018, __pyx_L9_except_error)
+          if (__pyx_t_11 < 0) __PYX_ERR(0, 1017, __pyx_L9_except_error)
           __pyx_t_12 = (!__pyx_t_11);
           if (unlikely(__pyx_t_12)) {
             __Pyx_GIVEREF(__pyx_t_4);
@@ -23148,7 +23138,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
             __Pyx_XGIVEREF(__pyx_t_2);
             __Pyx_ErrRestoreWithState(__pyx_t_4, __pyx_t_9, __pyx_t_2);
             __pyx_t_4 = 0;  __pyx_t_9 = 0;  __pyx_t_2 = 0; 
-            __PYX_ERR(0, 1018, __pyx_L9_except_error)
+            __PYX_ERR(0, 1017, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -23179,7 +23169,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
         if (__pyx_t_1) {
           __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1018, __pyx_L1_error)
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1017, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         }
@@ -23191,7 +23181,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
         if (__pyx_t_1) {
           __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1018, __pyx_L1_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1017, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
@@ -23208,7 +23198,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
     __pyx_L16:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1015
+  /* "ddtrace/internal/_encoding.pyx":1014
  *                 self._reset_buffer()
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -23232,7 +23222,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4siz
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1021
+/* "ddtrace/internal/_encoding.pyx":1020
  *             return self._st.size + super(MsgpackEncoderV05, self).size
  * 
  *     cpdef put(self, list trace):             # <<<<<<<<<<<<<<
@@ -23286,7 +23276,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_put); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1021, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_put); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1020, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_5put)) {
         __Pyx_XDECREF(__pyx_r);
@@ -23310,7 +23300,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1021, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1020, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -23331,7 +23321,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1022
+  /* "ddtrace/internal/_encoding.pyx":1021
  * 
  *     cpdef put(self, list trace):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -23339,10 +23329,10 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
  *                 self._st.savepoint()
 */
   /*with:*/ {
-    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1022, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_exit); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 1021, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_2 = NULL;
-    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1022, __pyx_L3_error)
+    __pyx_t_4 = __Pyx_PyObject_LookupSpecial(__pyx_v_self->__pyx_base.__pyx_base._lock, __pyx_mstate_global->__pyx_n_u_enter); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1021, __pyx_L3_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -23361,7 +23351,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1022, __pyx_L3_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1021, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -23375,7 +23365,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
         __Pyx_XGOTREF(__pyx_t_9);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":1023
+          /* "ddtrace/internal/_encoding.pyx":1022
  *     cpdef put(self, list trace):
  *         with self._lock:
  *             try:             # <<<<<<<<<<<<<<
@@ -23391,18 +23381,18 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
             __Pyx_XGOTREF(__pyx_t_12);
             /*try:*/ {
 
-              /* "ddtrace/internal/_encoding.pyx":1024
+              /* "ddtrace/internal/_encoding.pyx":1023
  *         with self._lock:
  *             try:
  *                 self._st.savepoint()             # <<<<<<<<<<<<<<
  *                 super(MsgpackEncoderV05, self).put(trace)
  *             except Exception:
 */
-              __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->savepoint(__pyx_v_self->_st); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1024, __pyx_L13_error)
+              __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->savepoint(__pyx_v_self->_st); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1023, __pyx_L13_error)
               __Pyx_GOTREF(__pyx_t_1);
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-              /* "ddtrace/internal/_encoding.pyx":1025
+              /* "ddtrace/internal/_encoding.pyx":1024
  *             try:
  *                 self._st.savepoint()
  *                 super(MsgpackEncoderV05, self).put(trace)             # <<<<<<<<<<<<<<
@@ -23418,7 +23408,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
                 __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
                 __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-                if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1025, __pyx_L13_error)
+                if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1024, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_2);
               }
               __pyx_t_4 = __pyx_t_2;
@@ -23429,12 +23419,12 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
                 __pyx_t_1 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_put, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
                 __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-                if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1025, __pyx_L13_error)
+                if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1024, __pyx_L13_error)
                 __Pyx_GOTREF(__pyx_t_1);
               }
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-              /* "ddtrace/internal/_encoding.pyx":1023
+              /* "ddtrace/internal/_encoding.pyx":1022
  *     cpdef put(self, list trace):
  *         with self._lock:
  *             try:             # <<<<<<<<<<<<<<
@@ -23453,7 +23443,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
             __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-            /* "ddtrace/internal/_encoding.pyx":1026
+            /* "ddtrace/internal/_encoding.pyx":1025
  *                 self._st.savepoint()
  *                 super(MsgpackEncoderV05, self).put(trace)
  *             except Exception:             # <<<<<<<<<<<<<<
@@ -23463,23 +23453,23 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
             __pyx_t_14 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
             if (__pyx_t_14) {
               __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderV05.put", __pyx_clineno, __pyx_lineno, __pyx_filename);
-              if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_4) < 0) __PYX_ERR(0, 1026, __pyx_L15_except_error)
+              if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_4) < 0) __PYX_ERR(0, 1025, __pyx_L15_except_error)
               __Pyx_XGOTREF(__pyx_t_1);
               __Pyx_XGOTREF(__pyx_t_2);
               __Pyx_XGOTREF(__pyx_t_4);
 
-              /* "ddtrace/internal/_encoding.pyx":1027
+              /* "ddtrace/internal/_encoding.pyx":1026
  *                 super(MsgpackEncoderV05, self).put(trace)
  *             except Exception:
  *                 self._st.rollback()             # <<<<<<<<<<<<<<
  *                 raise
  * 
 */
-              __pyx_t_13 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->rollback(__pyx_v_self->_st); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1027, __pyx_L15_except_error)
+              __pyx_t_13 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->rollback(__pyx_v_self->_st); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1026, __pyx_L15_except_error)
               __Pyx_GOTREF(__pyx_t_13);
               __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-              /* "ddtrace/internal/_encoding.pyx":1028
+              /* "ddtrace/internal/_encoding.pyx":1027
  *             except Exception:
  *                 self._st.rollback()
  *                 raise             # <<<<<<<<<<<<<<
@@ -23491,11 +23481,11 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
               __Pyx_XGIVEREF(__pyx_t_4);
               __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_2, __pyx_t_4);
               __pyx_t_1 = 0;  __pyx_t_2 = 0;  __pyx_t_4 = 0; 
-              __PYX_ERR(0, 1028, __pyx_L15_except_error)
+              __PYX_ERR(0, 1027, __pyx_L15_except_error)
             }
             goto __pyx_L15_except_error;
 
-            /* "ddtrace/internal/_encoding.pyx":1023
+            /* "ddtrace/internal/_encoding.pyx":1022
  *     cpdef put(self, list trace):
  *         with self._lock:
  *             try:             # <<<<<<<<<<<<<<
@@ -23511,7 +23501,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
             __pyx_L18_try_end:;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":1022
+          /* "ddtrace/internal/_encoding.pyx":1021
  * 
  *     cpdef put(self, list trace):
  *         with self._lock:             # <<<<<<<<<<<<<<
@@ -23531,20 +23521,20 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("ddtrace.internal._encoding.MsgpackEncoderV05.put", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_2, &__pyx_t_1) < 0) __PYX_ERR(0, 1022, __pyx_L9_except_error)
+          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_2, &__pyx_t_1) < 0) __PYX_ERR(0, 1021, __pyx_L9_except_error)
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_2);
           __Pyx_XGOTREF(__pyx_t_1);
-          __pyx_t_13 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1022, __pyx_L9_except_error)
+          __pyx_t_13 = PyTuple_Pack(3, __pyx_t_4, __pyx_t_2, __pyx_t_1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1021, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_13);
           __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_13, NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1022, __pyx_L9_except_error)
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1021, __pyx_L9_except_error)
           __Pyx_GOTREF(__pyx_t_12);
           __pyx_t_15 = __Pyx_PyObject_IsTrue(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (__pyx_t_15 < 0) __PYX_ERR(0, 1022, __pyx_L9_except_error)
+          if (__pyx_t_15 < 0) __PYX_ERR(0, 1021, __pyx_L9_except_error)
           __pyx_t_16 = (!__pyx_t_15);
           if (unlikely(__pyx_t_16)) {
             __Pyx_GIVEREF(__pyx_t_4);
@@ -23552,7 +23542,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
             __Pyx_XGIVEREF(__pyx_t_1);
             __Pyx_ErrRestoreWithState(__pyx_t_4, __pyx_t_2, __pyx_t_1);
             __pyx_t_4 = 0;  __pyx_t_2 = 0;  __pyx_t_1 = 0; 
-            __PYX_ERR(0, 1022, __pyx_L9_except_error)
+            __PYX_ERR(0, 1021, __pyx_L9_except_error)
           }
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -23578,7 +23568,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
         if (__pyx_t_6) {
           __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[0], NULL);
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1022, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1021, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         }
@@ -23593,7 +23583,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(s
     __pyx_L24:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1021
+  /* "ddtrace/internal/_encoding.pyx":1020
  *             return self._st.size + super(MsgpackEncoderV05, self).size
  * 
  *     cpdef put(self, list trace):             # <<<<<<<<<<<<<<
@@ -23657,32 +23647,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_trace,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1021, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1020, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1021, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1020, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 1021, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "put", 0) < 0) __PYX_ERR(0, 1020, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 1021, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, i); __PYX_ERR(0, 1020, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1021, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1020, __pyx_L3_error)
     }
     __pyx_v_trace = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1021, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("put", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1020, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -23693,7 +23683,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_trace), (&PyList_Type), 1, "trace", 1))) __PYX_ERR(0, 1021, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_trace), (&PyList_Type), 1, "trace", 1))) __PYX_ERR(0, 1020, __pyx_L1_error)
   __pyx_r = __pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4put(((struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *)__pyx_v_self), __pyx_v_trace);
 
   /* function exit code */
@@ -23722,7 +23712,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4put
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("put", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(__pyx_v_self, __pyx_v_trace, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1021, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_put(__pyx_v_self, __pyx_v_trace, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1020, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -23739,7 +23729,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_4put
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1030
+/* "ddtrace/internal/_encoding.pyx":1029
  *                 raise
  * 
  *     cdef inline int _pack_string(self, object string) except? -1:             # <<<<<<<<<<<<<<
@@ -23758,30 +23748,30 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   __Pyx_RefNannySetupContext("_pack_string", 0);
   __Pyx_INCREF(__pyx_v_string);
 
-  /* "ddtrace/internal/_encoding.pyx":1031
+  /* "ddtrace/internal/_encoding.pyx":1030
  * 
  *     cdef inline int _pack_string(self, object string) except? -1:
  *         string = truncate_string(string)             # <<<<<<<<<<<<<<
  *         return msgpack_pack_uint32(&self.pk, self._st._index(string))
  * 
 */
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_string); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1031, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_truncate_string(__pyx_v_string); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1030, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF_SET(__pyx_v_string, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1032
+  /* "ddtrace/internal/_encoding.pyx":1031
  *     cdef inline int _pack_string(self, object string) except? -1:
  *         string = truncate_string(string)
  *         return msgpack_pack_uint32(&self.pk, self._st._index(string))             # <<<<<<<<<<<<<<
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):
 */
-  __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->__pyx_base._index(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->_st), __pyx_v_string); if (unlikely(__pyx_t_2 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1032, __pyx_L1_error)
+  __pyx_t_2 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->__pyx_base._index(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->_st), __pyx_v_string); if (unlikely(__pyx_t_2 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1031, __pyx_L1_error)
   __pyx_r = msgpack_pack_uint32((&__pyx_v_self->__pyx_base.pk), __pyx_t_2);
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":1030
+  /* "ddtrace/internal/_encoding.pyx":1029
  *                 raise
  * 
  *     cdef inline int _pack_string(self, object string) except? -1:             # <<<<<<<<<<<<<<
@@ -23800,7 +23790,7 @@ static CYTHON_INLINE int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1034
+/* "ddtrace/internal/_encoding.pyx":1033
  *         return msgpack_pack_uint32(&self.pk, self._st._index(string))
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):             # <<<<<<<<<<<<<<
@@ -23819,22 +23809,22 @@ static void *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_get_dd_or
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_dd_origin_ref", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1035
+  /* "ddtrace/internal/_encoding.pyx":1034
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):
  *         return <void *> PyLong_AsLong(self._st._index(dd_origin))             # <<<<<<<<<<<<<<
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->__pyx_base._index(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->_st), __pyx_v_dd_origin); if (unlikely(__pyx_t_1 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1035, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyLong_From_uint32_t(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1035, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_MsgpackStringTable *)__pyx_v_self->_st->__pyx_base.__pyx_vtab)->__pyx_base._index(((struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *)__pyx_v_self->_st), __pyx_v_dd_origin); if (unlikely(__pyx_t_1 == ((uint32_t)-1) && PyErr_Occurred())) __PYX_ERR(0, 1034, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyLong_From_uint32_t(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1034, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyLong_AsLong(__pyx_t_2); if (unlikely(__pyx_t_3 == ((long)-1) && PyErr_Occurred())) __PYX_ERR(0, 1035, __pyx_L1_error)
+  __pyx_t_3 = PyLong_AsLong(__pyx_t_2); if (unlikely(__pyx_t_3 == ((long)-1) && PyErr_Occurred())) __PYX_ERR(0, 1034, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = ((void *)__pyx_t_3);
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":1034
+  /* "ddtrace/internal/_encoding.pyx":1033
  *         return msgpack_pack_uint32(&self.pk, self._st._index(string))
  * 
  *     cdef void * get_dd_origin_ref(self, str dd_origin):             # <<<<<<<<<<<<<<
@@ -23852,7 +23842,7 @@ static void *__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_get_dd_or
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1037
+/* "ddtrace/internal/_encoding.pyx":1036
  *         return <void *> PyLong_AsLong(self._st._index(dd_origin))
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:             # <<<<<<<<<<<<<<
@@ -23900,7 +23890,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pack_span", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1040
+  /* "ddtrace/internal/_encoding.pyx":1039
  *         cdef int ret
  * 
  *         ret = msgpack_pack_array(&self.pk, 12)             # <<<<<<<<<<<<<<
@@ -23909,7 +23899,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->__pyx_base.pk), 12);
 
-  /* "ddtrace/internal/_encoding.pyx":1041
+  /* "ddtrace/internal/_encoding.pyx":1040
  * 
  *         ret = msgpack_pack_array(&self.pk, 12)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -23919,7 +23909,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1042
+    /* "ddtrace/internal/_encoding.pyx":1041
  *         ret = msgpack_pack_array(&self.pk, 12)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -23929,7 +23919,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1041
+    /* "ddtrace/internal/_encoding.pyx":1040
  * 
  *         ret = msgpack_pack_array(&self.pk, 12)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -23938,20 +23928,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1044
+  /* "ddtrace/internal/_encoding.pyx":1043
  *             return ret
  * 
  *         ret = self._pack_string(span.service)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_service); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1044, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_service); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1043, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1044, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1043, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret = __pyx_t_3;
 
-  /* "ddtrace/internal/_encoding.pyx":1045
+  /* "ddtrace/internal/_encoding.pyx":1044
  * 
  *         ret = self._pack_string(span.service)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -23961,7 +23951,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1046
+    /* "ddtrace/internal/_encoding.pyx":1045
  *         ret = self._pack_string(span.service)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -23971,7 +23961,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1045
+    /* "ddtrace/internal/_encoding.pyx":1044
  * 
  *         ret = self._pack_string(span.service)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -23980,20 +23970,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1047
+  /* "ddtrace/internal/_encoding.pyx":1046
  *         if ret != 0:
  *             return ret
  *         ret = self._pack_string(span.name)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1047, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1046, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1047, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1046, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret = __pyx_t_3;
 
-  /* "ddtrace/internal/_encoding.pyx":1048
+  /* "ddtrace/internal/_encoding.pyx":1047
  *             return ret
  *         ret = self._pack_string(span.name)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24003,7 +23993,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1049
+    /* "ddtrace/internal/_encoding.pyx":1048
  *         ret = self._pack_string(span.name)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24013,7 +24003,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1048
+    /* "ddtrace/internal/_encoding.pyx":1047
  *             return ret
  *         ret = self._pack_string(span.name)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24022,20 +24012,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1050
+  /* "ddtrace/internal/_encoding.pyx":1049
  *         if ret != 0:
  *             return ret
  *         ret = self._pack_string(span.resource)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_resource); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1050, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_resource); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1049, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1050, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1049, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret = __pyx_t_3;
 
-  /* "ddtrace/internal/_encoding.pyx":1051
+  /* "ddtrace/internal/_encoding.pyx":1050
  *             return ret
  *         ret = self._pack_string(span.resource)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24045,7 +24035,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1052
+    /* "ddtrace/internal/_encoding.pyx":1051
  *         ret = self._pack_string(span.resource)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24055,7 +24045,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1051
+    /* "ddtrace/internal/_encoding.pyx":1050
  *             return ret
  *         ret = self._pack_string(span.resource)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24064,7 +24054,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1054
+  /* "ddtrace/internal/_encoding.pyx":1053
  *             return ret
  * 
  *         ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)             # <<<<<<<<<<<<<<
@@ -24073,7 +24063,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   __pyx_v_ret = msgpack_pack_unsigned_long_long((&__pyx_v_self->__pyx_base.pk), __pyx_v_trace_id_64bits);
 
-  /* "ddtrace/internal/_encoding.pyx":1055
+  /* "ddtrace/internal/_encoding.pyx":1054
  * 
  *         ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24083,7 +24073,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1056
+    /* "ddtrace/internal/_encoding.pyx":1055
  *         ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24093,7 +24083,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1055
+    /* "ddtrace/internal/_encoding.pyx":1054
  * 
  *         ret = msgpack_pack_unsigned_long_long(&self.pk, trace_id_64bits)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24102,19 +24092,19 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1058
+  /* "ddtrace/internal/_encoding.pyx":1057
  *             return ret
  * 
  *         _ = span.span_id             # <<<<<<<<<<<<<<
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1058, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1057, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_v__ = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1059
+  /* "ddtrace/internal/_encoding.pyx":1058
  * 
  *         _ = span.span_id
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)             # <<<<<<<<<<<<<<
@@ -24123,14 +24113,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   __pyx_t_1 = (__pyx_v__ != Py_None);
   if (__pyx_t_1) {
-    __pyx_t_5 = __Pyx_PyLong_As_uint64_t(__pyx_v__); if (unlikely((__pyx_t_5 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1059, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_As_uint64_t(__pyx_v__); if (unlikely((__pyx_t_5 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1058, __pyx_L1_error)
     __pyx_t_4 = __pyx_t_5;
   } else {
     __pyx_t_4 = 0;
   }
   __pyx_v_ret = msgpack_pack_uint64((&__pyx_v_self->__pyx_base.pk), __pyx_t_4);
 
-  /* "ddtrace/internal/_encoding.pyx":1060
+  /* "ddtrace/internal/_encoding.pyx":1059
  *         _ = span.span_id
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24140,7 +24130,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1061
+    /* "ddtrace/internal/_encoding.pyx":1060
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24150,7 +24140,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1060
+    /* "ddtrace/internal/_encoding.pyx":1059
  *         _ = span.span_id
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24159,19 +24149,19 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1063
+  /* "ddtrace/internal/_encoding.pyx":1062
  *             return ret
  * 
  *         _ = span.parent_id             # <<<<<<<<<<<<<<
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_parent_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1063, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_parent_id); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1062, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v__, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1064
+  /* "ddtrace/internal/_encoding.pyx":1063
  * 
  *         _ = span.parent_id
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)             # <<<<<<<<<<<<<<
@@ -24180,14 +24170,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   __pyx_t_1 = (__pyx_v__ != Py_None);
   if (__pyx_t_1) {
-    __pyx_t_5 = __Pyx_PyLong_As_uint64_t(__pyx_v__); if (unlikely((__pyx_t_5 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1064, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyLong_As_uint64_t(__pyx_v__); if (unlikely((__pyx_t_5 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1063, __pyx_L1_error)
     __pyx_t_4 = __pyx_t_5;
   } else {
     __pyx_t_4 = 0;
   }
   __pyx_v_ret = msgpack_pack_uint64((&__pyx_v_self->__pyx_base.pk), __pyx_t_4);
 
-  /* "ddtrace/internal/_encoding.pyx":1065
+  /* "ddtrace/internal/_encoding.pyx":1064
  *         _ = span.parent_id
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24197,7 +24187,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1066
+    /* "ddtrace/internal/_encoding.pyx":1065
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24207,7 +24197,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1065
+    /* "ddtrace/internal/_encoding.pyx":1064
  *         _ = span.parent_id
  *         ret = msgpack_pack_uint64(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24216,19 +24206,19 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1068
+  /* "ddtrace/internal/_encoding.pyx":1067
  *             return ret
  * 
  *         _ = span.start_ns             # <<<<<<<<<<<<<<
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_start_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1068, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_start_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1067, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v__, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1069
+  /* "ddtrace/internal/_encoding.pyx":1068
  * 
  *         _ = span.start_ns
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))             # <<<<<<<<<<<<<<
@@ -24244,17 +24234,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_2 = __pyx_mstate_global->__pyx_int_0;
   }
   __pyx_t_6 = LONG_MAX;
-  __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1069, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1068, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = PyObject_RichCompare(__pyx_t_2, __pyx_t_8, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1069, __pyx_L1_error)
+  __pyx_t_9 = PyObject_RichCompare(__pyx_t_2, __pyx_t_8, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1068, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1069, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1068, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   if (__pyx_t_1) {
     __Pyx_INCREF(__pyx_t_2);
     __pyx_t_7 = __pyx_t_2;
   } else {
-    __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1069, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1068, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_7 = __pyx_t_9;
     __pyx_t_9 = 0;
@@ -24264,17 +24254,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_2 = __pyx_t_7;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_6 = 0;
-  __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1069, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1068, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_8 = PyObject_RichCompare(__pyx_t_2, __pyx_t_9, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1069, __pyx_L1_error)
+  __pyx_t_8 = PyObject_RichCompare(__pyx_t_2, __pyx_t_9, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1068, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1069, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1068, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   if (__pyx_t_1) {
     __Pyx_INCREF(__pyx_t_2);
     __pyx_t_7 = __pyx_t_2;
   } else {
-    __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1069, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1068, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_7 = __pyx_t_8;
     __pyx_t_8 = 0;
@@ -24286,17 +24276,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __Pyx_DECREF_SET(__pyx_v__, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1070
+  /* "ddtrace/internal/_encoding.pyx":1069
  *         _ = span.start_ns
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v__); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1070, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v__); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1069, __pyx_L1_error)
   __pyx_v_ret = msgpack_pack_int64((&__pyx_v_self->__pyx_base.pk), __pyx_t_10);
 
-  /* "ddtrace/internal/_encoding.pyx":1071
+  /* "ddtrace/internal/_encoding.pyx":1070
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24306,7 +24296,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1072
+    /* "ddtrace/internal/_encoding.pyx":1071
  *         ret = msgpack_pack_int64(&self.pk, _)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24316,7 +24306,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1071
+    /* "ddtrace/internal/_encoding.pyx":1070
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24325,19 +24315,19 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1074
+  /* "ddtrace/internal/_encoding.pyx":1073
  *             return ret
  * 
  *         _ = span.duration_ns             # <<<<<<<<<<<<<<
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_duration_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1074, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_duration_ns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1073, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v__, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1075
+  /* "ddtrace/internal/_encoding.pyx":1074
  * 
  *         _ = span.duration_ns
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))             # <<<<<<<<<<<<<<
@@ -24353,17 +24343,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_2 = __pyx_mstate_global->__pyx_int_0;
   }
   __pyx_t_6 = LONG_MAX;
-  __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1075, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1074, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = PyObject_RichCompare(__pyx_t_2, __pyx_t_8, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1075, __pyx_L1_error)
+  __pyx_t_9 = PyObject_RichCompare(__pyx_t_2, __pyx_t_8, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1074, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1075, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1074, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   if (__pyx_t_1) {
     __Pyx_INCREF(__pyx_t_2);
     __pyx_t_7 = __pyx_t_2;
   } else {
-    __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1075, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1074, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_7 = __pyx_t_9;
     __pyx_t_9 = 0;
@@ -24373,17 +24363,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_2 = __pyx_t_7;
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_6 = 0;
-  __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1075, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1074, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_8 = PyObject_RichCompare(__pyx_t_2, __pyx_t_9, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1075, __pyx_L1_error)
+  __pyx_t_8 = PyObject_RichCompare(__pyx_t_2, __pyx_t_9, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1074, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1075, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1074, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   if (__pyx_t_1) {
     __Pyx_INCREF(__pyx_t_2);
     __pyx_t_7 = __pyx_t_2;
   } else {
-    __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1075, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyLong_From_long(__pyx_t_6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1074, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __pyx_t_7 = __pyx_t_8;
     __pyx_t_8 = 0;
@@ -24395,17 +24385,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __Pyx_DECREF_SET(__pyx_v__, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1076
+  /* "ddtrace/internal/_encoding.pyx":1075
  *         _ = span.duration_ns
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v__); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1076, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyLong_As_int64_t(__pyx_v__); if (unlikely((__pyx_t_10 == ((int64_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1075, __pyx_L1_error)
   __pyx_v_ret = msgpack_pack_int64((&__pyx_v_self->__pyx_base.pk), __pyx_t_10);
 
-  /* "ddtrace/internal/_encoding.pyx":1077
+  /* "ddtrace/internal/_encoding.pyx":1076
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24415,7 +24405,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1078
+    /* "ddtrace/internal/_encoding.pyx":1077
  *         ret = msgpack_pack_int64(&self.pk, _)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24425,7 +24415,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1077
+    /* "ddtrace/internal/_encoding.pyx":1076
  *         _ = max(0, min(LONG_MAX, _ if _ is not None else 0))
  *         ret = msgpack_pack_int64(&self.pk, _)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24434,19 +24424,19 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1080
+  /* "ddtrace/internal/_encoding.pyx":1079
  *             return ret
  * 
  *         _ = span.error             # <<<<<<<<<<<<<<
  *         ret = msgpack_pack_int32(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_error); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1080, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_error); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1079, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF_SET(__pyx_v__, __pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1081
+  /* "ddtrace/internal/_encoding.pyx":1080
  * 
  *         _ = span.error
  *         ret = msgpack_pack_int32(&self.pk, _ if _ is not None else 0)             # <<<<<<<<<<<<<<
@@ -24455,14 +24445,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   __pyx_t_1 = (__pyx_v__ != Py_None);
   if (__pyx_t_1) {
-    __pyx_t_12 = __Pyx_PyLong_As_int32_t(__pyx_v__); if (unlikely((__pyx_t_12 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1081, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyLong_As_int32_t(__pyx_v__); if (unlikely((__pyx_t_12 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 1080, __pyx_L1_error)
     __pyx_t_11 = __pyx_t_12;
   } else {
     __pyx_t_11 = 0;
   }
   __pyx_v_ret = msgpack_pack_int32((&__pyx_v_self->__pyx_base.pk), __pyx_t_11);
 
-  /* "ddtrace/internal/_encoding.pyx":1082
+  /* "ddtrace/internal/_encoding.pyx":1081
  *         _ = span.error
  *         ret = msgpack_pack_int32(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24472,7 +24462,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1083
+    /* "ddtrace/internal/_encoding.pyx":1082
  *         ret = msgpack_pack_int32(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24482,7 +24472,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1082
+    /* "ddtrace/internal/_encoding.pyx":1081
  *         _ = span.error
  *         ret = msgpack_pack_int32(&self.pk, _ if _ is not None else 0)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24491,7 +24481,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1085
+  /* "ddtrace/internal/_encoding.pyx":1084
  *             return ret
  * 
  *         span_links = ""             # <<<<<<<<<<<<<<
@@ -24501,20 +24491,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_);
   __pyx_v_span_links = __pyx_mstate_global->__pyx_kp_u_;
 
-  /* "ddtrace/internal/_encoding.pyx":1086
+  /* "ddtrace/internal/_encoding.pyx":1085
  * 
  *         span_links = ""
  *         if span._links:             # <<<<<<<<<<<<<<
  *             span_links = json_dumps([link.to_dict() for link in span._links])
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1086, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1085, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1086, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1085, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1087
+    /* "ddtrace/internal/_encoding.pyx":1086
  *         span_links = ""
  *         if span._links:
  *             span_links = json_dumps([link.to_dict() for link in span._links])             # <<<<<<<<<<<<<<
@@ -24522,21 +24512,21 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
  *         span_events = ""
 */
     __pyx_t_7 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json_dumps); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1087, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json_dumps); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 1086, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     { /* enter inner scope */
-      __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1087, __pyx_L16_error)
+      __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1086, __pyx_L16_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1087, __pyx_L16_error)
+      __pyx_t_13 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_links); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1086, __pyx_L16_error)
       __Pyx_GOTREF(__pyx_t_13);
       if (likely(PyList_CheckExact(__pyx_t_13)) || PyTuple_CheckExact(__pyx_t_13)) {
         __pyx_t_14 = __pyx_t_13; __Pyx_INCREF(__pyx_t_14);
         __pyx_t_15 = 0;
         __pyx_t_16 = NULL;
       } else {
-        __pyx_t_15 = -1; __pyx_t_14 = PyObject_GetIter(__pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1087, __pyx_L16_error)
+        __pyx_t_15 = -1; __pyx_t_14 = PyObject_GetIter(__pyx_t_13); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1086, __pyx_L16_error)
         __Pyx_GOTREF(__pyx_t_14);
-        __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_14); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1087, __pyx_L16_error)
+        __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_14); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1086, __pyx_L16_error)
       }
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
       for (;;) {
@@ -24545,7 +24535,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_14);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1087, __pyx_L16_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1086, __pyx_L16_error)
               #endif
               if (__pyx_t_15 >= __pyx_temp) break;
             }
@@ -24555,7 +24545,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_14);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1087, __pyx_L16_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1086, __pyx_L16_error)
               #endif
               if (__pyx_t_15 >= __pyx_temp) break;
             }
@@ -24566,13 +24556,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
             #endif
             ++__pyx_t_15;
           }
-          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1087, __pyx_L16_error)
+          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1086, __pyx_L16_error)
         } else {
           __pyx_t_13 = __pyx_t_16(__pyx_t_14);
           if (unlikely(!__pyx_t_13)) {
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
-              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1087, __pyx_L16_error)
+              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1086, __pyx_L16_error)
               PyErr_Clear();
             }
             break;
@@ -24588,10 +24578,10 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
           PyObject *__pyx_callargs[2] = {__pyx_t_17, NULL};
           __pyx_t_13 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_to_dict, __pyx_callargs+__pyx_t_18, (1-__pyx_t_18) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
-          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1087, __pyx_L16_error)
+          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1086, __pyx_L16_error)
           __Pyx_GOTREF(__pyx_t_13);
         }
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_9, (PyObject*)__pyx_t_13))) __PYX_ERR(0, 1087, __pyx_L16_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_9, (PyObject*)__pyx_t_13))) __PYX_ERR(0, 1086, __pyx_L16_error)
         __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
       }
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
@@ -24620,13 +24610,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1087, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1086, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF_SET(__pyx_v_span_links, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":1086
+    /* "ddtrace/internal/_encoding.pyx":1085
  * 
  *         span_links = ""
  *         if span._links:             # <<<<<<<<<<<<<<
@@ -24635,7 +24625,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1089
+  /* "ddtrace/internal/_encoding.pyx":1088
  *             span_links = json_dumps([link.to_dict() for link in span._links])
  * 
  *         span_events = ""             # <<<<<<<<<<<<<<
@@ -24645,20 +24635,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_);
   __pyx_v_span_events = __pyx_mstate_global->__pyx_kp_u_;
 
-  /* "ddtrace/internal/_encoding.pyx":1090
+  /* "ddtrace/internal/_encoding.pyx":1089
  * 
  *         span_events = ""
  *         if span._events:             # <<<<<<<<<<<<<<
  *             span_events = json_dumps([vars(event)() for event in span._events])
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1090, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1089, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1090, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1089, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1091
+    /* "ddtrace/internal/_encoding.pyx":1090
  *         span_events = ""
  *         if span._events:
  *             span_events = json_dumps([vars(event)() for event in span._events])             # <<<<<<<<<<<<<<
@@ -24666,21 +24656,21 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
  *         ret = msgpack_pack_map(
 */
     __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_json_dumps); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1091, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_json_dumps); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1090, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     { /* enter inner scope */
-      __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1091, __pyx_L24_error)
+      __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1090, __pyx_L24_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1091, __pyx_L24_error)
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_events); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1090, __pyx_L24_error)
       __Pyx_GOTREF(__pyx_t_14);
       if (likely(PyList_CheckExact(__pyx_t_14)) || PyTuple_CheckExact(__pyx_t_14)) {
         __pyx_t_13 = __pyx_t_14; __Pyx_INCREF(__pyx_t_13);
         __pyx_t_15 = 0;
         __pyx_t_16 = NULL;
       } else {
-        __pyx_t_15 = -1; __pyx_t_13 = PyObject_GetIter(__pyx_t_14); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1091, __pyx_L24_error)
+        __pyx_t_15 = -1; __pyx_t_13 = PyObject_GetIter(__pyx_t_14); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 1090, __pyx_L24_error)
         __Pyx_GOTREF(__pyx_t_13);
-        __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_13); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1091, __pyx_L24_error)
+        __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_13); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 1090, __pyx_L24_error)
       }
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
       for (;;) {
@@ -24689,7 +24679,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_13);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1091, __pyx_L24_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1090, __pyx_L24_error)
               #endif
               if (__pyx_t_15 >= __pyx_temp) break;
             }
@@ -24699,7 +24689,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_13);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1091, __pyx_L24_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1090, __pyx_L24_error)
               #endif
               if (__pyx_t_15 >= __pyx_temp) break;
             }
@@ -24710,13 +24700,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
             #endif
             ++__pyx_t_15;
           }
-          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1091, __pyx_L24_error)
+          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1090, __pyx_L24_error)
         } else {
           __pyx_t_14 = __pyx_t_16(__pyx_t_13);
           if (unlikely(!__pyx_t_14)) {
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
-              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1091, __pyx_L24_error)
+              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1090, __pyx_L24_error)
               PyErr_Clear();
             }
             break;
@@ -24735,7 +24725,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
           __pyx_t_19 = __Pyx_PyObject_FastCall(__pyx_t_21, __pyx_callargs+__pyx_t_18, (2-__pyx_t_18) | (__pyx_t_18*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_20); __pyx_t_20 = 0;
           __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
-          if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 1091, __pyx_L24_error)
+          if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 1090, __pyx_L24_error)
           __Pyx_GOTREF(__pyx_t_19);
         }
         __pyx_t_18 = 1;
@@ -24755,10 +24745,10 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
           __pyx_t_14 = __Pyx_PyObject_FastCall(__pyx_t_19, __pyx_callargs+__pyx_t_18, (1-__pyx_t_18) | (__pyx_t_18*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
           __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
-          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1091, __pyx_L24_error)
+          if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 1090, __pyx_L24_error)
           __Pyx_GOTREF(__pyx_t_14);
         }
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_7, (PyObject*)__pyx_t_14))) __PYX_ERR(0, 1091, __pyx_L24_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_7, (PyObject*)__pyx_t_14))) __PYX_ERR(0, 1090, __pyx_L24_error)
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
       }
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
@@ -24787,13 +24777,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1091, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1090, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF_SET(__pyx_v_span_events, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":1090
+    /* "ddtrace/internal/_encoding.pyx":1089
  * 
  *         span_events = ""
  *         if span._events:             # <<<<<<<<<<<<<<
@@ -24802,21 +24792,21 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1095
+  /* "ddtrace/internal/_encoding.pyx":1094
  *         ret = msgpack_pack_map(
  *             &self.pk,
  *             len(span._meta) + (dd_origin is not NULL) + (len(span_links) > 0) + (len(span_events) > 0)             # <<<<<<<<<<<<<<
  *         )
  *         if ret != 0:
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1095, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1094, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_15 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_15 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1095, __pyx_L1_error)
+  __pyx_t_15 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_15 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1094, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_22 = PyObject_Length(__pyx_v_span_links); if (unlikely(__pyx_t_22 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1095, __pyx_L1_error)
-  __pyx_t_23 = PyObject_Length(__pyx_v_span_events); if (unlikely(__pyx_t_23 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1095, __pyx_L1_error)
+  __pyx_t_22 = PyObject_Length(__pyx_v_span_links); if (unlikely(__pyx_t_22 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1094, __pyx_L1_error)
+  __pyx_t_23 = PyObject_Length(__pyx_v_span_events); if (unlikely(__pyx_t_23 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1094, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":1093
+  /* "ddtrace/internal/_encoding.pyx":1092
  *             span_events = json_dumps([vars(event)() for event in span._events])
  * 
  *         ret = msgpack_pack_map(             # <<<<<<<<<<<<<<
@@ -24825,7 +24815,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), (((__pyx_t_15 + (__pyx_v_dd_origin != NULL)) + (__pyx_t_22 > 0)) + (__pyx_t_23 > 0)));
 
-  /* "ddtrace/internal/_encoding.pyx":1097
+  /* "ddtrace/internal/_encoding.pyx":1096
  *             len(span._meta) + (dd_origin is not NULL) + (len(span_links) > 0) + (len(span_events) > 0)
  *         )
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24835,7 +24825,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1098
+    /* "ddtrace/internal/_encoding.pyx":1097
  *         )
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -24845,7 +24835,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1097
+    /* "ddtrace/internal/_encoding.pyx":1096
  *             len(span._meta) + (dd_origin is not NULL) + (len(span_links) > 0) + (len(span_events) > 0)
  *         )
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -24854,20 +24844,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1099
+  /* "ddtrace/internal/_encoding.pyx":1098
  *         if ret != 0:
  *             return ret
  *         if span._meta:             # <<<<<<<<<<<<<<
  *             for k, v in span._meta.items():
  *                 ret = self._pack_string(k)
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1099, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1098, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1099, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1098, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1100
+    /* "ddtrace/internal/_encoding.pyx":1099
  *             return ret
  *         if span._meta:
  *             for k, v in span._meta.items():             # <<<<<<<<<<<<<<
@@ -24875,13 +24865,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
  *                 if ret != 0:
 */
     __pyx_t_23 = 0;
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1100, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_meta); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1099, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     if (unlikely(__pyx_t_9 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 1100, __pyx_L1_error)
+      __PYX_ERR(0, 1099, __pyx_L1_error)
     }
-    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_9, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_22), (&__pyx_t_3)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1100, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_9, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_22), (&__pyx_t_3)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1099, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_XDECREF(__pyx_t_2);
@@ -24890,7 +24880,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     while (1) {
       __pyx_t_24 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_22, &__pyx_t_23, &__pyx_t_7, &__pyx_t_9, NULL, __pyx_t_3);
       if (unlikely(__pyx_t_24 == 0)) break;
-      if (unlikely(__pyx_t_24 == -1)) __PYX_ERR(0, 1100, __pyx_L1_error)
+      if (unlikely(__pyx_t_24 == -1)) __PYX_ERR(0, 1099, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_7);
@@ -24898,17 +24888,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_9);
       __pyx_t_9 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":1101
+      /* "ddtrace/internal/_encoding.pyx":1100
  *         if span._meta:
  *             for k, v in span._meta.items():
  *                 ret = self._pack_string(k)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_k); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1101, __pyx_L1_error)
+      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_k); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1100, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_24;
 
-      /* "ddtrace/internal/_encoding.pyx":1102
+      /* "ddtrace/internal/_encoding.pyx":1101
  *             for k, v in span._meta.items():
  *                 ret = self._pack_string(k)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -24918,7 +24908,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_t_1 = (__pyx_v_ret != 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1103
+        /* "ddtrace/internal/_encoding.pyx":1102
  *                 ret = self._pack_string(k)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -24929,7 +24919,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":1102
+        /* "ddtrace/internal/_encoding.pyx":1101
  *             for k, v in span._meta.items():
  *                 ret = self._pack_string(k)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -24938,17 +24928,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1104
+      /* "ddtrace/internal/_encoding.pyx":1103
  *                 if ret != 0:
  *                     return ret
  *                 ret = self._pack_string(v)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_v); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1104, __pyx_L1_error)
+      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_v); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1103, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_24;
 
-      /* "ddtrace/internal/_encoding.pyx":1105
+      /* "ddtrace/internal/_encoding.pyx":1104
  *                     return ret
  *                 ret = self._pack_string(v)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -24958,7 +24948,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_t_1 = (__pyx_v_ret != 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1106
+        /* "ddtrace/internal/_encoding.pyx":1105
  *                 ret = self._pack_string(v)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -24969,7 +24959,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":1105
+        /* "ddtrace/internal/_encoding.pyx":1104
  *                     return ret
  *                 ret = self._pack_string(v)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -24980,7 +24970,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":1099
+    /* "ddtrace/internal/_encoding.pyx":1098
  *         if ret != 0:
  *             return ret
  *         if span._meta:             # <<<<<<<<<<<<<<
@@ -24989,7 +24979,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1107
+  /* "ddtrace/internal/_encoding.pyx":1106
  *                 if ret != 0:
  *                     return ret
  *         if dd_origin is not NULL:             # <<<<<<<<<<<<<<
@@ -24999,7 +24989,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_dd_origin != NULL);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1108
+    /* "ddtrace/internal/_encoding.pyx":1107
  *                     return ret
  *         if dd_origin is not NULL:
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> 1)             # <<<<<<<<<<<<<<
@@ -25008,7 +24998,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     __pyx_v_ret = msgpack_pack_uint32((&__pyx_v_self->__pyx_base.pk), ((uint32_t)1));
 
-    /* "ddtrace/internal/_encoding.pyx":1109
+    /* "ddtrace/internal/_encoding.pyx":1108
  *         if dd_origin is not NULL:
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> 1)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25018,7 +25008,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1110
+      /* "ddtrace/internal/_encoding.pyx":1109
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> 1)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -25028,7 +25018,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":1109
+      /* "ddtrace/internal/_encoding.pyx":1108
  *         if dd_origin is not NULL:
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> 1)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25037,7 +25027,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1111
+    /* "ddtrace/internal/_encoding.pyx":1110
  *             if ret != 0:
  *                 return ret
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> dd_origin)             # <<<<<<<<<<<<<<
@@ -25046,7 +25036,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     __pyx_v_ret = msgpack_pack_uint32((&__pyx_v_self->__pyx_base.pk), ((uint32_t)__pyx_v_dd_origin));
 
-    /* "ddtrace/internal/_encoding.pyx":1112
+    /* "ddtrace/internal/_encoding.pyx":1111
  *                 return ret
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> dd_origin)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25056,7 +25046,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1113
+      /* "ddtrace/internal/_encoding.pyx":1112
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> dd_origin)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -25066,7 +25056,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":1112
+      /* "ddtrace/internal/_encoding.pyx":1111
  *                 return ret
  *             ret = msgpack_pack_uint32(&self.pk, <stdint.uint32_t> dd_origin)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25075,7 +25065,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1107
+    /* "ddtrace/internal/_encoding.pyx":1106
  *                 if ret != 0:
  *                     return ret
  *         if dd_origin is not NULL:             # <<<<<<<<<<<<<<
@@ -25084,30 +25074,30 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1114
+  /* "ddtrace/internal/_encoding.pyx":1113
  *             if ret != 0:
  *                 return ret
  *         if span_links:             # <<<<<<<<<<<<<<
  *             ret = self._pack_string(SPAN_LINKS_KEY)
  *             if ret != 0:
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_span_links); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1114, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_span_links); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1113, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1115
+    /* "ddtrace/internal/_encoding.pyx":1114
  *                 return ret
  *         if span_links:
  *             ret = self._pack_string(SPAN_LINKS_KEY)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SPAN_LINKS_KEY); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1115, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SPAN_LINKS_KEY); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1114, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1115, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1114, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_ret = __pyx_t_3;
 
-    /* "ddtrace/internal/_encoding.pyx":1116
+    /* "ddtrace/internal/_encoding.pyx":1115
  *         if span_links:
  *             ret = self._pack_string(SPAN_LINKS_KEY)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25117,7 +25107,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1117
+      /* "ddtrace/internal/_encoding.pyx":1116
  *             ret = self._pack_string(SPAN_LINKS_KEY)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -25127,7 +25117,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":1116
+      /* "ddtrace/internal/_encoding.pyx":1115
  *         if span_links:
  *             ret = self._pack_string(SPAN_LINKS_KEY)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25136,17 +25126,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1118
+    /* "ddtrace/internal/_encoding.pyx":1117
  *             if ret != 0:
  *                 return ret
  *             ret = self._pack_string(span_links)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_span_links); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1118, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_span_links); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1117, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_3;
 
-    /* "ddtrace/internal/_encoding.pyx":1119
+    /* "ddtrace/internal/_encoding.pyx":1118
  *                 return ret
  *             ret = self._pack_string(span_links)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25156,7 +25146,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1120
+      /* "ddtrace/internal/_encoding.pyx":1119
  *             ret = self._pack_string(span_links)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -25166,7 +25156,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":1119
+      /* "ddtrace/internal/_encoding.pyx":1118
  *                 return ret
  *             ret = self._pack_string(span_links)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25175,7 +25165,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1114
+    /* "ddtrace/internal/_encoding.pyx":1113
  *             if ret != 0:
  *                 return ret
  *         if span_links:             # <<<<<<<<<<<<<<
@@ -25184,30 +25174,30 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1121
+  /* "ddtrace/internal/_encoding.pyx":1120
  *             if ret != 0:
  *                 return ret
  *         if span_events:             # <<<<<<<<<<<<<<
  *             ret = self._pack_string(SPAN_EVENTS_KEY)
  *             if ret != 0:
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_span_events); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1121, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_span_events); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1120, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1122
+    /* "ddtrace/internal/_encoding.pyx":1121
  *                 return ret
  *         if span_events:
  *             ret = self._pack_string(SPAN_EVENTS_KEY)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SPAN_EVENTS_KEY); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1122, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_SPAN_EVENTS_KEY); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1122, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1121, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_v_ret = __pyx_t_3;
 
-    /* "ddtrace/internal/_encoding.pyx":1123
+    /* "ddtrace/internal/_encoding.pyx":1122
  *         if span_events:
  *             ret = self._pack_string(SPAN_EVENTS_KEY)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25217,7 +25207,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1124
+      /* "ddtrace/internal/_encoding.pyx":1123
  *             ret = self._pack_string(SPAN_EVENTS_KEY)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -25227,7 +25217,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":1123
+      /* "ddtrace/internal/_encoding.pyx":1122
  *         if span_events:
  *             ret = self._pack_string(SPAN_EVENTS_KEY)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25236,17 +25226,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1125
+    /* "ddtrace/internal/_encoding.pyx":1124
  *             if ret != 0:
  *                 return ret
  *             ret = self._pack_string(span_events)             # <<<<<<<<<<<<<<
  *             if ret != 0:
  *                 return ret
 */
-    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_span_events); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1125, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_span_events); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1124, __pyx_L1_error)
     __pyx_v_ret = __pyx_t_3;
 
-    /* "ddtrace/internal/_encoding.pyx":1126
+    /* "ddtrace/internal/_encoding.pyx":1125
  *                 return ret
  *             ret = self._pack_string(span_events)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25256,7 +25246,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_t_1 = (__pyx_v_ret != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1127
+      /* "ddtrace/internal/_encoding.pyx":1126
  *             ret = self._pack_string(span_events)
  *             if ret != 0:
  *                 return ret             # <<<<<<<<<<<<<<
@@ -25266,7 +25256,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_r = __pyx_v_ret;
       goto __pyx_L0;
 
-      /* "ddtrace/internal/_encoding.pyx":1126
+      /* "ddtrace/internal/_encoding.pyx":1125
  *                 return ret
  *             ret = self._pack_string(span_events)
  *             if ret != 0:             # <<<<<<<<<<<<<<
@@ -25275,7 +25265,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1121
+    /* "ddtrace/internal/_encoding.pyx":1120
  *             if ret != 0:
  *                 return ret
  *         if span_events:             # <<<<<<<<<<<<<<
@@ -25284,20 +25274,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1129
+  /* "ddtrace/internal/_encoding.pyx":1128
  *                 return ret
  * 
  *         ret = msgpack_pack_map(&self.pk, len(span._metrics))             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1129, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_22 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_22 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1129, __pyx_L1_error)
+  __pyx_t_22 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_22 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1128, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->__pyx_base.pk), __pyx_t_22);
 
-  /* "ddtrace/internal/_encoding.pyx":1130
+  /* "ddtrace/internal/_encoding.pyx":1129
  * 
  *         ret = msgpack_pack_map(&self.pk, len(span._metrics))
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -25307,7 +25297,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1131
+    /* "ddtrace/internal/_encoding.pyx":1130
  *         ret = msgpack_pack_map(&self.pk, len(span._metrics))
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -25317,7 +25307,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1130
+    /* "ddtrace/internal/_encoding.pyx":1129
  * 
  *         ret = msgpack_pack_map(&self.pk, len(span._metrics))
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -25326,20 +25316,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1132
+  /* "ddtrace/internal/_encoding.pyx":1131
  *         if ret != 0:
  *             return ret
  *         if span._metrics:             # <<<<<<<<<<<<<<
  *             for k, v in span._metrics.items():
  *                 ret = self._pack_string(k)
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1132, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1132, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1131, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1133
+    /* "ddtrace/internal/_encoding.pyx":1132
  *             return ret
  *         if span._metrics:
  *             for k, v in span._metrics.items():             # <<<<<<<<<<<<<<
@@ -25347,13 +25337,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
  *                 if ret != 0:
 */
     __pyx_t_22 = 0;
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1133, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_metrics); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 1132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     if (unlikely(__pyx_t_9 == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-      __PYX_ERR(0, 1133, __pyx_L1_error)
+      __PYX_ERR(0, 1132, __pyx_L1_error)
     }
-    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_9, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_23), (&__pyx_t_3)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1133, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_dict_iterator(__pyx_t_9, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_23), (&__pyx_t_3)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 1132, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_XDECREF(__pyx_t_2);
@@ -25362,7 +25352,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     while (1) {
       __pyx_t_24 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_23, &__pyx_t_22, &__pyx_t_7, &__pyx_t_9, NULL, __pyx_t_3);
       if (unlikely(__pyx_t_24 == 0)) break;
-      if (unlikely(__pyx_t_24 == -1)) __PYX_ERR(0, 1133, __pyx_L1_error)
+      if (unlikely(__pyx_t_24 == -1)) __PYX_ERR(0, 1132, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_7);
@@ -25370,17 +25360,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_9);
       __pyx_t_9 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":1134
+      /* "ddtrace/internal/_encoding.pyx":1133
  *         if span._metrics:
  *             for k, v in span._metrics.items():
  *                 ret = self._pack_string(k)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_k); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1134, __pyx_L1_error)
+      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_v_k); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1133, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_24;
 
-      /* "ddtrace/internal/_encoding.pyx":1135
+      /* "ddtrace/internal/_encoding.pyx":1134
  *             for k, v in span._metrics.items():
  *                 ret = self._pack_string(k)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -25390,7 +25380,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_t_1 = (__pyx_v_ret != 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1136
+        /* "ddtrace/internal/_encoding.pyx":1135
  *                 ret = self._pack_string(k)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -25401,7 +25391,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":1135
+        /* "ddtrace/internal/_encoding.pyx":1134
  *             for k, v in span._metrics.items():
  *                 ret = self._pack_string(k)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -25410,17 +25400,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1137
+      /* "ddtrace/internal/_encoding.pyx":1136
  *                 if ret != 0:
  *                     return ret
  *                 ret = pack_number(&self.pk, v)             # <<<<<<<<<<<<<<
  *                 if ret != 0:
  *                     return ret
 */
-      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1137, __pyx_L1_error)
+      __pyx_t_24 = __pyx_f_7ddtrace_8internal_9_encoding_pack_number((&__pyx_v_self->__pyx_base.pk), __pyx_v_v); if (unlikely(__pyx_t_24 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1136, __pyx_L1_error)
       __pyx_v_ret = __pyx_t_24;
 
-      /* "ddtrace/internal/_encoding.pyx":1138
+      /* "ddtrace/internal/_encoding.pyx":1137
  *                     return ret
  *                 ret = pack_number(&self.pk, v)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -25430,7 +25420,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
       __pyx_t_1 = (__pyx_v_ret != 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1139
+        /* "ddtrace/internal/_encoding.pyx":1138
  *                 ret = pack_number(&self.pk, v)
  *                 if ret != 0:
  *                     return ret             # <<<<<<<<<<<<<<
@@ -25441,7 +25431,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         goto __pyx_L0;
 
-        /* "ddtrace/internal/_encoding.pyx":1138
+        /* "ddtrace/internal/_encoding.pyx":1137
  *                     return ret
  *                 ret = pack_number(&self.pk, v)
  *                 if ret != 0:             # <<<<<<<<<<<<<<
@@ -25452,7 +25442,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":1132
+    /* "ddtrace/internal/_encoding.pyx":1131
  *         if ret != 0:
  *             return ret
  *         if span._metrics:             # <<<<<<<<<<<<<<
@@ -25461,20 +25451,20 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1141
+  /* "ddtrace/internal/_encoding.pyx":1140
  *                     return ret
  * 
  *         ret = self._pack_string(span.span_type)             # <<<<<<<<<<<<<<
  *         if ret != 0:
  *             return ret
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1141, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_span, __pyx_mstate_global->__pyx_n_u_span_type); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1141, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string(__pyx_v_self, __pyx_t_2); if (unlikely(__pyx_t_3 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1140, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_ret = __pyx_t_3;
 
-  /* "ddtrace/internal/_encoding.pyx":1142
+  /* "ddtrace/internal/_encoding.pyx":1141
  * 
  *         ret = self._pack_string(span.span_type)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -25484,7 +25474,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_t_1 = (__pyx_v_ret != 0);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1143
+    /* "ddtrace/internal/_encoding.pyx":1142
  *         ret = self._pack_string(span.span_type)
  *         if ret != 0:
  *             return ret             # <<<<<<<<<<<<<<
@@ -25494,7 +25484,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
     __pyx_r = __pyx_v_ret;
     goto __pyx_L0;
 
-    /* "ddtrace/internal/_encoding.pyx":1142
+    /* "ddtrace/internal/_encoding.pyx":1141
  * 
  *         ret = self._pack_string(span.span_type)
  *         if ret != 0:             # <<<<<<<<<<<<<<
@@ -25503,7 +25493,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1145
+  /* "ddtrace/internal/_encoding.pyx":1144
  *             return ret
  * 
  *         return 0             # <<<<<<<<<<<<<<
@@ -25513,7 +25503,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span(s
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":1037
+  /* "ddtrace/internal/_encoding.pyx":1036
  *         return <void *> PyLong_AsLong(self._st._index(dd_origin))
  * 
  *     cdef int pack_span(self, object span, unsigned long long trace_id_64bits, void *dd_origin) except? -1:             # <<<<<<<<<<<<<<
@@ -25751,7 +25741,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_8__s
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1168
+/* "ddtrace/internal/_encoding.pyx":1167
  *     cdef const char *unicode_errors
  * 
  *     def __cinit__(self):             # <<<<<<<<<<<<<<
@@ -25798,7 +25788,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1169
+  /* "ddtrace/internal/_encoding.pyx":1168
  * 
  *     def __cinit__(self):
  *         cdef int buf_size = 1024*1024             # <<<<<<<<<<<<<<
@@ -25807,7 +25797,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
 */
   __pyx_v_buf_size = 0x100000;
 
-  /* "ddtrace/internal/_encoding.pyx":1170
+  /* "ddtrace/internal/_encoding.pyx":1169
  *     def __cinit__(self):
  *         cdef int buf_size = 1024*1024
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)             # <<<<<<<<<<<<<<
@@ -25816,7 +25806,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
 */
   __pyx_v_self->pk.buf = ((char *)PyMem_Malloc(__pyx_v_buf_size));
 
-  /* "ddtrace/internal/_encoding.pyx":1171
+  /* "ddtrace/internal/_encoding.pyx":1170
  *         cdef int buf_size = 1024*1024
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)
  *         if self.pk.buf == NULL:             # <<<<<<<<<<<<<<
@@ -25826,7 +25816,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
   __pyx_t_1 = (__pyx_v_self->pk.buf == NULL);
   if (unlikely(__pyx_t_1)) {
 
-    /* "ddtrace/internal/_encoding.pyx":1172
+    /* "ddtrace/internal/_encoding.pyx":1171
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)
  *         if self.pk.buf == NULL:
  *             raise MemoryError("Unable to allocate internal buffer.")             # <<<<<<<<<<<<<<
@@ -25842,14 +25832,14 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1172, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1171, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 1172, __pyx_L1_error)
+    __PYX_ERR(0, 1171, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":1171
+    /* "ddtrace/internal/_encoding.pyx":1170
  *         cdef int buf_size = 1024*1024
  *         self.pk.buf = <char*> PyMem_Malloc(buf_size)
  *         if self.pk.buf == NULL:             # <<<<<<<<<<<<<<
@@ -25858,7 +25848,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1173
+  /* "ddtrace/internal/_encoding.pyx":1172
  *         if self.pk.buf == NULL:
  *             raise MemoryError("Unable to allocate internal buffer.")
  *         self.pk.buf_size = buf_size             # <<<<<<<<<<<<<<
@@ -25867,7 +25857,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
 */
   __pyx_v_self->pk.buf_size = __pyx_v_buf_size;
 
-  /* "ddtrace/internal/_encoding.pyx":1174
+  /* "ddtrace/internal/_encoding.pyx":1173
  *             raise MemoryError("Unable to allocate internal buffer.")
  *         self.pk.buf_size = buf_size
  *         self.pk.length = 0             # <<<<<<<<<<<<<<
@@ -25876,7 +25866,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
 */
   __pyx_v_self->pk.length = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1168
+  /* "ddtrace/internal/_encoding.pyx":1167
  *     cdef const char *unicode_errors
  * 
  *     def __cinit__(self):             # <<<<<<<<<<<<<<
@@ -25898,7 +25888,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer___cinit__(struct __pyx
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1176
+/* "ddtrace/internal/_encoding.pyx":1175
  *         self.pk.length = 0
  * 
  *     def __init__(self, default=None):             # <<<<<<<<<<<<<<
@@ -25928,24 +25918,24 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_6Packer_3__init__(PyObject *__
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_default,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_VARARGS(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1176, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1175, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1176, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1175, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 1176, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < 0) __PYX_ERR(0, 1175, __pyx_L3_error)
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_VARARGS(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1176, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1175, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
@@ -25956,7 +25946,7 @@ static int __pyx_pw_7ddtrace_8internal_9_encoding_6Packer_3__init__(PyObject *__
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1176, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 0, 0, 1, __pyx_nargs); __PYX_ERR(0, 1175, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -25990,7 +25980,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1177
+  /* "ddtrace/internal/_encoding.pyx":1176
  * 
  *     def __init__(self, default=None):
  *         if default is not None:             # <<<<<<<<<<<<<<
@@ -26000,7 +25990,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
   __pyx_t_1 = (__pyx_v_default != Py_None);
   if (__pyx_t_1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1178
+    /* "ddtrace/internal/_encoding.pyx":1177
  *     def __init__(self, default=None):
  *         if default is not None:
  *             if not PyCallable_Check(default):             # <<<<<<<<<<<<<<
@@ -26010,7 +26000,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
     __pyx_t_1 = (!PyCallable_Check(__pyx_v_default));
     if (unlikely(__pyx_t_1)) {
 
-      /* "ddtrace/internal/_encoding.pyx":1179
+      /* "ddtrace/internal/_encoding.pyx":1178
  *         if default is not None:
  *             if not PyCallable_Check(default):
  *                 raise TypeError("default must be a callable.")             # <<<<<<<<<<<<<<
@@ -26026,14 +26016,14 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1179, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1178, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
       __Pyx_Raise(__pyx_t_2, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 1179, __pyx_L1_error)
+      __PYX_ERR(0, 1178, __pyx_L1_error)
 
-      /* "ddtrace/internal/_encoding.pyx":1178
+      /* "ddtrace/internal/_encoding.pyx":1177
  *     def __init__(self, default=None):
  *         if default is not None:
  *             if not PyCallable_Check(default):             # <<<<<<<<<<<<<<
@@ -26042,7 +26032,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
 */
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1177
+    /* "ddtrace/internal/_encoding.pyx":1176
  * 
  *     def __init__(self, default=None):
  *         if default is not None:             # <<<<<<<<<<<<<<
@@ -26051,7 +26041,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1180
+  /* "ddtrace/internal/_encoding.pyx":1179
  *             if not PyCallable_Check(default):
  *                 raise TypeError("default must be a callable.")
  *         self._default = default             # <<<<<<<<<<<<<<
@@ -26064,7 +26054,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
   __Pyx_DECREF(__pyx_v_self->_default);
   __pyx_v_self->_default = __pyx_v_default;
 
-  /* "ddtrace/internal/_encoding.pyx":1185
+  /* "ddtrace/internal/_encoding.pyx":1184
  *             self.encoding = "utf-8"
  *         else:
  *             self.encoding = NULL             # <<<<<<<<<<<<<<
@@ -26073,7 +26063,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
 */
   __pyx_v_self->encoding = NULL;
 
-  /* "ddtrace/internal/_encoding.pyx":1176
+  /* "ddtrace/internal/_encoding.pyx":1175
  *         self.pk.length = 0
  * 
  *     def __init__(self, default=None):             # <<<<<<<<<<<<<<
@@ -26095,7 +26085,7 @@ static int __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_2__init__(struct __pyx
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1187
+/* "ddtrace/internal/_encoding.pyx":1186
  *             self.encoding = NULL
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -26118,7 +26108,7 @@ static void __pyx_pw_7ddtrace_8internal_9_encoding_6Packer_5__dealloc__(PyObject
 
 static void __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_4__dealloc__(struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer *__pyx_v_self) {
 
-  /* "ddtrace/internal/_encoding.pyx":1188
+  /* "ddtrace/internal/_encoding.pyx":1187
  * 
  *     def __dealloc__(self):
  *         PyMem_Free(self.pk.buf)             # <<<<<<<<<<<<<<
@@ -26127,7 +26117,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_4__dealloc__(struct _
 */
   PyMem_Free(__pyx_v_self->pk.buf);
 
-  /* "ddtrace/internal/_encoding.pyx":1189
+  /* "ddtrace/internal/_encoding.pyx":1188
  *     def __dealloc__(self):
  *         PyMem_Free(self.pk.buf)
  *         self.pk.buf = NULL             # <<<<<<<<<<<<<<
@@ -26136,7 +26126,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_4__dealloc__(struct _
 */
   __pyx_v_self->pk.buf = NULL;
 
-  /* "ddtrace/internal/_encoding.pyx":1187
+  /* "ddtrace/internal/_encoding.pyx":1186
  *             self.encoding = NULL
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -26147,7 +26137,7 @@ static void __pyx_pf_7ddtrace_8internal_9_encoding_6Packer_4__dealloc__(struct _
   /* function exit code */
 }
 
-/* "ddtrace/internal/_encoding.pyx":1191
+/* "ddtrace/internal/_encoding.pyx":1190
  *         self.pk.buf = NULL
  * 
  *     cdef int _pack(self, object o) except -1:             # <<<<<<<<<<<<<<
@@ -26204,7 +26194,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
   __Pyx_RefNannySetupContext("_pack", 0);
   __Pyx_INCREF(__pyx_v_o);
 
-  /* "ddtrace/internal/_encoding.pyx":1200
+  /* "ddtrace/internal/_encoding.pyx":1199
  *         cdef dict d
  *         cdef Py_ssize_t L
  *         cdef int default_used = 0             # <<<<<<<<<<<<<<
@@ -26213,7 +26203,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
   __pyx_v_default_used = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1202
+  /* "ddtrace/internal/_encoding.pyx":1201
  *         cdef int default_used = 0
  * 
  *         while True:             # <<<<<<<<<<<<<<
@@ -26222,7 +26212,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
   while (1) {
 
-    /* "ddtrace/internal/_encoding.pyx":1203
+    /* "ddtrace/internal/_encoding.pyx":1202
  * 
  *         while True:
  *             if o is None:             # <<<<<<<<<<<<<<
@@ -26232,7 +26222,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_t_1 = (__pyx_v_o == Py_None);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1204
+      /* "ddtrace/internal/_encoding.pyx":1203
  *         while True:
  *             if o is None:
  *                 ret = msgpack_pack_nil(&self.pk)             # <<<<<<<<<<<<<<
@@ -26241,7 +26231,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       __pyx_v_ret = msgpack_pack_nil((&__pyx_v_self->pk));
 
-      /* "ddtrace/internal/_encoding.pyx":1203
+      /* "ddtrace/internal/_encoding.pyx":1202
  * 
  *         while True:
  *             if o is None:             # <<<<<<<<<<<<<<
@@ -26251,7 +26241,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1205
+    /* "ddtrace/internal/_encoding.pyx":1204
  *             if o is None:
  *                 ret = msgpack_pack_nil(&self.pk)
  *             elif PyLong_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26261,7 +26251,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_t_1 = PyLong_CheckExact(__pyx_v_o);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1206
+      /* "ddtrace/internal/_encoding.pyx":1205
  *                 ret = msgpack_pack_nil(&self.pk)
  *             elif PyLong_CheckExact(o):
  *                 try:             # <<<<<<<<<<<<<<
@@ -26277,29 +26267,29 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __Pyx_XGOTREF(__pyx_t_4);
         /*try:*/ {
 
-          /* "ddtrace/internal/_encoding.pyx":1207
+          /* "ddtrace/internal/_encoding.pyx":1206
  *             elif PyLong_CheckExact(o):
  *                 try:
  *                     if o > 0:             # <<<<<<<<<<<<<<
  *                         ullval = o
  *                         ret = msgpack_pack_unsigned_long_long(&self.pk, ullval)
 */
-          __pyx_t_5 = PyObject_RichCompare(__pyx_v_o, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1207, __pyx_L6_error)
-          __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1207, __pyx_L6_error)
+          __pyx_t_5 = PyObject_RichCompare(__pyx_v_o, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1206, __pyx_L6_error)
+          __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1206, __pyx_L6_error)
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           if (__pyx_t_1) {
 
-            /* "ddtrace/internal/_encoding.pyx":1208
+            /* "ddtrace/internal/_encoding.pyx":1207
  *                 try:
  *                     if o > 0:
  *                         ullval = o             # <<<<<<<<<<<<<<
  *                         ret = msgpack_pack_unsigned_long_long(&self.pk, ullval)
  *                     else:
 */
-            __pyx_t_6 = __Pyx_PyLong_As_unsigned_PY_LONG_LONG(__pyx_v_o); if (unlikely((__pyx_t_6 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 1208, __pyx_L6_error)
+            __pyx_t_6 = __Pyx_PyLong_As_unsigned_PY_LONG_LONG(__pyx_v_o); if (unlikely((__pyx_t_6 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 1207, __pyx_L6_error)
             __pyx_v_ullval = __pyx_t_6;
 
-            /* "ddtrace/internal/_encoding.pyx":1209
+            /* "ddtrace/internal/_encoding.pyx":1208
  *                     if o > 0:
  *                         ullval = o
  *                         ret = msgpack_pack_unsigned_long_long(&self.pk, ullval)             # <<<<<<<<<<<<<<
@@ -26308,7 +26298,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
             __pyx_v_ret = msgpack_pack_unsigned_long_long((&__pyx_v_self->pk), __pyx_v_ullval);
 
-            /* "ddtrace/internal/_encoding.pyx":1207
+            /* "ddtrace/internal/_encoding.pyx":1206
  *             elif PyLong_CheckExact(o):
  *                 try:
  *                     if o > 0:             # <<<<<<<<<<<<<<
@@ -26318,7 +26308,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
             goto __pyx_L14;
           }
 
-          /* "ddtrace/internal/_encoding.pyx":1211
+          /* "ddtrace/internal/_encoding.pyx":1210
  *                         ret = msgpack_pack_unsigned_long_long(&self.pk, ullval)
  *                     else:
  *                         llval = o             # <<<<<<<<<<<<<<
@@ -26326,10 +26316,10 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
  *                 except OverflowError as oe:
 */
           /*else*/ {
-            __pyx_t_7 = __Pyx_PyLong_As_PY_LONG_LONG(__pyx_v_o); if (unlikely((__pyx_t_7 == (PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 1211, __pyx_L6_error)
+            __pyx_t_7 = __Pyx_PyLong_As_PY_LONG_LONG(__pyx_v_o); if (unlikely((__pyx_t_7 == (PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 1210, __pyx_L6_error)
             __pyx_v_llval = __pyx_t_7;
 
-            /* "ddtrace/internal/_encoding.pyx":1212
+            /* "ddtrace/internal/_encoding.pyx":1211
  *                     else:
  *                         llval = o
  *                         ret = msgpack_pack_long_long(&self.pk, llval)             # <<<<<<<<<<<<<<
@@ -26340,7 +26330,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           }
           __pyx_L14:;
 
-          /* "ddtrace/internal/_encoding.pyx":1206
+          /* "ddtrace/internal/_encoding.pyx":1205
  *                 ret = msgpack_pack_nil(&self.pk)
  *             elif PyLong_CheckExact(o):
  *                 try:             # <<<<<<<<<<<<<<
@@ -26355,7 +26345,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_L6_error:;
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":1213
+        /* "ddtrace/internal/_encoding.pyx":1212
  *                         llval = o
  *                         ret = msgpack_pack_long_long(&self.pk, llval)
  *                 except OverflowError as oe:             # <<<<<<<<<<<<<<
@@ -26365,7 +26355,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_OverflowError);
         if (__pyx_t_8) {
           __Pyx_AddTraceback("ddtrace.internal._encoding.Packer._pack", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_9, &__pyx_t_10) < 0) __PYX_ERR(0, 1213, __pyx_L8_except_error)
+          if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_9, &__pyx_t_10) < 0) __PYX_ERR(0, 1212, __pyx_L8_except_error)
           __Pyx_XGOTREF(__pyx_t_5);
           __Pyx_XGOTREF(__pyx_t_9);
           __Pyx_XGOTREF(__pyx_t_10);
@@ -26373,7 +26363,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __pyx_v_oe = __pyx_t_9;
           /*try:*/ {
 
-            /* "ddtrace/internal/_encoding.pyx":1214
+            /* "ddtrace/internal/_encoding.pyx":1213
  *                         ret = msgpack_pack_long_long(&self.pk, llval)
  *                 except OverflowError as oe:
  *                     if not default_used and self._default is not None:             # <<<<<<<<<<<<<<
@@ -26391,7 +26381,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
             __pyx_L23_bool_binop_done:;
             if (likely(__pyx_t_1)) {
 
-              /* "ddtrace/internal/_encoding.pyx":1215
+              /* "ddtrace/internal/_encoding.pyx":1214
  *                 except OverflowError as oe:
  *                     if not default_used and self._default is not None:
  *                         o = self._default(o)             # <<<<<<<<<<<<<<
@@ -26418,13 +26408,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
                 __pyx_t_12 = __Pyx_PyObject_FastCall(__pyx_t_14, __pyx_callargs+__pyx_t_15, (2-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
                 __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-                if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1215, __pyx_L20_error)
+                if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1214, __pyx_L20_error)
                 __Pyx_GOTREF(__pyx_t_12);
               }
               __Pyx_DECREF_SET(__pyx_v_o, __pyx_t_12);
               __pyx_t_12 = 0;
 
-              /* "ddtrace/internal/_encoding.pyx":1216
+              /* "ddtrace/internal/_encoding.pyx":1215
  *                     if not default_used and self._default is not None:
  *                         o = self._default(o)
  *                         default_used = True             # <<<<<<<<<<<<<<
@@ -26433,7 +26423,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
               __pyx_v_default_used = 1;
 
-              /* "ddtrace/internal/_encoding.pyx":1217
+              /* "ddtrace/internal/_encoding.pyx":1216
  *                         o = self._default(o)
  *                         default_used = True
  *                         continue             # <<<<<<<<<<<<<<
@@ -26442,7 +26432,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
               goto __pyx_L17_continue;
 
-              /* "ddtrace/internal/_encoding.pyx":1214
+              /* "ddtrace/internal/_encoding.pyx":1213
  *                         ret = msgpack_pack_long_long(&self.pk, llval)
  *                 except OverflowError as oe:
  *                     if not default_used and self._default is not None:             # <<<<<<<<<<<<<<
@@ -26451,7 +26441,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
             }
 
-            /* "ddtrace/internal/_encoding.pyx":1219
+            /* "ddtrace/internal/_encoding.pyx":1218
  *                         continue
  *                     else:
  *                         raise OverflowError("Integer value out of range")             # <<<<<<<<<<<<<<
@@ -26468,16 +26458,16 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
                 __pyx_t_12 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+__pyx_t_15, (2-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
                 __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-                if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1219, __pyx_L20_error)
+                if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 1218, __pyx_L20_error)
                 __Pyx_GOTREF(__pyx_t_12);
               }
               __Pyx_Raise(__pyx_t_12, 0, 0, 0);
               __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-              __PYX_ERR(0, 1219, __pyx_L20_error)
+              __PYX_ERR(0, 1218, __pyx_L20_error)
             }
           }
 
-          /* "ddtrace/internal/_encoding.pyx":1213
+          /* "ddtrace/internal/_encoding.pyx":1212
  *                         llval = o
  *                         ret = msgpack_pack_long_long(&self.pk, llval)
  *                 except OverflowError as oe:             # <<<<<<<<<<<<<<
@@ -26530,7 +26520,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         }
         goto __pyx_L8_except_error;
 
-        /* "ddtrace/internal/_encoding.pyx":1206
+        /* "ddtrace/internal/_encoding.pyx":1205
  *                 ret = msgpack_pack_nil(&self.pk)
  *             elif PyLong_CheckExact(o):
  *                 try:             # <<<<<<<<<<<<<<
@@ -26552,7 +26542,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_L13_try_end:;
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1205
+      /* "ddtrace/internal/_encoding.pyx":1204
  *             if o is None:
  *                 ret = msgpack_pack_nil(&self.pk)
  *             elif PyLong_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26562,7 +26552,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1220
+    /* "ddtrace/internal/_encoding.pyx":1219
  *                     else:
  *                         raise OverflowError("Integer value out of range")
  *             elif PyFloat_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26572,17 +26562,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_t_1 = PyFloat_CheckExact(__pyx_v_o);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1221
+      /* "ddtrace/internal/_encoding.pyx":1220
  *                         raise OverflowError("Integer value out of range")
  *             elif PyFloat_CheckExact(o):
  *                 dval = o             # <<<<<<<<<<<<<<
  *                 ret = msgpack_pack_double(&self.pk, dval)
  *             elif PyBytesLike_CheckExact(o):
 */
-      __pyx_t_24 = __Pyx_PyFloat_AsDouble(__pyx_v_o); if (unlikely((__pyx_t_24 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 1221, __pyx_L1_error)
+      __pyx_t_24 = __Pyx_PyFloat_AsDouble(__pyx_v_o); if (unlikely((__pyx_t_24 == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 1220, __pyx_L1_error)
       __pyx_v_dval = __pyx_t_24;
 
-      /* "ddtrace/internal/_encoding.pyx":1222
+      /* "ddtrace/internal/_encoding.pyx":1221
  *             elif PyFloat_CheckExact(o):
  *                 dval = o
  *                 ret = msgpack_pack_double(&self.pk, dval)             # <<<<<<<<<<<<<<
@@ -26591,7 +26581,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       __pyx_v_ret = msgpack_pack_double((&__pyx_v_self->pk), __pyx_v_dval);
 
-      /* "ddtrace/internal/_encoding.pyx":1220
+      /* "ddtrace/internal/_encoding.pyx":1219
  *                     else:
  *                         raise OverflowError("Integer value out of range")
  *             elif PyFloat_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26601,28 +26591,28 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1223
+    /* "ddtrace/internal/_encoding.pyx":1222
  *                 dval = o
  *                 ret = msgpack_pack_double(&self.pk, dval)
  *             elif PyBytesLike_CheckExact(o):             # <<<<<<<<<<<<<<
  *                 L = len(o)
  *                 if L > ITEM_LIMIT:
 */
-    __pyx_t_16 = __pyx_f_7ddtrace_8internal_9_encoding_PyBytesLike_CheckExact(__pyx_v_o); if (unlikely(__pyx_t_16 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1223, __pyx_L1_error)
+    __pyx_t_16 = __pyx_f_7ddtrace_8internal_9_encoding_PyBytesLike_CheckExact(__pyx_v_o); if (unlikely(__pyx_t_16 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 1222, __pyx_L1_error)
     __pyx_t_1 = (__pyx_t_16 != 0);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1224
+      /* "ddtrace/internal/_encoding.pyx":1223
  *                 ret = msgpack_pack_double(&self.pk, dval)
  *             elif PyBytesLike_CheckExact(o):
  *                 L = len(o)             # <<<<<<<<<<<<<<
  *                 if L > ITEM_LIMIT:
  *                     PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(o).tp_name)
 */
-      __pyx_t_25 = PyObject_Length(__pyx_v_o); if (unlikely(__pyx_t_25 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1224, __pyx_L1_error)
+      __pyx_t_25 = PyObject_Length(__pyx_v_o); if (unlikely(__pyx_t_25 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1223, __pyx_L1_error)
       __pyx_v_L = __pyx_t_25;
 
-      /* "ddtrace/internal/_encoding.pyx":1225
+      /* "ddtrace/internal/_encoding.pyx":1224
  *             elif PyBytesLike_CheckExact(o):
  *                 L = len(o)
  *                 if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -26632,16 +26622,16 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_t_1 = (__pyx_v_L > __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1226
+        /* "ddtrace/internal/_encoding.pyx":1225
  *                 L = len(o)
  *                 if L > ITEM_LIMIT:
  *                     PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(o).tp_name)             # <<<<<<<<<<<<<<
  *                 rawval = o
  *                 ret = msgpack_pack_bin(&self.pk, L)
 */
-        __pyx_t_26 = PyErr_Format(__pyx_builtin_ValueError, ((char *)"%.200s object is too large"), Py_TYPE(__pyx_v_o)->tp_name); if (unlikely(__pyx_t_26 == ((PyObject *)0))) __PYX_ERR(0, 1226, __pyx_L1_error)
+        __pyx_t_26 = PyErr_Format(__pyx_builtin_ValueError, ((char *)"%.200s object is too large"), Py_TYPE(__pyx_v_o)->tp_name); if (unlikely(__pyx_t_26 == ((PyObject *)0))) __PYX_ERR(0, 1225, __pyx_L1_error)
 
-        /* "ddtrace/internal/_encoding.pyx":1225
+        /* "ddtrace/internal/_encoding.pyx":1224
  *             elif PyBytesLike_CheckExact(o):
  *                 L = len(o)
  *                 if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -26650,17 +26640,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1227
+      /* "ddtrace/internal/_encoding.pyx":1226
  *                 if L > ITEM_LIMIT:
  *                     PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(o).tp_name)
  *                 rawval = o             # <<<<<<<<<<<<<<
  *                 ret = msgpack_pack_bin(&self.pk, L)
  *                 if ret == 0:
 */
-      __pyx_t_27 = __Pyx_PyObject_AsWritableString(__pyx_v_o); if (unlikely((!__pyx_t_27) && PyErr_Occurred())) __PYX_ERR(0, 1227, __pyx_L1_error)
+      __pyx_t_27 = __Pyx_PyObject_AsWritableString(__pyx_v_o); if (unlikely((!__pyx_t_27) && PyErr_Occurred())) __PYX_ERR(0, 1226, __pyx_L1_error)
       __pyx_v_rawval = __pyx_t_27;
 
-      /* "ddtrace/internal/_encoding.pyx":1228
+      /* "ddtrace/internal/_encoding.pyx":1227
  *                     PyErr_Format(ValueError, b"%.200s object is too large", Py_TYPE(o).tp_name)
  *                 rawval = o
  *                 ret = msgpack_pack_bin(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -26669,7 +26659,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       __pyx_v_ret = msgpack_pack_bin((&__pyx_v_self->pk), __pyx_v_L);
 
-      /* "ddtrace/internal/_encoding.pyx":1229
+      /* "ddtrace/internal/_encoding.pyx":1228
  *                 rawval = o
  *                 ret = msgpack_pack_bin(&self.pk, L)
  *                 if ret == 0:             # <<<<<<<<<<<<<<
@@ -26679,7 +26669,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_t_1 = (__pyx_v_ret == 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1230
+        /* "ddtrace/internal/_encoding.pyx":1229
  *                 ret = msgpack_pack_bin(&self.pk, L)
  *                 if ret == 0:
  *                     ret = msgpack_pack_raw_body(&self.pk, rawval, L)             # <<<<<<<<<<<<<<
@@ -26688,7 +26678,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
         __pyx_v_ret = msgpack_pack_raw_body((&__pyx_v_self->pk), __pyx_v_rawval, __pyx_v_L);
 
-        /* "ddtrace/internal/_encoding.pyx":1229
+        /* "ddtrace/internal/_encoding.pyx":1228
  *                 rawval = o
  *                 ret = msgpack_pack_bin(&self.pk, L)
  *                 if ret == 0:             # <<<<<<<<<<<<<<
@@ -26697,7 +26687,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1223
+      /* "ddtrace/internal/_encoding.pyx":1222
  *                 dval = o
  *                 ret = msgpack_pack_double(&self.pk, dval)
  *             elif PyBytesLike_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26707,7 +26697,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1231
+    /* "ddtrace/internal/_encoding.pyx":1230
  *                 if ret == 0:
  *                     ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyUnicode_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26717,7 +26707,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_t_1 = PyUnicode_CheckExact(__pyx_v_o);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1232
+      /* "ddtrace/internal/_encoding.pyx":1231
  *                     ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyUnicode_CheckExact(o):
  *                 if self.encoding == NULL:             # <<<<<<<<<<<<<<
@@ -26727,7 +26717,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_t_1 = (__pyx_v_self->encoding == NULL);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1233
+        /* "ddtrace/internal/_encoding.pyx":1232
  *             elif PyUnicode_CheckExact(o):
  *                 if self.encoding == NULL:
  *                     ret = msgpack_pack_unicode(&self.pk, o, ITEM_LIMIT)             # <<<<<<<<<<<<<<
@@ -26736,7 +26726,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
         __pyx_v_ret = msgpack_pack_unicode((&__pyx_v_self->pk), __pyx_v_o, __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
 
-        /* "ddtrace/internal/_encoding.pyx":1234
+        /* "ddtrace/internal/_encoding.pyx":1233
  *                 if self.encoding == NULL:
  *                     ret = msgpack_pack_unicode(&self.pk, o, ITEM_LIMIT)
  *                     if ret == -2:             # <<<<<<<<<<<<<<
@@ -26746,7 +26736,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_t_1 = (__pyx_v_ret == -2L);
         if (unlikely(__pyx_t_1)) {
 
-          /* "ddtrace/internal/_encoding.pyx":1235
+          /* "ddtrace/internal/_encoding.pyx":1234
  *                     ret = msgpack_pack_unicode(&self.pk, o, ITEM_LIMIT)
  *                     if ret == -2:
  *                         raise ValueError("unicode string is too large")             # <<<<<<<<<<<<<<
@@ -26762,14 +26752,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
             __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_15, (2-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
             __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1235, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1234, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
           }
           __Pyx_Raise(__pyx_t_10, 0, 0, 0);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          __PYX_ERR(0, 1235, __pyx_L1_error)
+          __PYX_ERR(0, 1234, __pyx_L1_error)
 
-          /* "ddtrace/internal/_encoding.pyx":1234
+          /* "ddtrace/internal/_encoding.pyx":1233
  *                 if self.encoding == NULL:
  *                     ret = msgpack_pack_unicode(&self.pk, o, ITEM_LIMIT)
  *                     if ret == -2:             # <<<<<<<<<<<<<<
@@ -26778,7 +26768,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":1232
+        /* "ddtrace/internal/_encoding.pyx":1231
  *                     ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyUnicode_CheckExact(o):
  *                 if self.encoding == NULL:             # <<<<<<<<<<<<<<
@@ -26788,7 +26778,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         goto __pyx_L31;
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1237
+      /* "ddtrace/internal/_encoding.pyx":1236
  *                         raise ValueError("unicode string is too large")
  *                 else:
  *                     o = PyUnicode_AsEncodedString(o, self.encoding, self.unicode_errors)             # <<<<<<<<<<<<<<
@@ -26796,22 +26786,22 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
  *                     if L > ITEM_LIMIT:
 */
       /*else*/ {
-        __pyx_t_10 = PyUnicode_AsEncodedString(__pyx_v_o, __pyx_v_self->encoding, __pyx_v_self->unicode_errors); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1237, __pyx_L1_error)
+        __pyx_t_10 = PyUnicode_AsEncodedString(__pyx_v_o, __pyx_v_self->encoding, __pyx_v_self->unicode_errors); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1236, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF_SET(__pyx_v_o, __pyx_t_10);
         __pyx_t_10 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":1238
+        /* "ddtrace/internal/_encoding.pyx":1237
  *                 else:
  *                     o = PyUnicode_AsEncodedString(o, self.encoding, self.unicode_errors)
  *                     L = len(o)             # <<<<<<<<<<<<<<
  *                     if L > ITEM_LIMIT:
  *                         raise ValueError("unicode string is too large")
 */
-        __pyx_t_25 = PyObject_Length(__pyx_v_o); if (unlikely(__pyx_t_25 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1238, __pyx_L1_error)
+        __pyx_t_25 = PyObject_Length(__pyx_v_o); if (unlikely(__pyx_t_25 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1237, __pyx_L1_error)
         __pyx_v_L = __pyx_t_25;
 
-        /* "ddtrace/internal/_encoding.pyx":1239
+        /* "ddtrace/internal/_encoding.pyx":1238
  *                     o = PyUnicode_AsEncodedString(o, self.encoding, self.unicode_errors)
  *                     L = len(o)
  *                     if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -26821,7 +26811,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_t_1 = (__pyx_v_L > __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
         if (unlikely(__pyx_t_1)) {
 
-          /* "ddtrace/internal/_encoding.pyx":1240
+          /* "ddtrace/internal/_encoding.pyx":1239
  *                     L = len(o)
  *                     if L > ITEM_LIMIT:
  *                         raise ValueError("unicode string is too large")             # <<<<<<<<<<<<<<
@@ -26837,14 +26827,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
             __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_9, __pyx_callargs+__pyx_t_15, (2-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
             __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
             __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1240, __pyx_L1_error)
+            if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1239, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_10);
           }
           __Pyx_Raise(__pyx_t_10, 0, 0, 0);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          __PYX_ERR(0, 1240, __pyx_L1_error)
+          __PYX_ERR(0, 1239, __pyx_L1_error)
 
-          /* "ddtrace/internal/_encoding.pyx":1239
+          /* "ddtrace/internal/_encoding.pyx":1238
  *                     o = PyUnicode_AsEncodedString(o, self.encoding, self.unicode_errors)
  *                     L = len(o)
  *                     if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -26853,7 +26843,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
         }
 
-        /* "ddtrace/internal/_encoding.pyx":1241
+        /* "ddtrace/internal/_encoding.pyx":1240
  *                     if L > ITEM_LIMIT:
  *                         raise ValueError("unicode string is too large")
  *                     ret = msgpack_pack_raw(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -26862,7 +26852,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
         __pyx_v_ret = msgpack_pack_raw((&__pyx_v_self->pk), __pyx_v_L);
 
-        /* "ddtrace/internal/_encoding.pyx":1242
+        /* "ddtrace/internal/_encoding.pyx":1241
  *                         raise ValueError("unicode string is too large")
  *                     ret = msgpack_pack_raw(&self.pk, L)
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -26872,17 +26862,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_t_1 = (__pyx_v_ret == 0);
         if (__pyx_t_1) {
 
-          /* "ddtrace/internal/_encoding.pyx":1243
+          /* "ddtrace/internal/_encoding.pyx":1242
  *                     ret = msgpack_pack_raw(&self.pk, L)
  *                     if ret == 0:
  *                         rawval = o             # <<<<<<<<<<<<<<
  *                         ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyDict_CheckExact(o):
 */
-          __pyx_t_27 = __Pyx_PyObject_AsWritableString(__pyx_v_o); if (unlikely((!__pyx_t_27) && PyErr_Occurred())) __PYX_ERR(0, 1243, __pyx_L1_error)
+          __pyx_t_27 = __Pyx_PyObject_AsWritableString(__pyx_v_o); if (unlikely((!__pyx_t_27) && PyErr_Occurred())) __PYX_ERR(0, 1242, __pyx_L1_error)
           __pyx_v_rawval = __pyx_t_27;
 
-          /* "ddtrace/internal/_encoding.pyx":1244
+          /* "ddtrace/internal/_encoding.pyx":1243
  *                     if ret == 0:
  *                         rawval = o
  *                         ret = msgpack_pack_raw_body(&self.pk, rawval, L)             # <<<<<<<<<<<<<<
@@ -26891,7 +26881,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
           __pyx_v_ret = msgpack_pack_raw_body((&__pyx_v_self->pk), __pyx_v_rawval, __pyx_v_L);
 
-          /* "ddtrace/internal/_encoding.pyx":1242
+          /* "ddtrace/internal/_encoding.pyx":1241
  *                         raise ValueError("unicode string is too large")
  *                     ret = msgpack_pack_raw(&self.pk, L)
  *                     if ret == 0:             # <<<<<<<<<<<<<<
@@ -26902,7 +26892,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       }
       __pyx_L31:;
 
-      /* "ddtrace/internal/_encoding.pyx":1231
+      /* "ddtrace/internal/_encoding.pyx":1230
  *                 if ret == 0:
  *                     ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyUnicode_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26912,7 +26902,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1245
+    /* "ddtrace/internal/_encoding.pyx":1244
  *                         rawval = o
  *                         ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyDict_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -26922,7 +26912,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_t_1 = PyDict_CheckExact(__pyx_v_o);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1246
+      /* "ddtrace/internal/_encoding.pyx":1245
  *                         ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyDict_CheckExact(o):
  *                 d = <dict>o             # <<<<<<<<<<<<<<
@@ -26934,7 +26924,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_v_d = ((PyObject*)__pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":1247
+      /* "ddtrace/internal/_encoding.pyx":1246
  *             elif PyDict_CheckExact(o):
  *                 d = <dict>o
  *                 L = len(d)             # <<<<<<<<<<<<<<
@@ -26943,12 +26933,12 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       if (unlikely(__pyx_v_d == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-        __PYX_ERR(0, 1247, __pyx_L1_error)
+        __PYX_ERR(0, 1246, __pyx_L1_error)
       }
-      __pyx_t_25 = PyDict_Size(__pyx_v_d); if (unlikely(__pyx_t_25 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1247, __pyx_L1_error)
+      __pyx_t_25 = PyDict_Size(__pyx_v_d); if (unlikely(__pyx_t_25 == ((Py_ssize_t)-1))) __PYX_ERR(0, 1246, __pyx_L1_error)
       __pyx_v_L = __pyx_t_25;
 
-      /* "ddtrace/internal/_encoding.pyx":1248
+      /* "ddtrace/internal/_encoding.pyx":1247
  *                 d = <dict>o
  *                 L = len(d)
  *                 if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -26958,7 +26948,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_t_1 = (__pyx_v_L > __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
       if (unlikely(__pyx_t_1)) {
 
-        /* "ddtrace/internal/_encoding.pyx":1249
+        /* "ddtrace/internal/_encoding.pyx":1248
  *                 L = len(d)
  *                 if L > ITEM_LIMIT:
  *                     raise ValueError("dict is too large")             # <<<<<<<<<<<<<<
@@ -26974,14 +26964,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_15, (2-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1249, __pyx_L1_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1248, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
         __Pyx_Raise(__pyx_t_10, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 1249, __pyx_L1_error)
+        __PYX_ERR(0, 1248, __pyx_L1_error)
 
-        /* "ddtrace/internal/_encoding.pyx":1248
+        /* "ddtrace/internal/_encoding.pyx":1247
  *                 d = <dict>o
  *                 L = len(d)
  *                 if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -26990,7 +26980,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1250
+      /* "ddtrace/internal/_encoding.pyx":1249
  *                 if L > ITEM_LIMIT:
  *                     raise ValueError("dict is too large")
  *                 ret = msgpack_pack_map(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -26999,7 +26989,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       __pyx_v_ret = msgpack_pack_map((&__pyx_v_self->pk), __pyx_v_L);
 
-      /* "ddtrace/internal/_encoding.pyx":1251
+      /* "ddtrace/internal/_encoding.pyx":1250
  *                     raise ValueError("dict is too large")
  *                 ret = msgpack_pack_map(&self.pk, L)
  *                 if ret == 0:             # <<<<<<<<<<<<<<
@@ -27009,7 +26999,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_t_1 = (__pyx_v_ret == 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1252
+        /* "ddtrace/internal/_encoding.pyx":1251
  *                 ret = msgpack_pack_map(&self.pk, L)
  *                 if ret == 0:
  *                     for k, v in d.items():             # <<<<<<<<<<<<<<
@@ -27019,9 +27009,9 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_t_25 = 0;
         if (unlikely(__pyx_v_d == Py_None)) {
           PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-          __PYX_ERR(0, 1252, __pyx_L1_error)
+          __PYX_ERR(0, 1251, __pyx_L1_error)
         }
-        __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_d, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_28), (&__pyx_t_16)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1252, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_dict_iterator(__pyx_v_d, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_28), (&__pyx_t_16)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1251, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_10);
         __pyx_t_10 = __pyx_t_5;
@@ -27029,7 +27019,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         while (1) {
           __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_10, __pyx_t_28, &__pyx_t_25, &__pyx_t_5, &__pyx_t_9, NULL, __pyx_t_16);
           if (unlikely(__pyx_t_8 == 0)) break;
-          if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 1252, __pyx_L1_error)
+          if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 1251, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_5);
           __Pyx_GOTREF(__pyx_t_9);
           __Pyx_XDECREF_SET(__pyx_v_k, __pyx_t_5);
@@ -27037,17 +27027,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_9);
           __pyx_t_9 = 0;
 
-          /* "ddtrace/internal/_encoding.pyx":1253
+          /* "ddtrace/internal/_encoding.pyx":1252
  *                 if ret == 0:
  *                     for k, v in d.items():
  *                         ret = self._pack(k)             # <<<<<<<<<<<<<<
  *                         if ret != 0:
  *                             break
 */
-          __pyx_t_8 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_k); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 1253, __pyx_L1_error)
+          __pyx_t_8 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_k); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 1252, __pyx_L1_error)
           __pyx_v_ret = __pyx_t_8;
 
-          /* "ddtrace/internal/_encoding.pyx":1254
+          /* "ddtrace/internal/_encoding.pyx":1253
  *                     for k, v in d.items():
  *                         ret = self._pack(k)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -27057,7 +27047,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __pyx_t_1 = (__pyx_v_ret != 0);
           if (__pyx_t_1) {
 
-            /* "ddtrace/internal/_encoding.pyx":1255
+            /* "ddtrace/internal/_encoding.pyx":1254
  *                         ret = self._pack(k)
  *                         if ret != 0:
  *                             break             # <<<<<<<<<<<<<<
@@ -27066,7 +27056,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
             goto __pyx_L38_break;
 
-            /* "ddtrace/internal/_encoding.pyx":1254
+            /* "ddtrace/internal/_encoding.pyx":1253
  *                     for k, v in d.items():
  *                         ret = self._pack(k)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -27075,17 +27065,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":1256
+          /* "ddtrace/internal/_encoding.pyx":1255
  *                         if ret != 0:
  *                             break
  *                         ret = self._pack(v)             # <<<<<<<<<<<<<<
  *                         if ret != 0:
  *                             break
 */
-          __pyx_t_8 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_v); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 1256, __pyx_L1_error)
+          __pyx_t_8 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_v); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 1255, __pyx_L1_error)
           __pyx_v_ret = __pyx_t_8;
 
-          /* "ddtrace/internal/_encoding.pyx":1257
+          /* "ddtrace/internal/_encoding.pyx":1256
  *                             break
  *                         ret = self._pack(v)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -27095,7 +27085,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __pyx_t_1 = (__pyx_v_ret != 0);
           if (__pyx_t_1) {
 
-            /* "ddtrace/internal/_encoding.pyx":1258
+            /* "ddtrace/internal/_encoding.pyx":1257
  *                         ret = self._pack(v)
  *                         if ret != 0:
  *                             break             # <<<<<<<<<<<<<<
@@ -27104,7 +27094,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
             goto __pyx_L38_break;
 
-            /* "ddtrace/internal/_encoding.pyx":1257
+            /* "ddtrace/internal/_encoding.pyx":1256
  *                             break
  *                         ret = self._pack(v)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -27116,7 +27106,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         __pyx_L38_break:;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-        /* "ddtrace/internal/_encoding.pyx":1251
+        /* "ddtrace/internal/_encoding.pyx":1250
  *                     raise ValueError("dict is too large")
  *                 ret = msgpack_pack_map(&self.pk, L)
  *                 if ret == 0:             # <<<<<<<<<<<<<<
@@ -27125,7 +27115,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1245
+      /* "ddtrace/internal/_encoding.pyx":1244
  *                         rawval = o
  *                         ret = msgpack_pack_raw_body(&self.pk, rawval, L)
  *             elif PyDict_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -27135,7 +27125,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1259
+    /* "ddtrace/internal/_encoding.pyx":1258
  *                         if ret != 0:
  *                             break
  *             elif PyList_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -27145,7 +27135,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_t_1 = PyList_CheckExact(__pyx_v_o);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1260
+      /* "ddtrace/internal/_encoding.pyx":1259
  *                             break
  *             elif PyList_CheckExact(o):
  *                 L = Py_SIZE(o)             # <<<<<<<<<<<<<<
@@ -27154,7 +27144,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       __pyx_v_L = Py_SIZE(__pyx_v_o);
 
-      /* "ddtrace/internal/_encoding.pyx":1261
+      /* "ddtrace/internal/_encoding.pyx":1260
  *             elif PyList_CheckExact(o):
  *                 L = Py_SIZE(o)
  *                 if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -27164,7 +27154,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_t_1 = (__pyx_v_L > __pyx_v_7ddtrace_8internal_9_encoding_ITEM_LIMIT);
       if (unlikely(__pyx_t_1)) {
 
-        /* "ddtrace/internal/_encoding.pyx":1262
+        /* "ddtrace/internal/_encoding.pyx":1261
  *                 L = Py_SIZE(o)
  *                 if L > ITEM_LIMIT:
  *                     raise ValueError("list is too large")             # <<<<<<<<<<<<<<
@@ -27180,14 +27170,14 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+__pyx_t_15, (2-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1262, __pyx_L1_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1261, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
         __Pyx_Raise(__pyx_t_10, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 1262, __pyx_L1_error)
+        __PYX_ERR(0, 1261, __pyx_L1_error)
 
-        /* "ddtrace/internal/_encoding.pyx":1261
+        /* "ddtrace/internal/_encoding.pyx":1260
  *             elif PyList_CheckExact(o):
  *                 L = Py_SIZE(o)
  *                 if L > ITEM_LIMIT:             # <<<<<<<<<<<<<<
@@ -27196,7 +27186,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1263
+      /* "ddtrace/internal/_encoding.pyx":1262
  *                 if L > ITEM_LIMIT:
  *                     raise ValueError("list is too large")
  *                 ret = msgpack_pack_array(&self.pk, L)             # <<<<<<<<<<<<<<
@@ -27205,7 +27195,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       __pyx_v_ret = msgpack_pack_array((&__pyx_v_self->pk), __pyx_v_L);
 
-      /* "ddtrace/internal/_encoding.pyx":1264
+      /* "ddtrace/internal/_encoding.pyx":1263
  *                     raise ValueError("list is too large")
  *                 ret = msgpack_pack_array(&self.pk, L)
  *                 if ret == 0:             # <<<<<<<<<<<<<<
@@ -27215,7 +27205,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       __pyx_t_1 = (__pyx_v_ret == 0);
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1265
+        /* "ddtrace/internal/_encoding.pyx":1264
  *                 ret = msgpack_pack_array(&self.pk, L)
  *                 if ret == 0:
  *                     for v in o:             # <<<<<<<<<<<<<<
@@ -27227,9 +27217,9 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __pyx_t_28 = 0;
           __pyx_t_29 = NULL;
         } else {
-          __pyx_t_28 = -1; __pyx_t_10 = PyObject_GetIter(__pyx_v_o); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1265, __pyx_L1_error)
+          __pyx_t_28 = -1; __pyx_t_10 = PyObject_GetIter(__pyx_v_o); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1264, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_10);
-          __pyx_t_29 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_29)) __PYX_ERR(0, 1265, __pyx_L1_error)
+          __pyx_t_29 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_29)) __PYX_ERR(0, 1264, __pyx_L1_error)
         }
         for (;;) {
           if (likely(!__pyx_t_29)) {
@@ -27237,7 +27227,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_10);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1265, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1264, __pyx_L1_error)
                 #endif
                 if (__pyx_t_28 >= __pyx_temp) break;
               }
@@ -27247,7 +27237,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
               {
                 Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_10);
                 #if !CYTHON_ASSUME_SAFE_SIZE
-                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1265, __pyx_L1_error)
+                if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 1264, __pyx_L1_error)
                 #endif
                 if (__pyx_t_28 >= __pyx_temp) break;
               }
@@ -27258,13 +27248,13 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
               #endif
               ++__pyx_t_28;
             }
-            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1265, __pyx_L1_error)
+            if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 1264, __pyx_L1_error)
           } else {
             __pyx_t_5 = __pyx_t_29(__pyx_t_10);
             if (unlikely(!__pyx_t_5)) {
               PyObject* exc_type = PyErr_Occurred();
               if (exc_type) {
-                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1265, __pyx_L1_error)
+                if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 1264, __pyx_L1_error)
                 PyErr_Clear();
               }
               break;
@@ -27274,17 +27264,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __Pyx_XDECREF_SET(__pyx_v_v, __pyx_t_5);
           __pyx_t_5 = 0;
 
-          /* "ddtrace/internal/_encoding.pyx":1266
+          /* "ddtrace/internal/_encoding.pyx":1265
  *                 if ret == 0:
  *                     for v in o:
  *                         ret = self._pack(v)             # <<<<<<<<<<<<<<
  *                         if ret != 0:
  *                             break
 */
-          __pyx_t_16 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_v); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 1266, __pyx_L1_error)
+          __pyx_t_16 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_v); if (unlikely(__pyx_t_16 == ((int)-1))) __PYX_ERR(0, 1265, __pyx_L1_error)
           __pyx_v_ret = __pyx_t_16;
 
-          /* "ddtrace/internal/_encoding.pyx":1267
+          /* "ddtrace/internal/_encoding.pyx":1266
  *                     for v in o:
  *                         ret = self._pack(v)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -27294,7 +27284,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
           __pyx_t_1 = (__pyx_v_ret != 0);
           if (__pyx_t_1) {
 
-            /* "ddtrace/internal/_encoding.pyx":1268
+            /* "ddtrace/internal/_encoding.pyx":1267
  *                         ret = self._pack(v)
  *                         if ret != 0:
  *                             break             # <<<<<<<<<<<<<<
@@ -27303,7 +27293,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
             goto __pyx_L44_break;
 
-            /* "ddtrace/internal/_encoding.pyx":1267
+            /* "ddtrace/internal/_encoding.pyx":1266
  *                     for v in o:
  *                         ret = self._pack(v)
  *                         if ret != 0:             # <<<<<<<<<<<<<<
@@ -27312,7 +27302,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
           }
 
-          /* "ddtrace/internal/_encoding.pyx":1265
+          /* "ddtrace/internal/_encoding.pyx":1264
  *                 ret = msgpack_pack_array(&self.pk, L)
  *                 if ret == 0:
  *                     for v in o:             # <<<<<<<<<<<<<<
@@ -27327,7 +27317,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         goto __pyx_L46_for_end;
         __pyx_L46_for_end:;
 
-        /* "ddtrace/internal/_encoding.pyx":1264
+        /* "ddtrace/internal/_encoding.pyx":1263
  *                     raise ValueError("list is too large")
  *                 ret = msgpack_pack_array(&self.pk, L)
  *                 if ret == 0:             # <<<<<<<<<<<<<<
@@ -27336,7 +27326,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1259
+      /* "ddtrace/internal/_encoding.pyx":1258
  *                         if ret != 0:
  *                             break
  *             elif PyList_CheckExact(o):             # <<<<<<<<<<<<<<
@@ -27346,7 +27336,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1269
+    /* "ddtrace/internal/_encoding.pyx":1268
  *                         if ret != 0:
  *                             break
  *             elif PyBool_Check(o):             # <<<<<<<<<<<<<<
@@ -27356,17 +27346,17 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_t_1 = PyBool_Check(__pyx_v_o);
     if (__pyx_t_1) {
 
-      /* "ddtrace/internal/_encoding.pyx":1270
+      /* "ddtrace/internal/_encoding.pyx":1269
  *                             break
  *             elif PyBool_Check(o):
  *                 if o:             # <<<<<<<<<<<<<<
  *                     ret = msgpack_pack_true(&self.pk)
  *                 else:
 */
-      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_o); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1270, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_o); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 1269, __pyx_L1_error)
       if (__pyx_t_1) {
 
-        /* "ddtrace/internal/_encoding.pyx":1271
+        /* "ddtrace/internal/_encoding.pyx":1270
  *             elif PyBool_Check(o):
  *                 if o:
  *                     ret = msgpack_pack_true(&self.pk)             # <<<<<<<<<<<<<<
@@ -27375,7 +27365,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
 */
         __pyx_v_ret = msgpack_pack_true((&__pyx_v_self->pk));
 
-        /* "ddtrace/internal/_encoding.pyx":1270
+        /* "ddtrace/internal/_encoding.pyx":1269
  *                             break
  *             elif PyBool_Check(o):
  *                 if o:             # <<<<<<<<<<<<<<
@@ -27385,7 +27375,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
         goto __pyx_L47;
       }
 
-      /* "ddtrace/internal/_encoding.pyx":1273
+      /* "ddtrace/internal/_encoding.pyx":1272
  *                     ret = msgpack_pack_true(&self.pk)
  *                 else:
  *                     ret = msgpack_pack_false(&self.pk)             # <<<<<<<<<<<<<<
@@ -27397,7 +27387,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       }
       __pyx_L47:;
 
-      /* "ddtrace/internal/_encoding.pyx":1269
+      /* "ddtrace/internal/_encoding.pyx":1268
  *                         if ret != 0:
  *                             break
  *             elif PyBool_Check(o):             # <<<<<<<<<<<<<<
@@ -27407,7 +27397,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
       goto __pyx_L5;
     }
 
-    /* "ddtrace/internal/_encoding.pyx":1275
+    /* "ddtrace/internal/_encoding.pyx":1274
  *                     ret = msgpack_pack_false(&self.pk)
  *             else:
  *                 PyErr_Format(TypeError, b"can not serialize '%.200s' object", Py_TYPE(o).tp_name)             # <<<<<<<<<<<<<<
@@ -27415,11 +27405,11 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
  * 
 */
     /*else*/ {
-      __pyx_t_26 = PyErr_Format(__pyx_builtin_TypeError, ((char *)"can not serialize '%.200s' object"), Py_TYPE(__pyx_v_o)->tp_name); if (unlikely(__pyx_t_26 == ((PyObject *)0))) __PYX_ERR(0, 1275, __pyx_L1_error)
+      __pyx_t_26 = PyErr_Format(__pyx_builtin_TypeError, ((char *)"can not serialize '%.200s' object"), Py_TYPE(__pyx_v_o)->tp_name); if (unlikely(__pyx_t_26 == ((PyObject *)0))) __PYX_ERR(0, 1274, __pyx_L1_error)
     }
     __pyx_L5:;
 
-    /* "ddtrace/internal/_encoding.pyx":1276
+    /* "ddtrace/internal/_encoding.pyx":1275
  *             else:
  *                 PyErr_Format(TypeError, b"can not serialize '%.200s' object", Py_TYPE(o).tp_name)
  *             return ret             # <<<<<<<<<<<<<<
@@ -27431,7 +27421,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
     __pyx_L3_continue:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1191
+  /* "ddtrace/internal/_encoding.pyx":1190
  *         self.pk.buf = NULL
  * 
  *     cdef int _pack(self, object o) except -1:             # <<<<<<<<<<<<<<
@@ -27461,7 +27451,7 @@ static int __pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack(struct __pyx_obj_
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1278
+/* "ddtrace/internal/_encoding.pyx":1277
  *             return ret
  * 
  *     cpdef pack(self, object obj):             # <<<<<<<<<<<<<<
@@ -27511,7 +27501,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pack); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1278, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pack); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1277, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (!__Pyx_IsSameCFunction(__pyx_t_1, (void(*)(void)) __pyx_pw_7ddtrace_8internal_9_encoding_6Packer_7pack)) {
         __Pyx_XDECREF(__pyx_r);
@@ -27535,7 +27525,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1278, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1277, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
         }
         __pyx_r = __pyx_t_2;
@@ -27556,7 +27546,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
     #endif
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1280
+  /* "ddtrace/internal/_encoding.pyx":1279
  *     cpdef pack(self, object obj):
  *         cdef int ret
  *         try:             # <<<<<<<<<<<<<<
@@ -27572,17 +27562,17 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
     __Pyx_XGOTREF(__pyx_t_8);
     /*try:*/ {
 
-      /* "ddtrace/internal/_encoding.pyx":1281
+      /* "ddtrace/internal/_encoding.pyx":1280
  *         cdef int ret
  *         try:
  *             ret = self._pack(obj)             # <<<<<<<<<<<<<<
  *         except Exception:
  *             self.pk.length = 0
 */
-      __pyx_t_9 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_obj); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 1281, __pyx_L3_error)
+      __pyx_t_9 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)__pyx_v_self->__pyx_vtab)->_pack(__pyx_v_self, __pyx_v_obj); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 1280, __pyx_L3_error)
       __pyx_v_ret = __pyx_t_9;
 
-      /* "ddtrace/internal/_encoding.pyx":1280
+      /* "ddtrace/internal/_encoding.pyx":1279
  *     cpdef pack(self, object obj):
  *         cdef int ret
  *         try:             # <<<<<<<<<<<<<<
@@ -27600,7 +27590,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "ddtrace/internal/_encoding.pyx":1282
+    /* "ddtrace/internal/_encoding.pyx":1281
  *         try:
  *             ret = self._pack(obj)
  *         except Exception:             # <<<<<<<<<<<<<<
@@ -27610,12 +27600,12 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_9) {
       __Pyx_AddTraceback("ddtrace.internal._encoding.Packer.pack", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_4) < 0) __PYX_ERR(0, 1282, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_4) < 0) __PYX_ERR(0, 1281, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_2);
       __Pyx_XGOTREF(__pyx_t_4);
 
-      /* "ddtrace/internal/_encoding.pyx":1283
+      /* "ddtrace/internal/_encoding.pyx":1282
  *             ret = self._pack(obj)
  *         except Exception:
  *             self.pk.length = 0             # <<<<<<<<<<<<<<
@@ -27624,7 +27614,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
 */
       __pyx_v_self->pk.length = 0;
 
-      /* "ddtrace/internal/_encoding.pyx":1285
+      /* "ddtrace/internal/_encoding.pyx":1284
  *             self.pk.length = 0
  * 
  *             raise             # <<<<<<<<<<<<<<
@@ -27636,11 +27626,11 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
       __Pyx_XGIVEREF(__pyx_t_4);
       __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_2, __pyx_t_4);
       __pyx_t_1 = 0;  __pyx_t_2 = 0;  __pyx_t_4 = 0; 
-      __PYX_ERR(0, 1285, __pyx_L5_except_error)
+      __PYX_ERR(0, 1284, __pyx_L5_except_error)
     }
     goto __pyx_L5_except_error;
 
-    /* "ddtrace/internal/_encoding.pyx":1280
+    /* "ddtrace/internal/_encoding.pyx":1279
  *     cpdef pack(self, object obj):
  *         cdef int ret
  *         try:             # <<<<<<<<<<<<<<
@@ -27656,7 +27646,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
     __pyx_L8_try_end:;
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1286
+  /* "ddtrace/internal/_encoding.pyx":1285
  * 
  *             raise
  *         if ret:  # should not happen.             # <<<<<<<<<<<<<<
@@ -27666,7 +27656,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
   __pyx_t_10 = (__pyx_v_ret != 0);
   if (unlikely(__pyx_t_10)) {
 
-    /* "ddtrace/internal/_encoding.pyx":1287
+    /* "ddtrace/internal/_encoding.pyx":1286
  *             raise
  *         if ret:  # should not happen.
  *             raise RuntimeError("internal error")             # <<<<<<<<<<<<<<
@@ -27682,14 +27672,14 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
       __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1287, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1286, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_Raise(__pyx_t_4, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __PYX_ERR(0, 1287, __pyx_L1_error)
+    __PYX_ERR(0, 1286, __pyx_L1_error)
 
-    /* "ddtrace/internal/_encoding.pyx":1286
+    /* "ddtrace/internal/_encoding.pyx":1285
  * 
  *             raise
  *         if ret:  # should not happen.             # <<<<<<<<<<<<<<
@@ -27698,19 +27688,19 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
 */
   }
 
-  /* "ddtrace/internal/_encoding.pyx":1290
+  /* "ddtrace/internal/_encoding.pyx":1289
  * 
  *         # Reset the buffer.
  *         buf = PyBytes_FromStringAndSize(self.pk.buf, self.pk.length)             # <<<<<<<<<<<<<<
  *         self.pk.length = 0
  *         return buf
 */
-  __pyx_t_4 = PyBytes_FromStringAndSize(__pyx_v_self->pk.buf, __pyx_v_self->pk.length); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1290, __pyx_L1_error)
+  __pyx_t_4 = PyBytes_FromStringAndSize(__pyx_v_self->pk.buf, __pyx_v_self->pk.length); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1289, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_buf = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1291
+  /* "ddtrace/internal/_encoding.pyx":1290
  *         # Reset the buffer.
  *         buf = PyBytes_FromStringAndSize(self.pk.buf, self.pk.length)
  *         self.pk.length = 0             # <<<<<<<<<<<<<<
@@ -27719,7 +27709,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
 */
   __pyx_v_self->pk.length = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1292
+  /* "ddtrace/internal/_encoding.pyx":1291
  *         buf = PyBytes_FromStringAndSize(self.pk.buf, self.pk.length)
  *         self.pk.length = 0
  *         return buf             # <<<<<<<<<<<<<<
@@ -27731,7 +27721,7 @@ static PyObject *__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(struct __pyx
   __pyx_r = __pyx_v_buf;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":1278
+  /* "ddtrace/internal/_encoding.pyx":1277
  *             return ret
  * 
  *     cpdef pack(self, object obj):             # <<<<<<<<<<<<<<
@@ -27793,32 +27783,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_obj,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1278, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1277, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1278, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1277, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "pack", 0) < 0) __PYX_ERR(0, 1278, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "pack", 0) < 0) __PYX_ERR(0, 1277, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("pack", 1, 1, 1, i); __PYX_ERR(0, 1278, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("pack", 1, 1, 1, i); __PYX_ERR(0, 1277, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1278, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1277, __pyx_L3_error)
     }
     __pyx_v_obj = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("pack", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1278, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("pack", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1277, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -27848,7 +27838,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_6Packer_6pack(struct __p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pack", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(__pyx_v_self, __pyx_v_obj, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1278, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack(__pyx_v_self, __pyx_v_obj, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -27865,7 +27855,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_6Packer_6pack(struct __p
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1294
+/* "ddtrace/internal/_encoding.pyx":1293
  *         return buf
  * 
  *     def bytes(self):             # <<<<<<<<<<<<<<
@@ -27925,7 +27915,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_6Packer_8bytes(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("bytes", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1296
+  /* "ddtrace/internal/_encoding.pyx":1295
  *     def bytes(self):
  *         """Return internal buffer contents as bytes object"""
  *         return PyBytes_FromStringAndSize(self.pk.buf, self.pk.length)             # <<<<<<<<<<<<<<
@@ -27933,13 +27923,13 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_6Packer_8bytes(struct __
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyBytes_FromStringAndSize(__pyx_v_self->pk.buf, __pyx_v_self->pk.length); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1296, __pyx_L1_error)
+  __pyx_t_1 = PyBytes_FromStringAndSize(__pyx_v_self->pk.buf, __pyx_v_self->pk.length); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":1294
+  /* "ddtrace/internal/_encoding.pyx":1293
  *         return buf
  * 
  *     def bytes(self):             # <<<<<<<<<<<<<<
@@ -28162,7 +28152,7 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_6Packer_12__setstate_cyt
   return __pyx_r;
 }
 
-/* "ddtrace/internal/_encoding.pyx":1299
+/* "ddtrace/internal/_encoding.pyx":1298
  * 
  * 
  * def packb(o, **kwargs):             # <<<<<<<<<<<<<<
@@ -28213,32 +28203,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_o,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1299, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len) < 0) __PYX_ERR(0, 1298, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1299, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1298, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "packb", 1) < 0) __PYX_ERR(0, 1299, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "packb", 1) < 0) __PYX_ERR(0, 1298, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("packb", 1, 1, 1, i); __PYX_ERR(0, 1299, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("packb", 1, 1, 1, i); __PYX_ERR(0, 1298, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1299, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 1298, __pyx_L3_error)
     }
     __pyx_v_o = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("packb", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1299, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("packb", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 1298, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -28271,25 +28261,25 @@ static PyObject *__pyx_pf_7ddtrace_8internal_9_encoding_packb(CYTHON_UNUSED PyOb
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("packb", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":1304
+  /* "ddtrace/internal/_encoding.pyx":1303
  *     See :class:`Packer` for options.
  *     """
  *     return Packer(**kwargs).pack(o)             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1304, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Copy(__pyx_v_kwargs); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer), __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1304, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_Call(((PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer), __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 1303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)((struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer *)__pyx_t_2)->__pyx_vtab)->pack(((struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer *)__pyx_t_2), __pyx_v_o, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1304, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_7ddtrace_8internal_9_encoding_Packer *)((struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer *)__pyx_t_2)->__pyx_vtab)->pack(((struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer *)__pyx_t_2), __pyx_v_o, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1303, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "ddtrace/internal/_encoding.pyx":1299
+  /* "ddtrace/internal/_encoding.pyx":1298
  * 
  * 
  * def packb(o, **kwargs):             # <<<<<<<<<<<<<<
@@ -30701,35 +30691,35 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_7ddtrace_8internal_9_encoding_StringTable.index = (uint32_t (*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *, PyObject *, int __pyx_skip_dispatch))__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_index;
   __pyx_vtable_7ddtrace_8internal_9_encoding_StringTable.reset = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *))__pyx_f_7ddtrace_8internal_9_encoding_11StringTable_reset;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_StringTable_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable)) __PYX_ERR(0, 179, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_StringTable_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_StringTable_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable)) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_StringTable_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable = &__pyx_type_7ddtrace_8internal_9_encoding_StringTable;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 179, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable, __pyx_vtabptr_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 179, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 179, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_StringTable, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 179, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 179, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable, __pyx_vtabptr_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_StringTable, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable) < 0) __PYX_ERR(0, 178, __pyx_L1_error)
   __pyx_vtabptr_7ddtrace_8internal_9_encoding_ListStringTable = &__pyx_vtable_7ddtrace_8internal_9_encoding_ListStringTable;
   __pyx_vtable_7ddtrace_8internal_9_encoding_ListStringTable.__pyx_base = *__pyx_vtabptr_7ddtrace_8internal_9_encoding_StringTable;
   __pyx_vtable_7ddtrace_8internal_9_encoding_ListStringTable.__pyx_base.insert = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *, PyObject *))__pyx_f_7ddtrace_8internal_9_encoding_15ListStringTable_insert;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_ListStringTable_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable)) __PYX_ERR(0, 228, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_ListStringTable_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable)) __PYX_ERR(0, 227, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_ListStringTable_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable = &__pyx_type_7ddtrace_8internal_9_encoding_ListStringTable;
   #endif
@@ -30737,17 +30727,17 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable->tp_base = __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable, __pyx_vtabptr_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ListStringTable, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 228, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable, __pyx_vtabptr_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ListStringTable, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable) < 0) __PYX_ERR(0, 227, __pyx_L1_error)
   __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackStringTable = &__pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackStringTable;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackStringTable.__pyx_base = *__pyx_vtabptr_7ddtrace_8internal_9_encoding_StringTable;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackStringTable.__pyx_base.insert = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_StringTable *, PyObject *))__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_insert;
@@ -30758,12 +30748,12 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackStringTable.append_raw = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackStringTable *, long, Py_ssize_t))__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_append_raw;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackStringTable.flush = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackStringTable *, int __pyx_skip_dispatch))__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackStringTable_flush;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 242, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 241, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackStringTable_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable)) __PYX_ERR(0, 242, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackStringTable_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable)) __PYX_ERR(0, 241, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackStringTable_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 241, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable = &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackStringTable;
   #endif
@@ -30771,45 +30761,45 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable->tp_base = __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 241, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackStringTable, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 242, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 241, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 241, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackStringTable, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 241, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable) < 0) __PYX_ERR(0, 241, __pyx_L1_error)
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_BufferedEncoder_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder)) __PYX_ERR(0, 363, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_BufferedEncoder_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_BufferedEncoder_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder)) __PYX_ERR(0, 362, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_BufferedEncoder_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder = &__pyx_type_7ddtrace_8internal_9_encoding_BufferedEncoder;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BufferedEncoder, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_BufferedEncoder, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder) < 0) __PYX_ERR(0, 362, __pyx_L1_error)
   __pyx_vtabptr_7ddtrace_8internal_9_encoding_ListBufferedEncoder = &__pyx_vtable_7ddtrace_8internal_9_encoding_ListBufferedEncoder;
   __pyx_vtable_7ddtrace_8internal_9_encoding_ListBufferedEncoder.put = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_ListBufferedEncoder *, PyObject *, int __pyx_skip_dispatch))__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_put;
   __pyx_vtable_7ddtrace_8internal_9_encoding_ListBufferedEncoder.get = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_ListBufferedEncoder *, int __pyx_skip_dispatch))__pyx_f_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_get;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 384, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 383, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_ListBufferedEncoder_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder)) __PYX_ERR(0, 384, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_ListBufferedEncoder_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 384, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder)) __PYX_ERR(0, 383, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_ListBufferedEncoder_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 383, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder = &__pyx_type_7ddtrace_8internal_9_encoding_ListBufferedEncoder;
   #endif
@@ -30817,17 +30807,17 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder->tp_base = __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 384, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 383, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_vtabptr_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 384, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 384, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 384, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 384, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_vtabptr_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 383, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 383, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 383, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder) < 0) __PYX_ERR(0, 383, __pyx_L1_error)
   __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderBase = &__pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderBase;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderBase._decode = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *, PyObject *, int __pyx_skip_dispatch))__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__decode;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderBase._reset_buffer = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *))__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase__reset_buffer;
@@ -30841,12 +30831,12 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderBase.flush = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *, int __pyx_skip_dispatch))__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_flush;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderBase.pack_span = (int (*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *, PyObject *, unsigned PY_LONG_LONG, void *))__pyx_f_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_pack_span;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 429, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderBase_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase)) __PYX_ERR(0, 430, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderBase_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase)) __PYX_ERR(0, 429, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderBase_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 429, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase = &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderBase;
   #endif
@@ -30854,17 +30844,17 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase->tp_base = __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 429, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 429, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 429, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 429, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase) < 0) __PYX_ERR(0, 429, __pyx_L1_error)
   __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 = &__pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV04;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV04.__pyx_base = *__pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderBase;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV04.__pyx_base.get_dd_origin_ref = (void *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *, PyObject *))__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_get_dd_origin_ref;
@@ -30876,12 +30866,12 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV04._pack_metrics = (int (*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *, PyObject *))__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04__pack_metrics;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV04.pack_span_event_attributes = (int (*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 *, PyObject *, struct __pyx_opt_args_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_event_attributes *__pyx_optional_args))__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_pack_span_event_attributes;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 583, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 582, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV04_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04)) __PYX_ERR(0, 583, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV04_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 583, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04)) __PYX_ERR(0, 582, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV04_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 582, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04 = &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV04;
   #endif
@@ -30889,17 +30879,17 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04->tp_base = __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 583, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 582, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 583, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 583, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV04, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 583, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 583, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 582, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 582, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV04, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 582, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04) < 0) __PYX_ERR(0, 582, __pyx_L1_error)
   __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 = &__pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV05;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV05.__pyx_base = *__pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderBase;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV05.__pyx_base.get_dd_origin_ref = (void *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *, PyObject *))__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_get_dd_origin_ref;
@@ -30908,12 +30898,12 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV05.__pyx_base.pack_span = (int (*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderBase *, PyObject *, unsigned PY_LONG_LONG, void *))__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_pack_span;
   __pyx_vtable_7ddtrace_8internal_9_encoding_MsgpackEncoderV05._pack_string = (int (*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 *, PyObject *))__pyx_f_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05__pack_string;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 998, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 997, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV05_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05)) __PYX_ERR(0, 998, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV05_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 998, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05)) __PYX_ERR(0, 997, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV05_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 997, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05 = &__pyx_type_7ddtrace_8internal_9_encoding_MsgpackEncoderV05;
   #endif
@@ -30921,40 +30911,40 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05->tp_base = __pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 998, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 997, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 998, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 998, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV05, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 998, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 998, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05, __pyx_vtabptr_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 997, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 997, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV05, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 997, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05) < 0) __PYX_ERR(0, 997, __pyx_L1_error)
   __pyx_vtabptr_7ddtrace_8internal_9_encoding_Packer = &__pyx_vtable_7ddtrace_8internal_9_encoding_Packer;
   __pyx_vtable_7ddtrace_8internal_9_encoding_Packer._pack = (int (*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer *, PyObject *))__pyx_f_7ddtrace_8internal_9_encoding_6Packer__pack;
   __pyx_vtable_7ddtrace_8internal_9_encoding_Packer.pack = (PyObject *(*)(struct __pyx_obj_7ddtrace_8internal_9_encoding_Packer *, PyObject *, int __pyx_skip_dispatch))__pyx_f_7ddtrace_8internal_9_encoding_6Packer_pack;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_Packer_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer)) __PYX_ERR(0, 1148, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_Packer_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1148, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_7ddtrace_8internal_9_encoding_Packer_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer)) __PYX_ERR(0, 1147, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_7ddtrace_8internal_9_encoding_Packer_spec, __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer = &__pyx_type_7ddtrace_8internal_9_encoding_Packer;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1148, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer->tp_dictoffset && __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer, __pyx_vtabptr_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1148, __pyx_L1_error)
-  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1148, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Packer, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1148, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1148, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer, __pyx_vtabptr_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
+  if (__Pyx_MergeVtables(__pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_Packer, (PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer) < 0) __PYX_ERR(0, 1147, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -31567,16 +31557,16 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_7ddtrace_8internal_9_encoding__ORIGIN_KEY_LEN = ((size_t)__pyx_t_7);
 
-  /* "ddtrace/internal/_encoding.pyx":212
+  /* "ddtrace/internal/_encoding.pyx":211
  *         return _id
  * 
  *     cpdef stdint.uint32_t index(self, object string) except? -1:             # <<<<<<<<<<<<<<
  *         return self._index(string)
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_11StringTable_3index, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_StringTable_index, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_11StringTable_3index, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_StringTable_index, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable, __pyx_mstate_global->__pyx_n_u_index, __pyx_t_4) < 0) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_StringTable, __pyx_mstate_global->__pyx_n_u_index, __pyx_t_4) < 0) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31621,16 +31611,16 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListStringTable, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":355
+  /* "ddtrace/internal/_encoding.pyx":354
  *         self._sp_len = 0
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
  *         with self._lock:
  *             try:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackStringTable_5flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackStringTable_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackStringTable_5flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackStringTable_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 355, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackStringTable, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31654,37 +31644,37 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":364
+  /* "ddtrace/internal/_encoding.pyx":363
  * 
  * cdef class BufferedEncoder(object):
  *     content_type: str = None             # <<<<<<<<<<<<<<
  * 
  *     cdef public size_t max_size
 */
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder, __pyx_mstate_global->__pyx_n_u_content_type, Py_None) < 0) __PYX_ERR(0, 364, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder, __pyx_mstate_global->__pyx_n_u_content_type, Py_None) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":377
+  /* "ddtrace/internal/_encoding.pyx":376
  *     # ---- Abstract methods ----
  * 
  *     def put(self, item):             # <<<<<<<<<<<<<<
  *         raise NotImplementedError()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_15BufferedEncoder_3put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BufferedEncoder_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 377, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_15BufferedEncoder_3put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BufferedEncoder_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 377, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 376, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":380
+  /* "ddtrace/internal/_encoding.pyx":379
  *         raise NotImplementedError()
  * 
  *     def encode(self):             # <<<<<<<<<<<<<<
  *         raise NotImplementedError()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_15BufferedEncoder_5encode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BufferedEncoder_encode, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 380, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_15BufferedEncoder_5encode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_BufferedEncoder_encode, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 379, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder, __pyx_mstate_global->__pyx_n_u_encode, __pyx_t_4) < 0) __PYX_ERR(0, 380, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_BufferedEncoder, __pyx_mstate_global->__pyx_n_u_encode, __pyx_t_4) < 0) __PYX_ERR(0, 379, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31708,40 +31698,40 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":400
+  /* "ddtrace/internal/_encoding.pyx":399
  *             return self._size
  * 
  *     cpdef put(self, item):             # <<<<<<<<<<<<<<
  *         """Put an item to be serialized in the buffer."""
  *         cdef int item_len
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_5put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_5put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 400, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":417
+  /* "ddtrace/internal/_encoding.pyx":416
  *                 raise BufferFull(item_len)
  * 
  *     cpdef get(self):             # <<<<<<<<<<<<<<
  *         """Get a copy of the buffer and clear it."""
  *         with self._lock:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_7get, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder_get, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 417, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_7get, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder_get, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 416, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_mstate_global->__pyx_n_u_get, __pyx_t_4) < 0) __PYX_ERR(0, 417, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_mstate_global->__pyx_n_u_get, __pyx_t_4) < 0) __PYX_ERR(0, 416, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":426
+  /* "ddtrace/internal/_encoding.pyx":425
  *                 self._size = 0
  * 
  *     def encode_item(self, item):             # <<<<<<<<<<<<<<
  *         raise NotImplementedError()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_9encode_item, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder_encode_item, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_19ListBufferedEncoder_9encode_item, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ListBufferedEncoder_encode_item, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_mstate_global->__pyx_n_u_encode_item, __pyx_t_4) < 0) __PYX_ERR(0, 426, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_ListBufferedEncoder, __pyx_mstate_global->__pyx_n_u_encode_item, __pyx_t_4) < 0) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31765,61 +31755,61 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":431
+  /* "ddtrace/internal/_encoding.pyx":430
  * 
  * cdef class MsgpackEncoderBase(BufferedEncoder):
  *     content_type = "application/msgpack"             # <<<<<<<<<<<<<<
  * 
  *     cdef msgpack_packer pk
 */
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_content_type, __pyx_mstate_global->__pyx_kp_u_application_msgpack) < 0) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_content_type, __pyx_mstate_global->__pyx_kp_u_application_msgpack) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
 
-  /* "ddtrace/internal/_encoding.pyx":455
+  /* "ddtrace/internal/_encoding.pyx":454
  *         return self._count
  * 
  *     cpdef _decode(self, data):             # <<<<<<<<<<<<<<
  *         import msgpack
  *         if msgpack.version[:2] < (0, 6):
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_7_decode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase__decode, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 455, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_7_decode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase__decode, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_decode, __pyx_t_4) < 0) __PYX_ERR(0, 455, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_decode, __pyx_t_4) < 0) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":465
+  /* "ddtrace/internal/_encoding.pyx":464
  *         self.pk.length = MSGPACK_ARRAY_LENGTH_PREFIX_SIZE  # Leave room for array length prefix
  * 
  *     cpdef encode(self):             # <<<<<<<<<<<<<<
  *         with self._lock:
  *             if not self._count:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_9encode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase_encode, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 465, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_9encode, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase_encode, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 464, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_encode, __pyx_t_4) < 0) __PYX_ERR(0, 465, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_encode, __pyx_t_4) < 0) __PYX_ERR(0, 464, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":539
+  /* "ddtrace/internal/_encoding.pyx":538
  *         return ret
  * 
  *     cpdef put(self, list trace):             # <<<<<<<<<<<<<<
  *         """Put a trace (i.e. a list of spans) in the buffer."""
  *         cdef int ret
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_11put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 539, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_11put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 538, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 539, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 538, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":576
+  /* "ddtrace/internal/_encoding.pyx":575
  *     # ---- Abstract methods ----
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
  *         raise NotImplementedError()
  * 
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_13flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 576, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_18MsgpackEncoderBase_13flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderBase_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 575, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 576, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderBase, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 575, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31843,16 +31833,16 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":589
+  /* "ddtrace/internal/_encoding.pyx":588
  *         self.top_level_span_event_encoding = agent_config.trace_native_span_events
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
  *         with self._lock:
  *             try:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_3flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV04_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 589, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_17MsgpackEncoderV04_3flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV04_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 588, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 589, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV04, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 588, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31876,28 +31866,28 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1004
+  /* "ddtrace/internal/_encoding.pyx":1003
  *         self._st = MsgpackStringTable(max_size)
  * 
  *     cpdef flush(self):             # <<<<<<<<<<<<<<
  *         with self._lock:
  *             try:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_3flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV05_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1004, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_3flush, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV05_flush, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1003, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 1004, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05, __pyx_mstate_global->__pyx_n_u_flush, __pyx_t_4) < 0) __PYX_ERR(0, 1003, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1021
+  /* "ddtrace/internal/_encoding.pyx":1020
  *             return self._st.size + super(MsgpackEncoderV05, self).size
  * 
  *     cpdef put(self, list trace):             # <<<<<<<<<<<<<<
  *         with self._lock:
  *             try:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_5put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV05_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1021, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_17MsgpackEncoderV05_5put, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_MsgpackEncoderV05_put, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1020, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 1021, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_MsgpackEncoderV05, __pyx_mstate_global->__pyx_n_u_put, __pyx_t_4) < 0) __PYX_ERR(0, 1020, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31921,28 +31911,28 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1278
+  /* "ddtrace/internal/_encoding.pyx":1277
  *             return ret
  * 
  *     cpdef pack(self, object obj):             # <<<<<<<<<<<<<<
  *         cdef int ret
  *         try:
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_6Packer_7pack, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Packer_pack, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1278, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_6Packer_7pack, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Packer_pack, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1277, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer, __pyx_mstate_global->__pyx_n_u_pack, __pyx_t_4) < 0) __PYX_ERR(0, 1278, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer, __pyx_mstate_global->__pyx_n_u_pack, __pyx_t_4) < 0) __PYX_ERR(0, 1277, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1294
+  /* "ddtrace/internal/_encoding.pyx":1293
  *         return buf
  * 
  *     def bytes(self):             # <<<<<<<<<<<<<<
  *         """Return internal buffer contents as bytes object"""
  *         return PyBytes_FromStringAndSize(self.pk.buf, self.pk.length)
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_6Packer_9bytes, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Packer_bytes, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1294, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_6Packer_9bytes, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Packer_bytes, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer, __pyx_mstate_global->__pyx_n_u_bytes, __pyx_t_4) < 0) __PYX_ERR(0, 1294, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_7ddtrace_8internal_9_encoding_Packer, __pyx_mstate_global->__pyx_n_u_bytes, __pyx_t_4) < 0) __PYX_ERR(0, 1293, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -31966,16 +31956,16 @@ __Pyx_RefNannySetupContext("PyInit__encoding", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "ddtrace/internal/_encoding.pyx":1299
+  /* "ddtrace/internal/_encoding.pyx":1298
  * 
  * 
  * def packb(o, **kwargs):             # <<<<<<<<<<<<<<
  *     """
  *     Pack object `o` and return packed bytes
 */
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_1packb, 0, __pyx_mstate_global->__pyx_n_u_packb, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1299, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_7ddtrace_8internal_9_encoding_1packb, 0, __pyx_mstate_global->__pyx_n_u_packb, NULL, __pyx_mstate_global->__pyx_n_u_ddtrace_internal__encoding, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1298, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_packb, __pyx_t_4) < 0) __PYX_ERR(0, 1299, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_packb, __pyx_t_4) < 0) __PYX_ERR(0, 1298, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "(tree fragment)":1
@@ -32296,13 +32286,13 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __pyx_builtin_OverflowError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_OverflowError); if (!__pyx_builtin_OverflowError) __PYX_ERR(0, 132, __pyx_L1_error)
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 138, __pyx_L1_error)
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 151, __pyx_L1_error)
-  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 233, __pyx_L1_error)
-  __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(0, 254, __pyx_L1_error)
-  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(0, 283, __pyx_L1_error)
-  __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(0, 348, __pyx_L1_error)
-  __pyx_builtin_NotImplementedError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_NotImplementedError); if (!__pyx_builtin_NotImplementedError) __PYX_ERR(0, 378, __pyx_L1_error)
-  __pyx_builtin_vars = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_vars); if (!__pyx_builtin_vars) __PYX_ERR(0, 885, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 232, __pyx_L1_error)
+  __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_builtin_RuntimeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_RuntimeError); if (!__pyx_builtin_RuntimeError) __PYX_ERR(0, 282, __pyx_L1_error)
+  __pyx_builtin_AssertionError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_AssertionError); if (!__pyx_builtin_AssertionError) __PYX_ERR(0, 347, __pyx_L1_error)
+  __pyx_builtin_NotImplementedError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_NotImplementedError); if (!__pyx_builtin_NotImplementedError) __PYX_ERR(0, 377, __pyx_L1_error)
+  __pyx_builtin_vars = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_vars); if (!__pyx_builtin_vars) __PYX_ERR(0, 884, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -32314,50 +32304,50 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "ddtrace/internal/_encoding.pyx":309
+  /* "ddtrace/internal/_encoding.pyx":308
  *         cdef int offset
  *         cdef int old_pos
  *         with self._lock:             # <<<<<<<<<<<<<<
  *             table_size = self._next_id
  *             offset = MSGPACK_STRING_TABLE_LENGTH_PREFIX_SIZE - array_prefix_size(table_size)
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 309, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 308, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "ddtrace/internal/_encoding.pyx":457
+  /* "ddtrace/internal/_encoding.pyx":456
  *     cpdef _decode(self, data):
  *         import msgpack
  *         if msgpack.version[:2] < (0, 6):             # <<<<<<<<<<<<<<
  *             return msgpack.unpackb(data)
  *         return msgpack.unpackb(data, raw=True)
 */
-  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_2, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_2, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[0]);
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_6); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_int_0, __pyx_mstate_global->__pyx_int_6); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 456, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "ddtrace/internal/_encoding.pyx":609
+  /* "ddtrace/internal/_encoding.pyx":608
  *             d = link.to_dict()
  *             # Encode 128 bit trace ids usings two 64bit integers
  *             tid = int(d["trace_id"][:16], 16)             # <<<<<<<<<<<<<<
  *             if tid > 0:
  *                 d["trace_id_high"] = tid
 */
-  __pyx_mstate_global->__pyx_slice[1] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_16, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[1])) __PYX_ERR(0, 609, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[1] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_16, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[1])) __PYX_ERR(0, 608, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[1]);
 
-  /* "ddtrace/internal/_encoding.pyx":612
+  /* "ddtrace/internal/_encoding.pyx":611
  *             if tid > 0:
  *                 d["trace_id_high"] = tid
  *             d["trace_id"] = int(d["trace_id"][16:], 16)             # <<<<<<<<<<<<<<
  *             # span id should be uint64 in v0.4 (it is hex in v0.5)
  *             d["span_id"] = int(d["span_id"], 16)
 */
-  __pyx_mstate_global->__pyx_slice[2] = PySlice_New(__pyx_mstate_global->__pyx_int_16, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[2])) __PYX_ERR(0, 612, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[2] = PySlice_New(__pyx_mstate_global->__pyx_int_16, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[2])) __PYX_ERR(0, 611, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[2]);
 
@@ -32430,7 +32420,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 212, 16};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 211, 16};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_string};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_index, __pyx_k_a_t7_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
@@ -32455,7 +32445,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_QfA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 355, 26};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 354, 26};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_flush, __pyx_k_A_t_Q_F, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
@@ -32470,12 +32460,12 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 377, 10};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 376, 10};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_item};
     __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_put, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 380, 10};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 379, 10};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_encode, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
@@ -32490,17 +32480,17 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 400, 104};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 399, 104};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_item};
     __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_put, __pyx_k_A_t_q_3aq_9Bd_IRt1_AQ_t7_IS_A_HG, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 417, 37};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 416, 37};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_get, __pyx_k_A_t1D_HF_IQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 426, 10};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 425, 10};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_item};
     __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_encode_item, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
@@ -32515,22 +32505,22 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 455, 48};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 454, 48};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_data};
     __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_decode, __pyx_k_A_7_Cs_Q_7_1_whavT, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 465, 30};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 464, 30};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_encode, __pyx_k_A_t4q_q_4vQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 539, 138};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 538, 138};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_trace};
     __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_put, __pyx_k_A_S_a_d_aq_1_aq_4vR_2T_AT_r_4vRt, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 576, 10};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 575, 10};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_flush, __pyx_k_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
   }
@@ -32545,7 +32535,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 589, 34};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 588, 34};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[23] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_flush, __pyx_k_A_r_Zt3aq_N, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[23])) goto bad;
   }
@@ -32560,12 +32550,12 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[25] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[25])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1004, 72};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1003, 72};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[26] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_flush, __pyx_k_A_D_1_1G4_a_q_r_T_t3aq_N, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[26])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1021, 50};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1020, 50};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_trace};
     __pyx_mstate_global->__pyx_codeobj_tab[27] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_put, __pyx_k_A_D_Q_d_1_D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[27])) goto bad;
   }
@@ -32580,12 +32570,12 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[29] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[29])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1278, 81};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1277, 81};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_obj};
     __pyx_mstate_global->__pyx_codeobj_tab[30] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_pack, __pyx_k_A_fAQ_Q_1_aq_q_CvT_A_Cz_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[30])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1294, 22};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 1293, 22};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[31] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_bytes, __pyx_k_A_S_d_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[31])) goto bad;
   }
@@ -32600,7 +32590,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[33] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_stringsource, __pyx_mstate->__pyx_n_u_setstate_cython, __pyx_k_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[33])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 1299, 19};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS), 1298, 19};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_o, __pyx_mstate->__pyx_n_u_kwargs};
     __pyx_mstate_global->__pyx_codeobj_tab[34] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_ddtrace_internal__encoding_pyx, __pyx_mstate->__pyx_n_u_packb, __pyx_k_6_G5, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[34])) goto bad;
   }

@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from collections import namedtuple
 import itertools
 from urllib.parse import parse_qs, urlparse

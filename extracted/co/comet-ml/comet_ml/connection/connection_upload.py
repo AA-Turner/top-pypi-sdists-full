@@ -44,6 +44,7 @@ from ..exceptions import (
     TEXT_SAMPLES_LIMIT_REACHED,
     VIDEO_LIMIT_REACHED,
     BackendCustomError,
+    FileUploadThrottledException,
     ImagesUploadLimitReachedException,
     UploadLimitReachedException,
 )
@@ -760,8 +761,12 @@ def upload_file(
             )
 
         if response.status_code != HTTPStatus.OK:
-            # raise for supported backend errors
+            # raise for supported backend errors - this should go first to handle hard upload limits
             raise_on_upload_from_backend_error_response(response, upload_limits_guard)
+
+            # Handle soft upload limits - HTTP 429 (Too Many Requests) specifically for retry integration
+            if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                raise FileUploadThrottledException(response, options)
 
             if check_asset_was_already_uploaded(response):
                 LOGGER.debug(
@@ -823,7 +828,7 @@ def upload_file(
                 options.max_retries,
                 exc_info=True,
             )
-        else:
+        elif not isinstance(e, FileUploadThrottledException):
             LOGGER.error(
                 CONNECTION_FILE_UPLOAD_FAILED_ERROR,
                 e,
@@ -833,14 +838,6 @@ def upload_file(
                 exc_info=True,
             )
 
-        _report_error(
-            event_name=FILE_UPLOADED_FAILED,
-            experiment_key=options.experiment_id,
-            project_id=options.project_id,
-            api_key=options.api_key,
-            err_msg=str(e),
-        )
-
         if options.on_failed_asset_upload is not None:
             try:
                 options.on_failed_asset_upload(e)
@@ -849,7 +846,16 @@ def upload_file(
                     CONNECTION_FAILED_TO_CALL_ON_FAILED_ASSET_UPLOAD_WARNING,
                     exc_info=True,
                 )
-        raise
+
+        if not isinstance(e, FileUploadThrottledException):
+            _report_error(
+                event_name=FILE_UPLOADED_FAILED,
+                experiment_key=options.experiment_id,
+                project_id=options.project_id,
+                api_key=options.api_key,
+                err_msg=str(e),
+            )
+            raise
 
 
 def upload_file_like(
@@ -886,8 +892,12 @@ def upload_file_like(
             )
 
         if response.status_code != HTTPStatus.OK:
-            # raise for supported backend errors
+            # raise for supported backend errors - this should go first to handle hard upload limits
             raise_on_upload_from_backend_error_response(response, upload_limits_guard)
+
+            # Handle soft upload limits - HTTP 429 (Too Many Requests) specifically for retry integration
+            if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                raise FileUploadThrottledException(response, options)
 
             if check_asset_was_already_uploaded(response):
                 LOGGER.debug(
@@ -921,7 +931,6 @@ def upload_file_like(
                 msg=UPLOAD_LIMIT_REACHED.format(asset_type=e.asset_type),
                 extra=ASSETS_UPLOAD_THROTTLING_MSG_EXTRA,
             )
-
         elif (
             isinstance(e, (ConnectionError, requests.ConnectionError))
             and options.log_connection_error_as_debug
@@ -934,8 +943,7 @@ def upload_file_like(
                 options.max_retries,
                 exc_info=True,
             )
-
-        else:
+        elif not isinstance(e, FileUploadThrottledException):
             LOGGER.error(
                 CONNECTION_FILE_LIKE_UPLOAD_FAILED_ERROR,
                 e,
@@ -943,14 +951,6 @@ def upload_file_like(
                 options.max_retries,
                 exc_info=True,
             )
-
-        _report_error(
-            event_name=FILE_UPLOADED_FAILED,
-            experiment_key=options.experiment_id,
-            project_id=options.project_id,
-            api_key=options.api_key,
-            err_msg=str(e),
-        )
 
         if options.on_failed_asset_upload is not None:
             try:
@@ -961,7 +961,15 @@ def upload_file_like(
                     exc_info=True,
                 )
 
-        raise
+        if not isinstance(e, FileUploadThrottledException):
+            _report_error(
+                event_name=FILE_UPLOADED_FAILED,
+                experiment_key=options.experiment_id,
+                project_id=options.project_id,
+                api_key=options.api_key,
+                err_msg=str(e),
+            )
+            raise
 
 
 def upload_remote_asset(
@@ -987,6 +995,10 @@ def upload_remote_asset(
         )
 
         if response.status_code != HTTPStatus.OK:
+            # Handle HTTP 429 (Too Many Requests) specifically for retry integration
+            if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                raise FileUploadThrottledException(response, options)
+
             raise ValueError(
                 CONNECTION_UPLOAD_REMOTE_ASSET_FAILED_WITH_STATUS_EXCEPTION
                 % (response.status_code, options.upload_endpoint, response.content)
@@ -1012,16 +1024,8 @@ def upload_remote_asset(
         ):
             # to avoid spamming user with errors
             LOGGER.debug(CONNECTION_UPLOAD_REMOTE_ASSET_FAILED_ERROR, e, exc_info=True)
-        else:
+        elif not isinstance(e, FileUploadThrottledException):
             LOGGER.error(CONNECTION_UPLOAD_REMOTE_ASSET_FAILED_ERROR, e, exc_info=True)
-
-        _report_error(
-            event_name=FILE_UPLOADED_FAILED,
-            experiment_key=options.experiment_id,
-            project_id=options.project_id,
-            api_key=options.api_key,
-            err_msg=str(e),
-        )
 
         if options.on_failed_asset_upload is not None:
             try:
@@ -1032,7 +1036,15 @@ def upload_remote_asset(
                     exc_info=True,
                 )
 
-        raise
+        if not isinstance(e, FileUploadThrottledException):
+            _report_error(
+                event_name=FILE_UPLOADED_FAILED,
+                experiment_key=options.experiment_id,
+                project_id=options.project_id,
+                api_key=options.api_key,
+                err_msg=str(e),
+            )
+            raise
 
 
 def upload_asset_item(
@@ -1064,10 +1076,22 @@ def upload_asset_item(
         )
 
         if response.status_code != HTTPStatus.OK:
+            # Handle soft upload limits - HTTP 429 (Too Many Requests) specifically for retry integration
+            if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                raise FileUploadThrottledException(response, options)
+
             raise ValueError(
                 CONNECTION_UPLOAD_ASSET_ITEM_FAILED_WITH_STATUS_EXCEPTION
                 % (response.status_code, options.upload_endpoint, response.content)
             )
+
+        if options.on_asset_upload is not None:
+            try:
+                options.on_asset_upload(response)
+            except Exception:
+                LOGGER.warning(
+                    CONNECTION_FAILED_TO_CALL_ON_ASSET_UPLOAD_WARNING, exc_info=True
+                )
 
     except Exception as e:
         if (
@@ -1082,7 +1106,7 @@ def upload_asset_item(
                 e,
                 exc_info=True,
             )
-        else:
+        elif not isinstance(e, FileUploadThrottledException):
             LOGGER.error(
                 CONNECTION_UPLOAD_ASSET_ITEM_FAILED_ERROR,
                 options.asset_item.file_name,
@@ -1091,15 +1115,25 @@ def upload_asset_item(
                 exc_info=True,
             )
 
-        _report_error(
-            event_name=FILE_UPLOADED_FAILED,
-            experiment_key=options.experiment_id,
-            project_id=options.project_id,
-            api_key=options.api_key,
-            err_msg=str(e),
-        )
+        if options.on_failed_asset_upload is not None:
+            try:
+                options.on_failed_asset_upload(e)
+            except Exception:
+                LOGGER.warning(
+                    CONNECTION_FAILED_TO_CALL_ON_FAILED_ASSET_UPLOAD_WARNING,
+                    exc_info=True,
+                )
 
-        raise
+        if not isinstance(e, FileUploadThrottledException):
+            _report_error(
+                event_name=FILE_UPLOADED_FAILED,
+                experiment_key=options.experiment_id,
+                project_id=options.project_id,
+                api_key=options.api_key,
+                err_msg=str(e),
+            )
+
+            raise
 
 
 def upload_thumbnail(

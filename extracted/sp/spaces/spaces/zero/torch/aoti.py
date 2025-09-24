@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import contextlib
+import os
 from contextvars import ContextVar
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 from typing import Callable
 from typing import cast
@@ -19,12 +21,35 @@ from torch._inductor.package.package import package_aoti
 from torch.export.pt2_archive._package import AOTICompiledModel
 from torch.export.pt2_archive._package_weights import Weights
 
+from ..utils import register_cleanup
+
 
 INDUCTOR_CONFIGS_OVERRIDES = {
     'aot_inductor.package_constants_in_so': False,
     'aot_inductor.package_constants_on_disk': True,
     'aot_inductor.package': True,
+    'always_keep_tensor_constants': True,
 }
+
+
+ARCHIVE_SO_PATTERN = '/tmp/*/archive/data/aotinductor/model/*.wrapper.so'
+
+
+@contextlib.contextmanager
+def _register_aoti_cleanup():
+    """
+    PyTorch already cleans-up extracted archives in /tmp
+    But the GPU worker never terminates gracefully in ZeroGPU so cleanup must be done manually
+    """
+    pid = os.getpid()
+    map_files = Path(f'/proc/{pid}/map_files')
+    maps_before = {f.name for f in map_files.iterdir()}
+    yield
+    for map_file in map_files.iterdir():
+        if map_file.name not in maps_before:
+            if (mapped := map_file.readlink()).match(ARCHIVE_SO_PATTERN):
+                package_path = Path(*mapped.parts[:3])
+                return register_cleanup(pid, package_path)
 
 
 class ZeroGPUWeights:
@@ -48,7 +73,9 @@ class ZeroGPUCompiledModel:
         self.compiled_model: ContextVar[AOTICompiledModel | None] = ContextVar('compiled_model', default=None)
     def __call__(self, *args, **kwargs):
         if (compiled_model := self.compiled_model.get()) is None:
-            compiled_model = cast(AOTICompiledModel, torch._inductor.aoti_load_package(self.archive_file))
+            with _register_aoti_cleanup():
+                compiled_model = torch._inductor.aoti_load_package(self.archive_file)
+            compiled_model = cast(AOTICompiledModel, compiled_model)
             constant_map = {name: self.weights.constants_map[name] for name in compiled_model.get_constant_fqns()}
             compiled_model.load_constants(constant_map, check_full_update=True, user_managed=True)
             self.compiled_model.set(compiled_model)

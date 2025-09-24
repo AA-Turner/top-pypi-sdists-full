@@ -9,12 +9,11 @@ import datetime
 import inspect
 import warnings
 from enum import Enum
-from typing import Any, Callable, Mapping, Sequence, Type, get_origin
+from typing import Any, Callable, Mapping, get_origin, TypeVar, overload
 
 import numpy as np
 
 from .typing import (
-    TABLE_TYPES,
     AnalyzedAnyType,
     AnalyzedBasicType,
     AnalyzedDictType,
@@ -23,11 +22,21 @@ from .typing import (
     AnalyzedTypeInfo,
     AnalyzedUnionType,
     AnalyzedUnknownType,
+    EnrichedValueType,
     analyze_type_info,
     encode_enriched_type,
     is_namedtuple_type,
     is_numpy_number_type,
+    extract_ndarray_elem_dtype,
+    ValueType,
+    FieldSchema,
+    BasicValueType,
+    StructType,
+    TableType,
 )
+
+
+T = TypeVar("T")
 
 
 class ChildFieldPath:
@@ -172,7 +181,7 @@ def make_engine_value_encoder(type_info: AnalyzedTypeInfo) -> Callable[[Any], An
 
 def make_engine_key_decoder(
     field_path: list[str],
-    key_fields_schema: list[dict[str, Any]],
+    key_fields_schema: list[FieldSchema],
     dst_type_info: AnalyzedTypeInfo,
 ) -> Callable[[Any], Any]:
     """
@@ -183,7 +192,7 @@ def make_engine_key_decoder(
     ):
         single_key_decoder = make_engine_value_decoder(
             field_path,
-            key_fields_schema[0]["type"],
+            key_fields_schema[0].value_type.type,
             dst_type_info,
             for_key=True,
         )
@@ -203,7 +212,7 @@ def make_engine_key_decoder(
 
 def make_engine_value_decoder(
     field_path: list[str],
-    src_type: dict[str, Any],
+    src_type: ValueType,
     dst_type_info: AnalyzedTypeInfo,
     for_key: bool = False,
 ) -> Callable[[Any], Any]:
@@ -219,7 +228,7 @@ def make_engine_value_decoder(
         A decoder from an engine value to a Python value.
     """
 
-    src_type_kind = src_type["kind"]
+    src_type_kind = src_type.kind
 
     dst_type_variant = dst_type_info.variant
 
@@ -229,19 +238,19 @@ def make_engine_value_decoder(
             f"declared `{dst_type_info.core_type}`, an unsupported type"
         )
 
-    if src_type_kind == "Struct":
+    if isinstance(src_type, StructType):  # type: ignore[redundant-cast]
         return make_engine_struct_decoder(
             field_path,
-            src_type["fields"],
+            src_type.fields,
             dst_type_info,
             for_key=for_key,
         )
 
-    if src_type_kind in TABLE_TYPES:
+    if isinstance(src_type, TableType):  # type: ignore[redundant-cast]
         with ChildFieldPath(field_path, "[*]"):
-            engine_fields_schema = src_type["row"]["fields"]
+            engine_fields_schema = src_type.row.fields
 
-            if src_type_kind == "LTable":
+            if src_type.kind == "LTable":
                 if isinstance(dst_type_variant, AnalyzedAnyType):
                     dst_elem_type = Any
                 elif isinstance(dst_type_variant, AnalyzedListType):
@@ -262,7 +271,7 @@ def make_engine_value_decoder(
                         return None
                     return [row_decoder(v) for v in value]
 
-            elif src_type_kind == "KTable":
+            elif src_type.kind == "KTable":
                 if isinstance(dst_type_variant, AnalyzedAnyType):
                     key_type, value_type = Any, Any
                 elif isinstance(dst_type_variant, AnalyzedDictType):
@@ -274,7 +283,7 @@ def make_engine_value_decoder(
                         f"declared `{dst_type_info.core_type}`, a dict type expected"
                     )
 
-                num_key_parts = src_type.get("num_key_parts", 1)
+                num_key_parts = src_type.num_key_parts or 1
                 key_decoder = make_engine_key_decoder(
                     field_path,
                     engine_fields_schema[0:num_key_parts],
@@ -298,7 +307,7 @@ def make_engine_value_decoder(
 
         return decode
 
-    if src_type_kind == "Union":
+    if isinstance(src_type, BasicValueType) and src_type.kind == "Union":
         if isinstance(dst_type_variant, AnalyzedAnyType):
             return lambda value: value[1]
 
@@ -307,7 +316,10 @@ def make_engine_value_decoder(
             if isinstance(dst_type_variant, AnalyzedUnionType)
             else [dst_type_info]
         )
-        src_type_variants = src_type["types"]
+        # mypy: union info exists for Union kind
+        assert src_type.union is not None  # type: ignore[unreachable]
+        src_type_variants_basic: list[BasicValueType] = src_type.union.variants
+        src_type_variants = src_type_variants_basic
         decoders = []
         for i, src_type_variant in enumerate(src_type_variants):
             with ChildFieldPath(field_path, f"[{i}]"):
@@ -331,7 +343,7 @@ def make_engine_value_decoder(
     if isinstance(dst_type_variant, AnalyzedAnyType):
         return lambda value: value
 
-    if src_type_kind == "Vector":
+    if isinstance(src_type, BasicValueType) and src_type.kind == "Vector":
         field_path_str = "".join(field_path)
         if not isinstance(dst_type_variant, AnalyzedListType):
             raise ValueError(
@@ -350,9 +362,11 @@ def make_engine_value_decoder(
             if is_numpy_number_type(dst_type_variant.elem_type):
                 scalar_dtype = dst_type_variant.elem_type
         else:
+            # mypy: vector info exists for Vector kind
+            assert src_type.vector is not None  # type: ignore[unreachable]
             vec_elem_decoder = make_engine_value_decoder(
                 field_path + ["[*]"],
-                src_type["element_type"],
+                src_type.vector.element_type,
                 analyze_type_info(
                     dst_type_variant.elem_type if dst_type_variant else Any
                 ),
@@ -432,7 +446,7 @@ def _get_auto_default_for_type(
 
 def make_engine_struct_decoder(
     field_path: list[str],
-    src_fields: list[dict[str, Any]],
+    src_fields: list[FieldSchema],
     dst_type_info: AnalyzedTypeInfo,
     for_key: bool = False,
 ) -> Callable[[list[Any]], Any]:
@@ -461,7 +475,7 @@ def make_engine_struct_decoder(
             f"declared `{dst_type_info.core_type}`, a dataclass, NamedTuple or dict[str, Any] expected"
         )
 
-    src_name_to_idx = {f["name"]: i for i, f in enumerate(src_fields)}
+    src_name_to_idx = {f.name: i for i, f in enumerate(src_fields)}
     dst_struct_type = dst_type_variant.struct_type
 
     parameters: Mapping[str, inspect.Parameter]
@@ -493,7 +507,10 @@ def make_engine_struct_decoder(
         with ChildFieldPath(field_path, f".{name}"):
             if src_idx is not None:
                 field_decoder = make_engine_value_decoder(
-                    field_path, src_fields[src_idx]["type"], type_info, for_key=for_key
+                    field_path,
+                    src_fields[src_idx].value_type.type,
+                    type_info,
+                    for_key=for_key,
                 )
                 return lambda values: field_decoder(values[src_idx])
 
@@ -526,7 +543,7 @@ def make_engine_struct_decoder(
 
 def _make_engine_struct_to_dict_decoder(
     field_path: list[str],
-    src_fields: list[dict[str, Any]],
+    src_fields: list[FieldSchema],
     value_type_annotation: Any,
 ) -> Callable[[list[Any] | None], dict[str, Any] | None]:
     """Make a decoder from engine field values to a Python dict."""
@@ -534,11 +551,11 @@ def _make_engine_struct_to_dict_decoder(
     field_decoders = []
     value_type_info = analyze_type_info(value_type_annotation)
     for field_schema in src_fields:
-        field_name = field_schema["name"]
+        field_name = field_schema.name
         with ChildFieldPath(field_path, f".{field_name}"):
             field_decoder = make_engine_value_decoder(
                 field_path,
-                field_schema["type"],
+                field_schema.value_type.type,
                 value_type_info,
             )
         field_decoders.append((field_name, field_decoder))
@@ -560,19 +577,19 @@ def _make_engine_struct_to_dict_decoder(
 
 def _make_engine_struct_to_tuple_decoder(
     field_path: list[str],
-    src_fields: list[dict[str, Any]],
+    src_fields: list[FieldSchema],
 ) -> Callable[[list[Any] | None], tuple[Any, ...] | None]:
     """Make a decoder from engine field values to a Python tuple."""
 
     field_decoders = []
     value_type_info = analyze_type_info(Any)
     for field_schema in src_fields:
-        field_name = field_schema["name"]
+        field_name = field_schema.name
         with ChildFieldPath(field_path, f".{field_name}"):
             field_decoders.append(
                 make_engine_value_decoder(
                     field_path,
-                    field_schema["type"],
+                    field_schema.value_type.type,
                     value_type_info,
                 )
             )
@@ -595,6 +612,10 @@ def dump_engine_object(v: Any) -> Any:
     """Recursively dump an object for engine. Engine side uses `Pythonized` to catch."""
     if v is None:
         return None
+    elif isinstance(v, EnrichedValueType):
+        return v.encode()
+    elif isinstance(v, FieldSchema):
+        return v.encode()
     elif isinstance(v, type) or get_origin(v) is not None:
         return encode_enriched_type(v)
     elif isinstance(v, Enum):
@@ -604,7 +625,17 @@ def dump_engine_object(v: Any) -> Any:
         secs = int(total_secs)
         nanos = int((total_secs - secs) * 1e9)
         return {"secs": secs, "nanos": nanos}
-    elif hasattr(v, "__dict__"):
+    elif is_namedtuple_type(type(v)):
+        # Handle NamedTuple objects specifically to use dict format
+        field_names = list(getattr(type(v), "_fields", ()))
+        result = {}
+        for name in field_names:
+            val = getattr(v, name)
+            result[name] = dump_engine_object(val)  # Include all values, including None
+        if hasattr(v, "kind") and "kind" not in result:
+            result["kind"] = v.kind
+        return result
+    elif hasattr(v, "__dict__"):  # for dataclass-like objects
         s = {}
         for k, val in v.__dict__.items():
             if val is None:
@@ -620,4 +651,129 @@ def dump_engine_object(v: Any) -> Any:
         return v.tolist()
     elif isinstance(v, dict):
         return {k: dump_engine_object(v) for k, v in v.items()}
+    return v
+
+
+@overload
+def load_engine_object(expected_type: type[T], v: Any) -> T: ...
+@overload
+def load_engine_object(expected_type: Any, v: Any) -> Any: ...
+def load_engine_object(expected_type: Any, v: Any) -> Any:
+    """Recursively load an object that was produced by dump_engine_object().
+
+    Args:
+        expected_type: The Python type annotation to reconstruct to.
+        v: The engine-facing Pythonized object (e.g., dict/list/primitive) to convert.
+
+    Returns:
+        A Python object matching the expected_type where possible.
+    """
+    # Fast path
+    if v is None:
+        return None
+
+    type_info = analyze_type_info(expected_type)
+    variant = type_info.variant
+
+    if type_info.core_type is EnrichedValueType:
+        return EnrichedValueType.decode(v)
+    if type_info.core_type is FieldSchema:
+        return FieldSchema.decode(v)
+
+    # Any or unknown → return as-is
+    if isinstance(variant, AnalyzedAnyType) or type_info.base_type is Any:
+        return v
+
+    # Enum handling
+    if isinstance(expected_type, type) and issubclass(expected_type, Enum):
+        return expected_type(v)
+
+    # TimeDelta special form {secs, nanos}
+    if isinstance(variant, AnalyzedBasicType) and variant.kind == "TimeDelta":
+        if isinstance(v, Mapping) and "secs" in v and "nanos" in v:
+            secs = int(v["secs"])  # type: ignore[index]
+            nanos = int(v["nanos"])  # type: ignore[index]
+            return datetime.timedelta(seconds=secs, microseconds=nanos / 1_000)
+        return v
+
+    # List, NDArray (Vector-ish), or general sequences
+    if isinstance(variant, AnalyzedListType):
+        elem_type = variant.elem_type if variant.elem_type else Any
+        if type_info.base_type is np.ndarray:
+            # Reconstruct NDArray with appropriate dtype if available
+            try:
+                dtype = extract_ndarray_elem_dtype(type_info.core_type)
+            except (TypeError, ValueError, AttributeError):
+                dtype = None
+            return np.array(v, dtype=dtype)
+        # Regular Python list
+        return [load_engine_object(elem_type, item) for item in v]
+
+    # Dict / Mapping
+    if isinstance(variant, AnalyzedDictType):
+        key_t = variant.key_type
+        val_t = variant.value_type
+        return {
+            load_engine_object(key_t, k): load_engine_object(val_t, val)
+            for k, val in v.items()
+        }
+
+    # Structs (dataclass or NamedTuple)
+    if isinstance(variant, AnalyzedStructType):
+        struct_type = variant.struct_type
+        if dataclasses.is_dataclass(struct_type):
+            if not isinstance(v, Mapping):
+                raise ValueError(f"Expected dict for dataclass, got {type(v)}")
+            # Drop auxiliary discriminator "kind" if present
+            dc_init_kwargs: dict[str, Any] = {}
+            field_types = {f.name: f.type for f in dataclasses.fields(struct_type)}
+            for name, f_type in field_types.items():
+                if name in v:
+                    dc_init_kwargs[name] = load_engine_object(f_type, v[name])
+            return struct_type(**dc_init_kwargs)
+        elif is_namedtuple_type(struct_type):
+            if not isinstance(v, Mapping):
+                raise ValueError(f"Expected dict for NamedTuple, got {type(v)}")
+            # Dict format (from dump/load functions)
+            annotations = getattr(struct_type, "__annotations__", {})
+            field_names = list(getattr(struct_type, "_fields", ()))
+            nt_init_kwargs: dict[str, Any] = {}
+            for name in field_names:
+                f_type = annotations.get(name, Any)
+                if name in v:
+                    nt_init_kwargs[name] = load_engine_object(f_type, v[name])
+            return struct_type(**nt_init_kwargs)
+        return v
+
+    # Union with discriminator support via "kind"
+    if isinstance(variant, AnalyzedUnionType):
+        if isinstance(v, Mapping) and "kind" in v:
+            discriminator = v["kind"]
+            for typ in variant.variant_types:
+                t_info = analyze_type_info(typ)
+                if isinstance(t_info.variant, AnalyzedStructType):
+                    t_struct = t_info.variant.struct_type
+                    candidate_kind = getattr(t_struct, "kind", None)
+                    if candidate_kind == discriminator:
+                        # Remove discriminator for constructor
+                        v_wo_kind = dict(v)
+                        v_wo_kind.pop("kind", None)
+                        return load_engine_object(t_struct, v_wo_kind)
+        # Fallback: try each variant until one succeeds
+        for typ in variant.variant_types:
+            try:
+                return load_engine_object(typ, v)
+            except (TypeError, ValueError):
+                continue
+        return v
+
+    # Basic types and everything else: handle numpy scalars and passthrough
+    if isinstance(v, np.ndarray) and type_info.base_type is list:
+        return v.tolist()
+    if isinstance(v, (list, tuple)) and type_info.base_type not in (list, tuple):
+        # If a non-sequence basic type expected, attempt direct cast
+        try:
+            return type_info.core_type(v)
+        except (TypeError, ValueError):
+            return v
     return v

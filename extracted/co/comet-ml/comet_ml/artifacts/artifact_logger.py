@@ -23,7 +23,11 @@ from ..config import get_check_tls_certificate, get_comet_timeout_http
 from ..connection.connection_api import RestApiClient
 from ..connection.http_session import get_cached_comet_http_session
 from ..debug import debug_helpers
-from ..exceptions import CometRestApiException, LogArtifactException
+from ..exceptions import (
+    CometRestApiException,
+    FileUploadThrottledException,
+    LogArtifactException,
+)
 from ..file_uploader import is_asset_remote
 from ..logging_messages import (
     ARTIFACT_ASSET_UPLOAD_FAILED,
@@ -206,6 +210,12 @@ def _on_artifact_failed_asset_upload(
     *args: Any,
     **kwargs: Any,
 ) -> None:
+    if isinstance(response, FileUploadThrottledException):
+        LOGGER.debug(
+            f"Artifact asset ({asset_id}) upload has been throttled. It will be retried later."
+        )
+        return
+
     LOGGER.error(error_log_message, *error_log_message_args)
 
     try:

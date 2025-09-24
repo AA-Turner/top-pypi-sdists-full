@@ -17,11 +17,10 @@ Author: Boris Feld
 This module contains comet generated Exceptions
 
 """
-from typing import List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import requests
 
-from ._typing import Any, Dict, Optional
 from .logging_messages import (
     EMPTY_PROJECT_NAME,
     EXPERIMENT_START_MODE_UNSUPPORTED,
@@ -32,6 +31,9 @@ from .logging_messages import (
     UPLOAD_LIMIT_REACHED,
 )
 from .semantic_version import SemanticVersion
+
+if TYPE_CHECKING:
+    from .upload_options import AvailableUploadOptions
 
 
 class CometException(Exception):
@@ -525,6 +527,26 @@ class BackendCustomError(CometException):
 
 class ProjectConsideredLLM(CometException):
     pass
+
+
+class FileUploadThrottledException(CometException):
+    """Exception raised when backend throttles file upload (HTTP 429)"""
+
+    def __init__(
+        self,
+        response: requests.Response,
+        upload_options: "AvailableUploadOptions" = None,
+    ) -> None:
+        super().__init__()
+        self.response = response
+        self.upload_options = upload_options  # Store the original upload options
+        upload_type = (
+            upload_options.upload_type if upload_options is not None else "unknown"
+        )
+        self.args = (
+            f"File upload throttled for type '{upload_type}' (HTTP 429)",
+            response,
+        )
 
 
 """

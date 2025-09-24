@@ -10,6 +10,8 @@
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
 # mypy: ignore-errors
+from __future__ import annotations
+
 import io
 from typing import Any, Dict, Optional, Tuple, Union
 

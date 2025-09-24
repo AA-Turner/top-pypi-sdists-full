@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pudb"
-version = "2025.1"
+version = "2025.1.1"
 description = "A full-screen, console-based Python debugger"
 readme = "README.rst"
 license = "MIT"
@@ -17,7 +17,6 @@ classifiers = [
     "Environment :: Console",
     "Environment :: Console :: Curses",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: POSIX",
     "Operating System :: Unix",
@@ -42,6 +41,8 @@ dependencies = [
     "urwid!=3.0.0; python_version < '3.9'",
 
     "urwid_readline",
+
+    "typing_extensions >= 4.13",
 ]
 
 [project.optional-dependencies]
@@ -75,6 +76,9 @@ extend-select = [
     "NPY", # numpy
     "Q",   # flake8-quotes
     "W",   # pycodestyle
+    "TC",
+    "RUF",
+    "UP",
 ]
 extend-ignore = [
     "C90",  # McCabe complexity
@@ -84,6 +88,9 @@ extend-ignore = [
     "E242", # tab after comma
     "E402", # module level import not at the top of file
     "N818", # error suffix in exception names
+
+    # TODO
+    "UP031", # format specifiers instead of % format
 ]
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
@@ -96,6 +103,15 @@ known-local-folder = [
     "pudb",
 ]
 lines-after-imports = 2
+required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.lint.per-file-ignores]
+"pudb/themes/*.py" = ["I002"]
+"debug_me.py" = ["I002"]
+"doc/conf.py" = ["I002"]
+"examples/*.py" = ["I002"]
+"pudb/test/*.py" = ["I002"]
+"manual-tests/*.py" = ["I002"]
 
 [tool.pytest.ini_options]
 
@@ -117,3 +133,30 @@ Ned = "Ned"
 [tool.typos.files]
 extend-exclude = [
 ]
+
+[tool.basedpyright]
+reportImplicitStringConcatenation = "none"
+reportUnnecessaryIsInstance = "none"
+reportUnusedCallResult = "none"
+reportExplicitAny = "none"
+
+# This reports even cycles that are qualified by 'if TYPE_CHECKING'. Not what
+# we care about at this moment.
+# https://github.com/microsoft/pyright/issues/746
+reportImportCycles = "none"
+
+ignore = [
+    "doc/conf.py",
+]
+
+pythonVersion = "3.8"
+pythonPlatform = "All"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "examples"
+reportUnknownArgumentType = "hint"
+reportUnknownMemberType = "hint"
+reportUnknownVariableType = "hint"
+reportMissingImports = "hint"
+reportMissingTypeStubs = "hint"
+

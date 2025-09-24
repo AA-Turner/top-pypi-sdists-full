@@ -1253,7 +1253,6 @@ class Inference:
         if self._model_meta is None:
             self._set_model_meta_from_classes()
 
-
     def _set_model_meta_custom_model(self, model_info: dict):
         model_meta = model_info.get("model_meta")
         if model_meta is None:
@@ -2146,7 +2145,7 @@ class Inference:
         video_id = get_value_for_keys(state, ["videoId", "video_id"], ignore_none=True)
         if video_id is None:
             raise ValueError("Video id is not provided")
-        video_info = api.video.get_info_by_id(video_id)
+        video_info = api.video.get_info_by_id(video_id, force_metadata_for_links=True)
         start_frame_index = get_value_for_keys(
             state, ["startFrameIndex", "start_frame_index", "start_frame"], ignore_none=True
         )
@@ -2747,10 +2746,10 @@ class Inference:
             context.setdefault("created_dataset", {})[src_dataset_id] = created_dataset.id
             return created_dataset.id
 
-        created_names = []
         if context is None:
             context = {}
         for dataset_id, preds in ds_predictions.items():
+            created_names = set()
             if dst_project_id is not None:
                 # upload to the destination project
                 dst_dataset_id = _get_or_create_dataset(
@@ -2826,7 +2825,7 @@ class Inference:
                     with_annotations=False,
                     save_source_date=False,
                 )
-                created_names.extend([image_info.name for image_info in dst_image_infos])
+                created_names.update([image_info.name for image_info in dst_image_infos])
                 api.annotation.upload_anns([image_info.id for image_info in dst_image_infos], anns)
             else:
                 # upload to the source dataset
@@ -4440,7 +4439,6 @@ def _get_log_extra_for_inference_request(
         "has_result": inference_request.final_result is not None,
         "pending_results": inference_request.pending_num(),
         "exception": inference_request.exception_json(),
-        "result": inference_request._final_result,
         "preparing_progress": progress,
     }
     return log_extra

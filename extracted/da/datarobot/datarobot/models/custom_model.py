@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, cast, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 
 import trafaret as t
 
@@ -342,7 +342,7 @@ class _CustomModelBase(APIObject):  # pylint: disable=missing-class-docstring
         response = self._client.patch(url, data=payload)
 
         data = response.json()
-        self._set_values(**self._safe_data(data, do_recursive=True))  # type: ignore[no-untyped-call]
+        self._set_values(**self._safe_data(data, do_recursive=True))
 
     def refresh(self) -> None:
         """Update custom inference model with the latest data from server.
@@ -362,7 +362,7 @@ class _CustomModelBase(APIObject):  # pylint: disable=missing-class-docstring
         response = self._client.get(path)
 
         data = response.json()
-        self._set_values(**self._safe_data(data, do_recursive=True))  # type: ignore[no-untyped-call]
+        self._set_values(**self._safe_data(data, do_recursive=True))
 
     def delete(self) -> None:
         """Delete custom inference model.

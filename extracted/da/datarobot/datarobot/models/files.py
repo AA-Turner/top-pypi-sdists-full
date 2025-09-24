@@ -9,12 +9,15 @@
 #
 #  The copyright notice above does not evidence any actual or intended
 #  publication of such source code.
+from __future__ import annotations
+
 from datetime import datetime
 from io import IOBase
 import os
-from typing import cast, Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union, cast
 
 import dateutil
+from requests import Response
 import trafaret as t
 
 from datarobot._compat import Int, String
@@ -50,9 +53,7 @@ _file_schema = t.Dict(
         t.Key("file_name") >> "name": String,
         t.Key("file_type") >> "type": String,
         t.Key("file_size") >> "size": Int(),
-        t.Key(
-            "ingest_errors",
-        ): String(allow_blank=True),
+        t.Key("ingest_errors", optional=True): t.Or(String(allow_blank=True), t.Null),
     }
 )
 
@@ -63,8 +64,8 @@ _files_schema = t.Dict(
         t.Key("description", optional=True): t.Or(String, t.Null),
         t.Key("type"): String,
         t.Key("tags"): t.List(String),
-        t.Key("num_files"): Int(),
-        t.Key("from_archive"): t.Bool(),
+        t.Key("num_files", optional=True): t.Int,
+        t.Key("from_archive", optional=True): t.Bool(),
         t.Key("created_at"): t.Call(dateutil.parser.parse),
         t.Key("created_by", optional=True): t.Or(String, t.Null),
     }
@@ -112,7 +113,7 @@ class File(APIObject, HumanReadable):
         name: str,
         type: str,
         size: int,
-        ingest_errors: str,
+        ingest_errors: str | None = None,
     ):
         self.name = name
         self.type = type
@@ -153,6 +154,7 @@ class Files(APIObject):
 
     _converter = _files_schema.allow_extra("*")
     _path = "files/"
+    _async_status_location: str | None = None
 
     def __init__(
         self,
@@ -160,10 +162,10 @@ class Files(APIObject):
         name: str,
         type: str,
         tags: List[str],
-        num_files: int,
-        from_archive: bool,
         created_at: datetime,
         created_by: str,
+        from_archive: bool = False,
+        num_files: int | None = None,
         description: Optional[str] = None,
     ):
         self.id = id
@@ -235,13 +237,11 @@ class Files(APIObject):
         None
         """
         assert_single_parameter(("filelike", "file_path"), filelike, file_path)
-        params = {}
+        data = {}
         if file_name:
-            params["file_name"] = file_name
+            data["fileName"] = file_name
 
-        response = self._client.post(
-            f"{self._path}{self.id}/downloads/", params=params, stream=True
-        )
+        response = self._client.post(f"{self._path}{self.id}/downloads/", json=data, stream=True)
         if file_path:
             with open(file_path, "wb") as f:
                 for chunk in response.iter_content(chunk_size=1000):
@@ -256,6 +256,8 @@ class Files(APIObject):
         source: Union[str, IOBase],
         tags: Optional[List[str]] = None,
         use_archive_contents: bool = True,
+        *,
+        wait_for_completion: bool = True,
     ) -> "Files":
         """
         This method covers Files container creation from local materials (file) and a URL.
@@ -307,15 +309,24 @@ class Files(APIObject):
 
         if source_type == FileLocationType.URL:
             return cls.create_from_url(
-                url=cast(str, source), tags=tags, use_archive_contents=use_archive_contents
+                url=cast(str, source),
+                tags=tags,
+                use_archive_contents=use_archive_contents,
+                wait_for_completion=wait_for_completion,
             )
         elif source_type == FileLocationType.PATH:
             return cls.create_from_file(
-                file_path=cast(str, source), tags=tags, use_archive_contents=use_archive_contents
+                file_path=cast(str, source),
+                tags=tags,
+                use_archive_contents=use_archive_contents,
+                wait_for_completion=wait_for_completion,
             )
         elif source_type == LocalSourceType.FILELIKE:
             return cls.create_from_file(
-                filelike=cast(IOBase, source), tags=tags, use_archive_contents=use_archive_contents
+                filelike=cast(IOBase, source),
+                tags=tags,
+                use_archive_contents=use_archive_contents,
+                wait_for_completion=wait_for_completion,
             )
         else:
             raise InvalidUsageError(error_msg)
@@ -327,6 +338,8 @@ class Files(APIObject):
         tags: Optional[List[str]] = None,
         use_archive_contents: bool = True,
         max_wait: int = DEFAULT_MAX_WAIT,
+        *,
+        wait_for_completion: bool = True,
     ) -> "Files":
         """
         Create a new files container in the DataRobot catalog from a URL.
@@ -363,13 +376,13 @@ class Files(APIObject):
 
         response = cls._client.post(endpoint, data=payload)
 
-        new_file_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
+        file = cls._get_files_from_async(
+            response, wait_for_completion=wait_for_completion, max_wait=max_wait
         )
+
         if tags:
-            cls._client.patch(new_file_location, data={"tags": tags})
-        new_file = cls.from_location(new_file_location)
-        return new_file
+            file.modify(tags=tags)
+        return file
 
     @classmethod
     def create_from_file(
@@ -380,6 +393,8 @@ class Files(APIObject):
         use_archive_contents: bool = True,
         read_timeout: int = DEFAULT_TIMEOUT.UPLOAD,
         max_wait: int = DEFAULT_MAX_WAIT,
+        *,
+        wait_for_completion: bool = True,
     ) -> "Files":
         """
         A blocking call that creates a new files container from a file. Returns when the file has
@@ -443,10 +458,10 @@ class Files(APIObject):
                 form_data=form_data,
             )
 
-        new_file_location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
+        file = cls._get_files_from_async(
+            response, wait_for_completion=wait_for_completion, max_wait=max_wait
         )
-        file = cls.from_location(new_file_location)
+
         if tags:
             file.modify(tags=tags)
         return file
@@ -736,6 +751,40 @@ class Files(APIObject):
             files_data = self._client.get(endpoint, params=params).json()["data"]
 
         return [File.from_server_data(file_data) for file_data in files_data]
+
+    @classmethod
+    def _get_files_from_async(
+        cls, response: Response, *, wait_for_completion: bool = True, max_wait: int
+    ) -> "Files":
+        """Get `Files` entity from the response.
+        Conditionally wait for an async operation resolution.
+
+        Parameters
+        ----------
+        response
+            HTTP response for an action which has just created a new files container.
+        wait_for_completion
+            Set the parameter to False to get the entity before the operation completed.
+        max_wait:
+            Raise AsyncTimeoutError if wait_for_completion=True
+            and the operation took more than this number of seconds.
+        """
+        if wait_for_completion:
+            new_file_location = wait_for_async_resolution(
+                cls._client, response.headers["Location"], max_wait
+            )
+            return cls.from_location(new_file_location)
+
+        else:
+            entity = cls.from_location(f"catalogItems/{response.json()['catalogId']}/")
+            if "Location" in response.headers:
+                entity.set_async_status_location(response.headers["Location"])
+
+            return entity
+
+    def set_async_status_location(self, async_status_location: str) -> None:
+        """Assign a URL to keep track of an async operation completion."""
+        self._async_status_location = async_status_location
 
 
 class FilesCatalogSearch(APIObject, HumanReadable):

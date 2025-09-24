@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mecab-ko
-Version: 1.0.1
+Version: 1.0.2
 Summary: Python wrapper for the MeCab-ko morphological analyzer for Korean
 Home-page: https://github.com/NoUnique/pymecab-ko
 Maintainer: Taehwan Yoo
@@ -8,11 +8,12 @@ Maintainer-email: kofmap@gmail.com
 License: BSD
 Classifier: Development Status :: 6 - Mature
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: Korean
@@ -22,6 +23,17 @@ Classifier: License :: OSI Approved :: BSD License
 Description-Content-Type: text/markdown
 License-File: COPYING
 License-File: AUTHORS
+Requires-Dist: mecab-ko-dic<2.0,>=1.0
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: summary
 
 This is a Python wrapper for the [MeCab-ko] morphological analyzer for Korean text.
 It works with Python 3.6 and greater. 

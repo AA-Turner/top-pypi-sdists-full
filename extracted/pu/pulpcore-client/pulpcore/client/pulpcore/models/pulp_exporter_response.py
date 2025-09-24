@@ -32,7 +32,7 @@ class PulpExporterResponse(BaseModel):
     prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
-    name: StrictStr = Field(description="Unique name of the file system exporter.")
+    name: StrictStr = Field(description="Unique name of the exporter.")
     path: StrictStr = Field(description="File system directory to store exported tar.gzs.")
     repositories: List[StrictStr]
     last_export: Optional[StrictStr] = Field(default=None, description="Last attempted export for this PulpExporter")

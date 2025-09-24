@@ -2308,10 +2308,10 @@ class DistributionsFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> FileFileDistributionResponse:
         """Update a file distribution
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
@@ -2352,6 +2352,7 @@ class DistributionsFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileDistributionResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2383,10 +2384,10 @@ class DistributionsFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[FileFileDistributionResponse]:
         """Update a file distribution
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
@@ -2427,6 +2428,7 @@ class DistributionsFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileDistributionResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -2461,7 +2463,7 @@ class DistributionsFileApi:
     ) -> RESTResponseType:
         """Update a file distribution
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
@@ -2502,6 +2504,7 @@ class DistributionsFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileDistributionResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -3854,10 +3857,10 @@ class DistributionsFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> FileFileDistributionResponse:
         """Update a file distribution
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
@@ -3898,6 +3901,7 @@ class DistributionsFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileDistributionResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -3929,10 +3933,10 @@ class DistributionsFileApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[FileFileDistributionResponse]:
         """Update a file distribution
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
@@ -3973,6 +3977,7 @@ class DistributionsFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileDistributionResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -4007,7 +4012,7 @@ class DistributionsFileApi:
     ) -> RESTResponseType:
         """Update a file distribution
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param file_file_distribution_href: (required)
         :type file_file_distribution_href: str
@@ -4048,6 +4053,7 @@ class DistributionsFileApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FileFileDistributionResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-language-pack
-Version: 0.9.0
+Version: 0.9.1
 Summary: Comprehensive collection of 160+ tree-sitter language parsers
 Author-email: Na'aman Hirschfeld <nhirschfeld@gmail.com>
 License-Expression: MIT OR Apache-2.0
@@ -24,10 +24,10 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: tree-sitter>=0.23.2
-Requires-Dist: tree-sitter-c-sharp>=0.23.1
-Requires-Dist: tree-sitter-embedded-template>=0.23.2
-Requires-Dist: tree-sitter-yaml>=0.7.0
+Requires-Dist: tree-sitter==0.23.2
+Requires-Dist: tree-sitter-c-sharp==0.23.1
+Requires-Dist: tree-sitter-embedded-template==0.23.2
+Requires-Dist: tree-sitter-yaml==0.7.0
 Dynamic: license-file
 
 # Tree Sitter Language Pack
@@ -39,6 +39,14 @@ Dynamic: license-file
 
 This package bundles a comprehensive collection of [tree-sitter](https://tree-sitter.github.io/tree-sitter/) languages
 as both source distribution and pre-built wheels.
+
+## Support This Project
+
+If you find tree-sitter-language-pack useful, please consider sponsoring the development:
+
+<a href="https://github.com/sponsors/Goldziher"><img src="https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink?logo=github-sponsors" alt="Sponsor on GitHub" height="32"></a>
+
+Your support helps maintain and improve this package for the community! 🚀
 
 ## Installation
 
@@ -57,6 +65,7 @@ pip install tree-sitter-language-pack
 - All languages bundled by this package are licensed under permissive open-source licenses (MIT, Apache 2.0 etc.) only -
     no GPL
     licensed languages are included.
+- This package follows the general Python life-cycle. This means it will drop support for Python 3.9 on October 25th 2025, and ONLY after this point in time will tree-sitter 0.24.0+ will be supported (tree-sitter 0.24 dropped support for Python 3.9 early.)
 
 ## Features
 
@@ -124,6 +133,7 @@ Each language below is identified by the key used to retrieve it from the `get_l
 - [firrtl](https://github.com/tree-sitter-grammars/tree-sitter-firrtl) - Apache License 2.0
 - [fish](https://github.com/ram02z/tree-sitter-fish) - Unlicense license
 - [fortran](https://github.com/stadelmanma/tree-sitter-fortran) - MIT License
+- [fsharp/fsharp_signature](https://github.com/ionide/tree-sitter-fsharp) - MIT License
 - [func](https://github.com/tree-sitter-grammars/tree-sitter-func) - MIT License
 - [gdscript](https://github.com/PrestonKnopp/tree-sitter-gdscript) - MIT License
 - [gitattributes](https://github.com/tree-sitter-grammars/tree-sitter-gitattributes) - MIT License
@@ -244,6 +254,7 @@ Each language below is identified by the key used to retrieve it from the `get_l
 - [vhdl](https://github.com/alemuller/tree-sitter-vhdl) - MIT License
 - [vim](https://github.com/tree-sitter-grammars/tree-sitter-vim) - MIT License
 - [vue](https://github.com/tree-sitter-grammars/tree-sitter-vue) - MIT License
+- [wast & wat](https://github.com/mkatychev/tree-sitter-wasm) - Apache License 2.0 with LLVM-exception
 - [wgsl](https://github.com/szebniok/tree-sitter-wgsl) - MIT License
 - [xcompose](https://github.com/tree-sitter-grammars/tree-sitter-xcompose) - MIT License
 - [xml](https://github.com/tree-sitter-grammars/tree-sitter-xml) - MIT License

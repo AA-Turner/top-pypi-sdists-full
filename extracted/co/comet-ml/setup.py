@@ -57,12 +57,11 @@ setuptools.setup(
             "comet_ml.spacy.logger.v1 = comet_ml.integration.spacy:comet_logger_v1"
         ],
     },
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
@@ -70,5 +69,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
     ],
     license="MIT",
-    version="3.52.1",
+    version="3.53.0",
 )

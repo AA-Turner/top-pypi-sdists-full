@@ -13,8 +13,8 @@ import httpx
 from packaging import version
 from typing_extensions import assert_never
 
-from .. import utils
 from ..config import Config
+from . import utils
 from .api import APIClient
 from .api import GPUSize
 from .api import AuthLevel

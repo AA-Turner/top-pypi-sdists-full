@@ -37,7 +37,7 @@ class MinimalTaskResponse(BaseModel):
     unblocked_at: Optional[datetime] = Field(default=None, description="Timestamp of when this task was identified ready for pickup.")
     started_at: Optional[datetime] = Field(default=None, description="Timestamp of when this task started execution.")
     finished_at: Optional[datetime] = Field(default=None, description="Timestamp of when this task stopped execution.")
-    worker: Optional[StrictStr] = Field(default=None, description="The worker associated with this task. This field is empty if a worker is not yet assigned.")
+    worker: Optional[StrictStr] = Field(default=None, description="DEPRECATED - Always null")
     __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "name", "state", "unblocked_at", "started_at", "finished_at", "worker"]
 
     model_config = ConfigDict(
@@ -97,6 +97,11 @@ class MinimalTaskResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if worker (nullable) is None
+        # and model_fields_set contains the field
+        if self.worker is None and "worker" in self.model_fields_set:
+            _dict['worker'] = None
+
         return _dict
 
     @classmethod

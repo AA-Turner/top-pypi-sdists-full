@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ydata-profiling
-Version: 4.16.1
+Version: 4.17.0
 Summary: Generate profile report for pandas DataFrame
 Author-email: YData Labs Inc <opensource@ydata.ai>
 Project-URL: Homepage, https://ydata.ai
@@ -24,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <3.13,>=3.7
+Requires-Python: <3.14,>=3.7
 Description-Content-Type: text/markdown
 Provides-Extra: dev
 Provides-Extra: docs

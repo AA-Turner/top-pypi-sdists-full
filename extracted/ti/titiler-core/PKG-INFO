@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: titiler-core
-Version: 0.23.1
+Version: 0.24.0
 Summary: A modern dynamic tile server built on top of FastAPI and Rasterio/GDAL.
 Keywords: COG,STAC,MosaicJSON,Fastapi,Dynamic tile server,GDAL,Rasterio,OGC
 Author-Email: Vincent Sarago <vincent@developmentseed.com>
@@ -9,7 +9,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,7 +19,7 @@ Project-URL: Documentation, https://developmentseed.org/titiler/
 Project-URL: Issues, https://github.com/developmentseed/titiler/issues
 Project-URL: Source, https://github.com/developmentseed/titiler
 Project-URL: Changelog, https://developmentseed.org/titiler/release-notes/
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: fastapi>=0.108.0
 Requires-Dist: geojson-pydantic<3.0,>=1.1.2
 Requires-Dist: jinja2<4.0.0,>=2.11.2

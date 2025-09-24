@@ -238,19 +238,21 @@ class TargetStepStateRequest(_message.Message):
     def __init__(self, in_progress: _Optional[_Union[StepInProgressRequest, _Mapping]] = ..., submitted: _Optional[_Union[StepSubmittedRequest, _Mapping]] = ..., skipped: _Optional[_Union[StepSkippedRequest, _Mapping]] = ..., errored: _Optional[_Union[StepErroredRequest, _Mapping]] = ...) -> None: ...
 
 class SuccessConditionStatus(_message.Message):
-    __slots__ = ("timer", "in_progress", "satisfied", "failed", "canceled")
+    __slots__ = ("timer", "ingest_job", "in_progress", "satisfied", "failed", "canceled")
     AND_FIELD_NUMBER: _ClassVar[int]
     TIMER_FIELD_NUMBER: _ClassVar[int]
+    INGEST_JOB_FIELD_NUMBER: _ClassVar[int]
     IN_PROGRESS_FIELD_NUMBER: _ClassVar[int]
     SATISFIED_FIELD_NUMBER: _ClassVar[int]
     FAILED_FIELD_NUMBER: _ClassVar[int]
     CANCELED_FIELD_NUMBER: _ClassVar[int]
     timer: _procedures_pb2.TimerSuccessCondition
+    ingest_job: _procedures_pb2.IngestJobSuccessCondition
     in_progress: SuccessConditionInProgress
     satisfied: SuccessConditionSatisfied
     failed: SuccessConditionFailed
     canceled: SuccessConditionCanceled
-    def __init__(self, timer: _Optional[_Union[_procedures_pb2.TimerSuccessCondition, _Mapping]] = ..., in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., **kwargs) -> None: ...
+    def __init__(self, timer: _Optional[_Union[_procedures_pb2.TimerSuccessCondition, _Mapping]] = ..., ingest_job: _Optional[_Union[_procedures_pb2.IngestJobSuccessCondition, _Mapping]] = ..., in_progress: _Optional[_Union[SuccessConditionInProgress, _Mapping]] = ..., satisfied: _Optional[_Union[SuccessConditionSatisfied, _Mapping]] = ..., failed: _Optional[_Union[SuccessConditionFailed, _Mapping]] = ..., canceled: _Optional[_Union[SuccessConditionCanceled, _Mapping]] = ..., **kwargs) -> None: ...
 
 class AndSuccessCondition(_message.Message):
     __slots__ = ("conditions",)
@@ -291,18 +293,42 @@ class SuccessConditionCanceled(_message.Message):
     def __init__(self, started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., canceled_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class CompletionActionStatus(_message.Message):
-    __slots__ = ("state", "create_event")
+    __slots__ = ("state", "create_event", "create_run", "apply_workbook_templates", "apply_checklists")
     STATE_FIELD_NUMBER: _ClassVar[int]
     CREATE_EVENT_FIELD_NUMBER: _ClassVar[int]
+    CREATE_RUN_FIELD_NUMBER: _ClassVar[int]
+    APPLY_WORKBOOK_TEMPLATES_FIELD_NUMBER: _ClassVar[int]
+    APPLY_CHECKLISTS_FIELD_NUMBER: _ClassVar[int]
     state: CompletionActionState
     create_event: CreateEventResult
-    def __init__(self, state: _Optional[_Union[CompletionActionState, _Mapping]] = ..., create_event: _Optional[_Union[CreateEventResult, _Mapping]] = ...) -> None: ...
+    create_run: CreateRunResult
+    apply_workbook_templates: ApplyWorkbookTemplatesResult
+    apply_checklists: ApplyChecklistsResult
+    def __init__(self, state: _Optional[_Union[CompletionActionState, _Mapping]] = ..., create_event: _Optional[_Union[CreateEventResult, _Mapping]] = ..., create_run: _Optional[_Union[CreateRunResult, _Mapping]] = ..., apply_workbook_templates: _Optional[_Union[ApplyWorkbookTemplatesResult, _Mapping]] = ..., apply_checklists: _Optional[_Union[ApplyChecklistsResult, _Mapping]] = ...) -> None: ...
 
 class CreateEventResult(_message.Message):
     __slots__ = ("event_rid",)
     EVENT_RID_FIELD_NUMBER: _ClassVar[int]
     event_rid: str
     def __init__(self, event_rid: _Optional[str] = ...) -> None: ...
+
+class CreateRunResult(_message.Message):
+    __slots__ = ("run_rid",)
+    RUN_RID_FIELD_NUMBER: _ClassVar[int]
+    run_rid: str
+    def __init__(self, run_rid: _Optional[str] = ...) -> None: ...
+
+class ApplyWorkbookTemplatesResult(_message.Message):
+    __slots__ = ("workbook_rids",)
+    WORKBOOK_RIDS_FIELD_NUMBER: _ClassVar[int]
+    workbook_rids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, workbook_rids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ApplyChecklistsResult(_message.Message):
+    __slots__ = ("data_review_rids",)
+    DATA_REVIEW_RIDS_FIELD_NUMBER: _ClassVar[int]
+    data_review_rids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, data_review_rids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class CompletionActionState(_message.Message):
     __slots__ = ("not_run", "succeeded", "error")
@@ -321,12 +347,14 @@ class CompletionActionState(_message.Message):
     def __init__(self, not_run: _Optional[_Union[CompletionActionState.NotRun, _Mapping]] = ..., succeeded: _Optional[_Union[CompletionActionState.Succeeded, _Mapping]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class StepContentValue(_message.Message):
-    __slots__ = ("form", "start_ingest")
+    __slots__ = ("form", "start_ingest", "select_or_create_asset")
     FORM_FIELD_NUMBER: _ClassVar[int]
     START_INGEST_FIELD_NUMBER: _ClassVar[int]
+    SELECT_OR_CREATE_ASSET_FIELD_NUMBER: _ClassVar[int]
     form: FormStepValue
     start_ingest: StartIngestStepValue
-    def __init__(self, form: _Optional[_Union[FormStepValue, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStepValue, _Mapping]] = ...) -> None: ...
+    select_or_create_asset: SelectOrCreateAssetStepValue
+    def __init__(self, form: _Optional[_Union[FormStepValue, _Mapping]] = ..., start_ingest: _Optional[_Union[StartIngestStepValue, _Mapping]] = ..., select_or_create_asset: _Optional[_Union[SelectOrCreateAssetStepValue, _Mapping]] = ...) -> None: ...
 
 class FormStepValue(_message.Message):
     __slots__ = ("fields",)
@@ -339,6 +367,12 @@ class StartIngestStepValue(_message.Message):
     INGEST_JOB_RID_FIELD_NUMBER: _ClassVar[int]
     ingest_job_rid: str
     def __init__(self, ingest_job_rid: _Optional[str] = ...) -> None: ...
+
+class SelectOrCreateAssetStepValue(_message.Message):
+    __slots__ = ("asset_reference",)
+    ASSET_REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    asset_reference: _procedures_pb2.AssetReference
+    def __init__(self, asset_reference: _Optional[_Union[_procedures_pb2.AssetReference, _Mapping]] = ...) -> None: ...
 
 class FormFieldValue(_message.Message):
     __slots__ = ("asset", "checkbox", "text", "int", "double", "single_enum", "multi_enum")

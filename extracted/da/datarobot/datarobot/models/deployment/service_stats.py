@@ -13,19 +13,20 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from datetime import datetime
-from typing import cast, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, List, Optional, Union, cast
 
 import dateutil
 import trafaret as t
 
-from datarobot._compat import Int, String
+from datarobot._compat import String
 from datarobot.enums import SERVICE_STAT_METRIC
 from datarobot.models.api_object import APIObject
 from datarobot.models.deployment.mixins import MonitoringDataQueryBuilderMixin
 from datarobot.utils import from_api
+from datarobot.utils.deprecation import deprecated
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class Period(TypedDict, total=False):
         """Type dict for period"""
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     class Bucket(TypedDict, total=False):
         """Type dict for bucket"""
 
+        model_id: Optional[str]
         period: Optional[Period]
         value: Optional[Union[int, float]]
 
@@ -198,14 +200,10 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
 
     Attributes
     ----------
-    model_id : str
-        the model used to retrieve accuracy metric
     metric : str
         the service stat metric being retrieved
     buckets : dict
         how the service stat metric changes over time
-    summary : dict
-        summary for the service stat metric
     """
 
     _path = "deployments/{}/serviceStatsOverTime/"
@@ -215,15 +213,13 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
             t.Key("end"): String >> dateutil.parser.parse,
         }
     )
-    _bucket = t.Dict(
-        {t.Key("period"): t.Or(_period, t.Null), t.Key("value"): t.Or(Int, t.Float, t.Null)}
-    ).allow_extra("*")
+    _bucket = t.Dict({t.Key("period"): _period}).allow_extra("*")
     _converter = t.Dict(
         {
             t.Key("buckets"): t.List(_bucket),
-            t.Key("summary"): _bucket,
+            t.Key("summary", optional=True): t.Or(_bucket, t.Null),
             t.Key("metric"): String(),
-            t.Key("model_id"): t.Or(String(), t.Null),
+            t.Key("model_id", optional=True): t.Or(String(), t.Null),
             t.Key("segment_attribute", optional=True): t.String(),
             t.Key("segment_value", optional=True): t.Or(t.String(allow_blank=True), t.Null()),
         }
@@ -239,28 +235,26 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         segment_value: Optional[str] = None,
     ) -> None:
         self.buckets = buckets or []
-        self.summary = summary or {}
+        self._summary = summary
         self.metric = metric
-        self.model_id = model_id
+        self._model_id = model_id
         self.segment_attribute = segment_attribute
         self.segment_value = segment_value
 
     def __repr__(self) -> str:
-        period = self.summary.get("period") or {}
-        return "{}({} | {} | {} - {})".format(
-            self.__class__.__name__,
-            self.model_id,
-            self.metric,
-            period.get("start"),
-            period.get("end"),
-        )
+        if self.buckets:
+            start = self.buckets[0]["period"]["start"]  # type: ignore [index]
+            end = self.buckets[-1]["period"]["end"]  # type: ignore [index]
+        else:
+            start, end = "Unknown", "Unknown"
+        return f"{self.__class__.__name__}({self.metric} | {start} - {end})"
 
     @classmethod
     def get(
         cls,
         deployment_id: str,
         metric: Optional[str] = None,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bucket_size: Optional[str] = None,
@@ -279,7 +273,7 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
             the id of the deployment
         metric : SERVICE_STAT_METRIC, optional
             the service stat metric to retrieve
-        model_id : Optional[str]
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime, optional
             start of the time period
@@ -319,6 +313,29 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         return cls.from_data(case_converted)
 
     @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`summary` is deprecated, use `Deployment.get_service_stats` instead.",
+    )
+    def summary(self) -> Optional[Bucket]:
+        return self._summary
+
+    @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`model_id` is deprecated, inspect `model_id` inside `buckets` instead.",
+    )
+    def model_id(self) -> Optional[str]:
+        return self._model_id
+
+    @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`bucket_values` is deprecated, inspect `value` inside `buckets` instead.",
+    )
     def bucket_values(self) -> OrderedDict[str, Union[int, float, None]]:
         """The metric value for all time buckets, keyed by start time of the bucket.
 

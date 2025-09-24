@@ -13,9 +13,9 @@
 import json
 import re
 from abc import ABCMeta, abstractmethod
-from typing import NamedTuple, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, Union
 
-from ._typing import Any, Callable, Dict, List, MemoryUploadable, Optional, Type
+from ._typing import MemoryUploadable
 from .assets import asset_item
 from .constants import ASSET_TYPE_3D_POINTS
 from .convert_utils import fix_special_floats
@@ -72,6 +72,19 @@ class BaseMessage(metaclass=ABCMeta):
     @abstractmethod
     def type(self):
         pass
+
+    def get_user_friendly_identifier(self) -> str:
+        """
+        Returns a user-friendly identifier for the instance.
+
+        This identifier is intended to be used for logging, user-facing
+        messages, or any context where a descriptive and easily understandable
+        representation of the object is required.
+
+        The subclasses should override this method to return a string which
+        is the best suitable for specific message, such as: name, file_name, etc.
+        """
+        return self.type
 
     @staticmethod
     def translate_message_class__to_handler_name(class_name):
@@ -159,14 +172,22 @@ class UploadFileMessage(BaseMessage):
         self._on_asset_upload = on_asset_upload
         self._on_failed_asset_upload = on_failed_asset_upload
 
-        # figName is not null and the backend fallback to figure_{FIGURE_NUMBER}
-        # if not passed
         if (
             additional_params
             and "fileName" in additional_params
             and additional_params["fileName"] is None
         ):
-            raise TypeError("file_name shouldn't be null")
+            raise TypeError("fileName value must not be None")
+
+    def get_user_friendly_identifier(self) -> str:
+        identifier = None
+        if self.additional_params is not None:
+            identifier = self.additional_params.get("fileName")
+
+        if identifier is None:
+            identifier = super().get_user_friendly_identifier()
+
+        return identifier
 
     def get_message_callbacks(self) -> UploadAssetMessageCallbacks:
         return UploadAssetMessageCallbacks(
@@ -237,14 +258,22 @@ class UploadInMemoryMessage(BaseMessage):
         self._on_asset_upload = on_asset_upload
         self._on_failed_asset_upload = on_failed_asset_upload
 
-        # figName is not null and the backend fallback to figure_{FIGURE_NUMBER}
-        # if not passed
         if (
             additional_params
             and "fileName" in additional_params
             and additional_params["fileName"] is None
         ):
-            raise TypeError("file_name shouldn't be null")
+            raise TypeError("fileName value must not be None")
+
+    def get_user_friendly_identifier(self) -> str:
+        identifier = None
+        if self.additional_params is not None:
+            identifier = self.additional_params.get("fileName")
+
+        if identifier is None:
+            identifier = super().get_user_friendly_identifier()
+
+        return identifier
 
     def get_message_callbacks(self) -> UploadAssetMessageCallbacks:
         return UploadAssetMessageCallbacks(
@@ -288,6 +317,9 @@ class RemoteAssetMessage(BaseMessage):
         self._critical = critical
         self._on_asset_upload = on_asset_upload
         self._on_failed_asset_upload = on_failed_asset_upload
+
+    def get_user_friendly_identifier(self) -> str:
+        return self.remote_uri
 
     @property
     def asset_id(self) -> Optional[str]:
@@ -549,6 +581,13 @@ class ParameterMessage(BaseMessage):
         else:
             return None
 
+    def get_user_friendly_identifier(self) -> str:
+        identifier = self.get_param_name()
+        if identifier is None:
+            identifier = super().get_user_friendly_identifier()
+
+        return identifier
+
     @classmethod
     def from_message_dict(
         cls: Type["ParameterMessage"], message_dict: Dict[str, Any]
@@ -639,6 +678,12 @@ class MetricMessage(BaseMessage):
             "step": step,
             "epoch": epoch,
         }
+
+    def get_user_friendly_identifier(self) -> str:
+        if self.metric is not None:
+            return self.metric.get("metricName")
+        else:
+            return super().get_user_friendly_identifier()
 
     @classmethod
     def from_message_dict(
@@ -761,6 +806,9 @@ class RemoteModelMessage(BaseMessage):
             if key not in ["on_model_upload", "on_failed_model_upload"]
         }
 
+    def get_user_friendly_identifier(self) -> str:
+        return self.model_name
+
     @classmethod
     def from_db_message_dict(
         cls: Type["RemoteModelMessage"], message_dict: Dict[str, Any]
@@ -821,6 +869,9 @@ class RegisterModelMessage(BaseMessage):
         self.on_model_register = callbacks.on_model_register
         self.on_failed_model_register = callbacks.on_failed_model_register
 
+    def get_user_friendly_identifier(self) -> str:
+        return self.model_name
+
     def to_message_dict(self):
         return {
             key: value
@@ -862,6 +913,9 @@ class FileNameMessage(BaseMessage):
     def __init__(self, file_name: str, message_id: Optional[int] = None) -> None:
         super().__init__(message_id)
         self.file_name = file_name
+
+    def get_user_friendly_identifier(self) -> str:
+        return self.file_name
 
     def to_message_dict(self):
         return self.__dict__
@@ -1302,10 +1356,11 @@ class Log3DCloudMessage(BaseMessage):
         name: str,
         upload_type: str,
         items: List[asset_item.AssetItem],
-        thumbnail_path: str,
-        metadata: Dict[str, Any],
+        thumbnail_path: Optional[str],
+        metadata: Optional[Dict[str, Any]],
         step: Optional[int],
         message_id: Optional[int] = None,
+        asset_id: Optional[str] = None,
     ) -> None:
         super().__init__(message_id)
         self.name = name
@@ -1314,11 +1369,15 @@ class Log3DCloudMessage(BaseMessage):
         self.metadata = metadata
         self.step = step
         self.thumbnail_path = thumbnail_path
+        self.asset_id = asset_id
+
+    def get_user_friendly_identifier(self) -> str:
+        return self.name
 
     def to_message_dict(self):
         dictionary = {key: value for key, value in self.__dict__.items()}
 
-        dictionary["items"] = [item.__dict__ for item in self.items]
+        dictionary["items"] = [item.serialize() for item in self.items]
 
         return dictionary
 
@@ -1329,10 +1388,11 @@ class Log3DCloudMessage(BaseMessage):
         return cls(
             name=message_dict["name"],
             upload_type=message_dict["upload_type"],
-            items=asset_item.unserialize_items(message_dict["items"]),
+            items=asset_item.deserialize_items(message_dict["items"]),
             metadata=message_dict["metadata"],
             step=message_dict["step"],
             thumbnail_path=message_dict["thumbnail_path"],
+            asset_id=message_dict.get("asset_id", None),
         )
 
 

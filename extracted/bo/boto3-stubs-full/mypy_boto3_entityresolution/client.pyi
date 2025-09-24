@@ -328,7 +328,7 @@ class EntityResolutionClient(BaseClient):
     def get_match_id(self, **kwargs: Unpack[GetMatchIdInputTypeDef]) -> GetMatchIdOutputTypeDef:
         """
         Returns the corresponding Match ID of a customer record if the record has been
-        processed in a rule-based matching workflow or ML matching workflow.
+        processed in a rule-based matching workflow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/entityresolution/client/get_match_id.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_entityresolution/client/#get_match_id)

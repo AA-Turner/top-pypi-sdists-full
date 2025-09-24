@@ -11,6 +11,10 @@ import etcd
 from click.testing import CliRunner
 from prettytable import PrettyTable
 
+from patroni.ctl import CtlPostgresqlRole
+from patroni.dcs import ClusterConfig, Leader, Member, SyncState
+from patroni.postgresql.misc import PostgresqlRole, PostgresqlState
+
 try:
     from prettytable import HRuleStyle
     hrule_all = HRuleStyle.ALL
@@ -32,7 +36,8 @@ from patroni.utils import tzutc
 from . import MockConnect, MockCursor, MockResponse, psycopg_connect
 from .test_etcd import etcd_read, socket_getaddrinfo
 from .test_ha import get_cluster, get_cluster_initialized_with_leader, get_cluster_initialized_with_only_leader, \
-    get_cluster_initialized_without_leader, get_cluster_not_initialized_without_leader, Member
+    get_cluster_initialized_without_leader, get_cluster_not_initialized_without_leader, \
+    get_standby_cluster_initialized_with_only_leader
 
 
 def get_default_config(*args):
@@ -50,7 +55,7 @@ def get_default_config(*args):
 @patch('patroni.ctl.load_config', get_default_config)
 @patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=get_cluster_initialized_with_leader()))
 class TestCtl(unittest.TestCase):
-    TEST_ROLES = ('primary', 'leader')
+    TEST_ROLES = (CtlPostgresqlRole.PRIMARY, CtlPostgresqlRole.LEADER)
 
     @patch('socket.getaddrinfo', socket_getaddrinfo)
     def setUp(self):
@@ -87,14 +92,16 @@ class TestCtl(unittest.TestCase):
                 self.assertIsNotNone(get_cursor(get_cluster_initialized_with_leader(), None, {}, role=role))
 
             # MockCursor returns pg_is_in_recovery as false
-            self.assertIsNone(get_cursor(get_cluster_initialized_with_leader(), None, {}, role='replica'))
+            self.assertIsNone(
+                get_cursor(get_cluster_initialized_with_leader(), None, {}, role=CtlPostgresqlRole.REPLICA))
 
-            self.assertIsNotNone(get_cursor(get_cluster_initialized_with_leader(), None, {'dbname': 'foo'}, role='any'))
+            self.assertIsNotNone(
+                get_cursor(get_cluster_initialized_with_leader(), None, {'dbname': 'foo'}, role=CtlPostgresqlRole.ANY))
 
             # Mutually exclusive options
             with self.assertRaises(PatroniCtlException) as e:
                 get_cursor(get_cluster_initialized_with_leader(), None, {'dbname': 'foo'}, member_name='other',
-                           role='replica')
+                           role=CtlPostgresqlRole.REPLICA)
 
             self.assertEqual(str(e.exception), '--role and --member are mutually exclusive options')
 
@@ -123,12 +130,20 @@ class TestCtl(unittest.TestCase):
             scheduled_at = datetime.now(tzutc) + timedelta(seconds=600)
             cluster = get_cluster_initialized_with_leader(Failover(1, 'foo', 'bar', scheduled_at))
             del cluster.members[1].data['conn_url']
+            cluster.members[1].data['replication_state'] = 'streaming'
+            cluster.members[1].data['xlog_location'] = 3
+            cluster.members.append(Member(0, 'foo', 28,
+                                          {'replication_state': 'in archive recovery', 'xlog_location': 3}))
+
             for fmt in ('pretty', 'json', 'yaml', 'topology'):
                 self.assertIsNone(output_members(cluster, name='abc', fmt=fmt))
 
             with patch('click.echo') as mock_echo:
                 self.assertIsNone(output_members(cluster, name='abc', fmt='tsv'))
-                self.assertEqual(mock_echo.call_args[0][0], 'abc\tother\t\tReplica\trunning\t\tunknown')
+                self.assertEqual(mock_echo.call_args_list[3][0][0],
+                                 'abc\tother\t\tReplica\tstreaming\t\t0/3\t0\tunknown\t')
+                self.assertEqual(mock_echo.call_args_list[1][0][0],
+                                 'abc\tfoo\t\tReplica\tin archive recovery\t\tunknown\t\t0/3\t0')
 
     @patch('patroni.dcs.AbstractDCS.set_failover_value', Mock())
     def test_switchover(self):
@@ -265,7 +280,7 @@ class TestCtl(unittest.TestCase):
     def test_query(self):
         # Mutually exclusive
         for role in self.TEST_ROLES:
-            result = self.runner.invoke(ctl, ['query', 'alpha', '--member', 'abc', '--role', role])
+            result = self.runner.invoke(ctl, ['query', 'alpha', '--member', 'abc', '--role', repr(role)])
             assert result.exit_code == 1
 
         with self.runner.isolated_filesystem():
@@ -299,7 +314,8 @@ class TestCtl(unittest.TestCase):
                 self.assertTrue('False' in str(rows))
 
             with patch.object(MockCursor, 'execute', Mock(side_effect=OperationalError('bla'))):
-                rows = query_member(None, None, None, None, 'replica', 'SELECT pg_catalog.pg_is_in_recovery()', {})
+                rows = query_member(None, None, None, None,
+                                    CtlPostgresqlRole.REPLICA, 'SELECT pg_catalog.pg_is_in_recovery()', {})
 
         with patch('patroni.ctl.get_cursor', Mock(return_value=None)):
             # No role nor member given -- generic message
@@ -311,11 +327,13 @@ class TestCtl(unittest.TestCase):
             self.assertTrue('No connection to member foo' in str(rows))
 
             # Role given -- message pointing to role
-            rows = query_member(None, None, None, None, 'replica', 'SELECT pg_catalog.pg_is_in_recovery()', {})
+            rows = query_member(None, None, None, None,
+                                CtlPostgresqlRole.REPLICA, 'SELECT pg_catalog.pg_is_in_recovery()', {})
             self.assertTrue('No connection to role replica' in str(rows))
 
         with patch('patroni.ctl.get_cursor', Mock(side_effect=OperationalError('bla'))):
-            rows = query_member(None, None, None, None, 'replica', 'SELECT pg_catalog.pg_is_in_recovery()', {})
+            rows = query_member(None, None, None, None,
+                                CtlPostgresqlRole.REPLICA, 'SELECT pg_catalog.pg_is_in_recovery()', {})
 
     def test_dsn(self):
         result = self.runner.invoke(ctl, ['dsn', 'alpha'])
@@ -323,7 +341,7 @@ class TestCtl(unittest.TestCase):
 
         # Mutually exclusive options
         for role in self.TEST_ROLES:
-            result = self.runner.invoke(ctl, ['dsn', 'alpha', '--role', role, '--member', 'dummy'])
+            result = self.runner.invoke(ctl, ['dsn', 'alpha', '--role', repr(role), '--member', 'dummy'])
             assert result.exit_code == 1
 
         # Non-existing member
@@ -469,12 +487,12 @@ class TestCtl(unittest.TestCase):
                 self.assertEqual(len(r), 1)
                 self.assertEqual(r[0].name, 'leader')
 
-            r = list(get_all_members(get_cluster_initialized_with_leader(), None, role='replica'))
+            r = list(get_all_members(get_cluster_initialized_with_leader(), None, role=CtlPostgresqlRole.REPLICA))
             self.assertEqual(len(r), 1)
             self.assertEqual(r[0].name, 'other')
 
             self.assertEqual(len(list(get_all_members(get_cluster_initialized_without_leader(),
-                                                      None, role='replica'))), 2)
+                                                      None, role=CtlPostgresqlRole.REPLICA))), 2)
 
     def test_members(self):
         result = self.runner.invoke(ctl, ['list'])
@@ -526,11 +544,11 @@ class TestCtl(unittest.TestCase):
         cluster = get_cluster_initialized_with_leader()
         cluster.members.append(Member(0, 'cascade', 28,
                                       {'conn_url': 'postgres://replicator:rep-pass@127.0.0.1:5437/postgres',
-                                       'api_url': 'http://127.0.0.1:8012/patroni', 'state': 'running',
+                                       'api_url': 'http://127.0.0.1:8012/patroni', 'state': PostgresqlState.RUNNING,
                                        'tags': {'replicatefrom': 'other'}}))
         cluster.members.append(Member(0, 'wrong_cascade', 28,
                                       {'conn_url': 'postgres://replicator:rep-pass@127.0.0.1:5438/postgres',
-                                       'api_url': 'http://127.0.0.1:8013/patroni', 'state': 'running',
+                                       'api_url': 'http://127.0.0.1:8013/patroni', 'state': PostgresqlState.RUNNING,
                                        'tags': {'replicatefrom': 'nonexistinghost'}}))
         with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=cluster)):
             result = self.runner.invoke(ctl, ['topology', 'dummy'])
@@ -547,7 +565,7 @@ class TestCtl(unittest.TestCase):
     @patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=get_cluster_initialized_with_leader()))
     def test_flush_restart(self):
         for role in self.TEST_ROLES:
-            result = self.runner.invoke(ctl, ['flush', 'dummy', 'restart', '-r', role], input='y')
+            result = self.runner.invoke(ctl, ['flush', 'dummy', 'restart', '-r', repr(role)], input='y')
             assert 'No scheduled restart' in result.output
 
         result = self.runner.invoke(ctl, ['flush', 'dummy', 'restart', '--force'])
@@ -768,6 +786,74 @@ class TestCtl(unittest.TestCase):
         self.assertIn("Waiting for reinitialize to complete on: other", result.output)
         self.assertIn("Reinitialize is completed on: other", result.output)
 
+    @patch('patroni.ctl.watching', Mock(return_value=[0, 0]))
+    @patch('patroni.ctl.request_patroni')
+    def test_cluster_demote(self, mock_patch):
+        m1 = Member(0, 'new_leader', 28, {'conn_url': 'postgres://replicator:rep-pass@127.0.0.1:5435/postgres',
+                                          'role': PostgresqlRole.STANDBY_LEADER, 'state': 'running'})
+        m2 = Member(0, 'leader', 28, {'conn_url': 'postgres://replicator:rep-pass@127.0.0.1:5435/postgres',
+                                      'role': PostgresqlRole.PRIMARY, 'state': 'stopping'})
+        standby_leader = Leader(0, 0, m1)
+        leader = Leader(0, 0, m2)
+        original_cluster = get_cluster('12345678901', leader, [m1, m2], None, SyncState.empty(), None, 1)
+        standby_cluster = get_cluster(
+            '12345678901', standby_leader, [m1, m2], None, SyncState.empty(),
+            ClusterConfig(1, {"standby_cluster": {"host": "localhost", "port": 5432, "primary_slot_name": ""}}, 1))
+
+        # no option provided
+        self.runner.invoke(ctl, ['demote-cluster', 'dummy'])
+        # no leader
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=get_cluster_initialized_without_leader())):
+            result = self.runner.invoke(ctl, ['demote-cluster', 'dummy', '--restore-command', 'foo'])
+            assert 'Cluster has no leader, demotion is not possible' in result.output
+        # aborted
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=original_cluster)):
+            result = self.runner.invoke(ctl, ['demote-cluster', 'dummy', '--restore-command', 'foo'], input='N')
+            assert 'Aborted' in result.output
+        # already required state
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=standby_cluster)):
+            result = self.runner.invoke(ctl, ['demote-cluster', 'dummy', '--restore-command', 'foo'])
+            assert 'Cluster is already in the required state' in result.output
+
+        mock_patch.return_value.status = 200
+        # success
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(side_effect=[original_cluster, original_cluster,
+                                                                            standby_cluster])):
+            result = self.runner.invoke(ctl, ['demote-cluster', 'dummy', '--restore-command', 'foo', '--force'])
+            assert result.exit_code == 0
+
+    @patch('patroni.ctl.polling_loop', Mock(return_value=[0, 0]))
+    @patch('patroni.ctl.request_patroni')
+    def test_cluster_promote(self, mock_patch):
+        only_leader_cluster = get_cluster_initialized_with_only_leader()
+        standby_cluster = get_standby_cluster_initialized_with_only_leader()
+        # no leader
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=get_cluster_initialized_without_leader())):
+            result = self.runner.invoke(ctl, ['promote-cluster', 'dummy'])
+            assert 'Cluster has no leader, promotion is not possible' in result.output
+        # aborted
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=standby_cluster)):
+            result = self.runner.invoke(ctl, ['promote-cluster', 'dummy'])
+            assert 'Aborted' in result.output
+        # already required state
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(return_value=only_leader_cluster)):
+            result = self.runner.invoke(ctl, ['promote-cluster', 'dummy'])
+            assert 'Cluster is already in the required state' in result.output
+        # PATCH error
+        mock_patch.return_value.status = 500
+        result = self.runner.invoke(ctl, ['demote-cluster', 'dummy', '--restore-command', 'foo', '--force'])
+        assert 'Failed to demote' in result.output
+        # Exception
+        with patch('patroni.ctl.request_patroni', Mock(side_effect=Exception)):
+            result = self.runner.invoke(ctl, ['demote-cluster', 'dummy', '--restore-command', 'foo', '--force'])
+            assert 'Failed to demote' in result.output
+        # success
+        mock_patch.return_value.status = 200
+        with patch('patroni.dcs.AbstractDCS.get_cluster', Mock(side_effect=[standby_cluster, standby_cluster,
+                                                                            only_leader_cluster])):
+            result = self.runner.invoke(ctl, ['promote-cluster', 'dummy', '--force'])
+            assert result.exit_code == 0
+
 
 class TestPatronictlPrettyTable(unittest.TestCase):
 
@@ -788,3 +874,6 @@ class TestPatronictlPrettyTable(unittest.TestCase):
 
     def test_output(self):
         self.assertEqual(str(self.pt), '+ header----+\n| foo | bar |\n+-----+-----+')
+
+    def test__validate_field_names(self):
+        self.assertRaises(Exception, self.pt._validate_field_names, ['lala'])

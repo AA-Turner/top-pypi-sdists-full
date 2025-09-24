@@ -479,7 +479,7 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         self,
         node: Type[BaseNode],
         node_display: BaseNodeDisplay,
-        node_output_displays: Dict[OutputReference, Tuple[Type[BaseNode], NodeOutputDisplay]],
+        node_output_displays: Dict[OutputReference, NodeOutputDisplay],
     ):
         """This method recursively adds nodes wrapped in decorators to the node_output_displays dictionary."""
 
@@ -624,7 +624,7 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             edge_displays=edge_displays,
             port_displays=port_displays,
             workflow_display_class=self.__class__,
-            _dry_run=self._dry_run,
+            dry_run=self._dry_run,
         )
 
     def _generate_workflow_meta_display(self) -> WorkflowMetaDisplay:

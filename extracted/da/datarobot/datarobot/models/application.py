@@ -18,7 +18,7 @@ from typing_extensions import TypedDict
 
 from datarobot.enums import ApplicationPermissions
 from datarobot.models.api_object import APIObject
-from datarobot.models.use_cases.utils import resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, resolve_use_cases
 from datarobot.utils.pagination import unpaginate
 
 

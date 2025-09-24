@@ -276,7 +276,6 @@ impl PyParquetColumnOptions {
                 statistics_enabled,
                 bloom_filter_fpp,
                 bloom_filter_ndv,
-                ..Default::default()
             },
         }
     }
@@ -1073,7 +1072,7 @@ fn record_batch_into_schema(
 /// This is a helper function to return the first non-empty record batch from executing a DataFrame.
 /// It additionally returns a bool, which indicates if there are more record batches available.
 /// We do this so we can determine if we should indicate to the user that the data has been
-/// truncated. This collects until we have achived both of these two conditions
+/// truncated. This collects until we have archived both of these two conditions
 ///
 /// - We have collected our minimum number of rows
 /// - We have reached our limit, either data size or maximum number of rows

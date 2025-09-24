@@ -13,15 +13,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.enums import (
     AggregationType,
-    enum_to_list,
     GuardConditionComparator,
     GuardType,
     InsightTypes,
+    enum_to_list,
 )
 from datarobot.models.api_object import APIObject
 from datarobot.models.genai.ootb_metric_configuration import (

@@ -11,12 +11,17 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, cast, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
-from datarobot.enums import enum_to_list, PromptType, VectorDatabaseRetrievers
+from datarobot._compat import TypedDict
+from datarobot.enums import (
+    PromptType,
+    VectorDatabaseRetrievalMode,
+    VectorDatabaseRetrievers,
+    enum_to_list,
+)
 from datarobot.models.api_object import APIObject
 from datarobot.models.custom_model import CustomModelVersion
 from datarobot.models.genai.llm import LLMDefinition
@@ -54,6 +59,8 @@ class VectorDatabaseSettingsDict(TypedDict):
     max_tokens: Optional[int]
     retriever: Optional[VectorDatabaseRetrievers]
     add_neighbor_chunks: Optional[bool]
+    retrieval_mode: Optional[VectorDatabaseRetrievalMode]
+    maximal_marginal_relevance_lambda: Optional[float]
 
 
 class LLMSettingsCommonDict(TypedDict):
@@ -74,6 +81,8 @@ vector_database_settings_trafaret = t.Dict(
         t.Key("max_tokens", optional=True): t.Or(t.Int, t.Null),
         t.Key("retriever", optional=True): t.Enum(*VectorDatabaseRetrievers._member_names_),
         t.Key("add_neighbor_chunks", optional=True): t.Bool,
+        t.Key("retrieval_mode", optional=True): t.Enum(*enum_to_list(VectorDatabaseRetrievalMode)),
+        t.Key("maximal_marginal_relevance_lambda", optional=True): t.Or(t.Float, t.Null),
     }
 ).ignore_extra("*")
 
@@ -123,6 +132,11 @@ class VectorDatabaseSettings(APIObject):
         The vector database retriever name.
     add_neighbor_chunks
         Whether to add neighboring documents to the retrieved documents.
+    retrieval_mode: VectorDatabaseRetrievalMode
+        The vector database retrieval mode.
+    maximal_marginal_relevance_lambda: float
+        The maximal marginal relevance lambda. Favors diversity (0.0) or similarity (1.0) of the
+        retrieved documents.
 
     """
 
@@ -136,6 +150,8 @@ class VectorDatabaseSettings(APIObject):
             VectorDatabaseRetrievers
         ] = VectorDatabaseRetrievers.SINGLE_LOOKUP_RETRIEVER,
         add_neighbor_chunks: Optional[bool] = False,
+        retrieval_mode: VectorDatabaseRetrievalMode = VectorDatabaseRetrievalMode.SIMILARITY,
+        maximal_marginal_relevance_lambda: float = 0.5,
     ):
         self.max_documents_retrieved_per_prompt = max_documents_retrieved_per_prompt
         self.max_tokens = max_tokens
@@ -143,6 +159,8 @@ class VectorDatabaseSettings(APIObject):
         self.max_tokens = max_tokens
         self.retriever = retriever
         self.add_neighbor_chunks = add_neighbor_chunks
+        self.retrieval_mode = retrieval_mode
+        self.maximal_marginal_relevance_lambda = maximal_marginal_relevance_lambda
 
     def to_dict(self) -> VectorDatabaseSettingsDict:
         return {
@@ -150,6 +168,8 @@ class VectorDatabaseSettings(APIObject):
             "max_tokens": self.max_tokens,
             "retriever": self.retriever,
             "add_neighbor_chunks": self.add_neighbor_chunks,
+            "retrieval_mode": self.retrieval_mode,
+            "maximal_marginal_relevance_lambda": self.maximal_marginal_relevance_lambda,
         }
 
 

@@ -44,8 +44,8 @@ def bootstrap_worker(theta, G_data, G_rows, G_cols, indices):
 
 @njit(parallel=True)
 def bootstrap(theta, G_data, G_rows, G_cols, k, indices_array):
-    n = len(indices_array) // k
-    energies = np.empty(n, dtype=np.float64)
+    n = theta.shape[0]
+    energies = np.empty(n, dtype=np.float32)
     for i in prange(n):
         j = i * k
         energies[i] = bootstrap_worker(theta, G_data, G_rows, G_cols, indices_array[j : j + k])
@@ -70,7 +70,7 @@ def int_to_bitstring(integer, length):
     return (bin(integer)[2:].zfill(length))[::-1]
 
 
-def spin_glass_solver_sparse(G, quality=6, shots=None, best_guess=None):
+def spin_glass_solver_sparse(G, quality=None, shots=None, best_guess=None):
     nodes = None
     n_qubits = 0
     G_m = None
@@ -97,6 +97,9 @@ def spin_glass_solver_sparse(G, quality=6, shots=None, best_guess=None):
 
             return "01", weight, ([nodes[0]], [nodes[1]]), -weight
 
+    if quality is None:
+        quuality = 6
+
     bitstring = ""
     if isinstance(best_guess, str):
         bitstring = best_guess
@@ -106,7 +109,7 @@ def spin_glass_solver_sparse(G, quality=6, shots=None, best_guess=None):
         bitstring = "".join(["1" if b else "0" for b in best_guess])
     else:
         bitstring, _, _ = maxcut_tfim_sparse(G_m, quality=quality, shots=shots)
-    best_theta = [b == "1" for b in list(bitstring)]
+    best_theta = np.array([b == "1" for b in list(bitstring)], dtype=np.bool_)
 
     min_energy = compute_energy(best_theta, G_m.data, G_m.indptr, G_m.indices)
     improved = True

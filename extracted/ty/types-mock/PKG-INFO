@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-mock
-Version: 5.2.0.20250809
+Version: 5.2.0.20250924
 Summary: Typing stubs for mock
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -17,8 +17,8 @@ Dynamic: license-file
 
 ## Typing stubs for mock
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`mock`](https://github.com/testing-cabal/mock) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`mock`](https://github.com/testing-cabal/mock) package. It can be used by type checkers
 to check code that uses `mock`. This version of
 `types-mock` aims to provide accurate annotations for
 `mock==5.2.*`.
@@ -31,8 +31,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.18.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`2cc9c1667d94002f74a7e7757558a16ea6d4872e`](https://github.com/python/typeshed/commit/2cc9c1667d94002f74a7e7757558a16ea6d4872e).

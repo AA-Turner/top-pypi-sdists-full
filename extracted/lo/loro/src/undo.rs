@@ -143,6 +143,26 @@ impl UndoManager {
     pub fn peer(&self) -> u64 {
         self.0.peer()
     }
+
+    /// Get the metadata of the top undo stack item, if any.
+    pub fn top_undo_meta(&self) -> Option<UndoItemMeta> {
+        self.0.top_undo_meta().map(UndoItemMeta::from)
+    }
+
+    /// Get the metadata of the top redo stack item, if any.
+    pub fn top_redo_meta(&self) -> Option<UndoItemMeta> {
+        self.0.top_redo_meta().map(UndoItemMeta::from)
+    }
+
+    /// Get the value associated with the top undo stack item, if any.
+    pub fn top_undo_value(&self) -> Option<LoroValue> {
+        self.0.top_undo_value().map(Into::into)
+    }
+
+    /// Get the value associated with the top redo stack item, if any.
+    pub fn top_redo_value(&self) -> Option<LoroValue> {
+        self.0.top_redo_value().map(Into::into)
+    }
 }
 
 #[pyclass(eq, eq_int)]

@@ -17,20 +17,20 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import adbutils
 from lxml import etree
-from retry import retry
 from PIL import Image
+from retry import retry
 
 from uiautomator2 import xpath
+from uiautomator2._input import InputMethodMixIn
 from uiautomator2._proto import HTTP_TIMEOUT, SCROLL_STEPS, Direction
 from uiautomator2._selector import Selector, UiObject
-from uiautomator2._input import InputMethodMixIn
+from uiautomator2.abstract import AbstractShell, AbstractUiautomatorServer, ShellResponse
+from uiautomator2.base import _BaseClient
 from uiautomator2.exceptions import *
 from uiautomator2.settings import Settings
 from uiautomator2.swipe import SwipeExt
-from uiautomator2.utils import image_convert, list2cmdline, deprecated
+from uiautomator2.utils import deprecated, image_convert, list2cmdline
 from uiautomator2.watcher import WatchContext, Watcher
-from uiautomator2.abstract import AbstractShell, AbstractUiautomatorServer, ShellResponse
-from uiautomator2.base import _BaseClient
 
 WAIT_FOR_DEVICE_TIMEOUT = int(os.getenv("WAIT_FOR_DEVICE_TIMEOUT", 20))
 
@@ -80,7 +80,7 @@ class _Device(_BaseClient):
                 jpg_raw = base64.b64decode(base64_data)
                 pil_img = Image.open(io.BytesIO(jpg_raw))
             else:
-                pil_img = self._dev.screenshot(display_id=display_id)
+                pil_img = self._dev.screenshot(display_id=0)
         else:
             pil_img = self._dev.screenshot(display_id=display_id)
         

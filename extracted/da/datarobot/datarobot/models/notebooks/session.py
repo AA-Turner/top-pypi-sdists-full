@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.models.api_object import APIObject
 from datarobot.models.notebooks.enums import (
     CellType,

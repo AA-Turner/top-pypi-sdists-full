@@ -17,21 +17,18 @@ if t.TYPE_CHECKING:
     from pytest_embedded_jtag import Gdb, OpenOcd
     from pytest_embedded_qemu import Qemu
     from pytest_embedded_serial import Serial
-    from pytest_embedded_wokwi import WokwiCLI
+    from pytest_embedded_wokwi import Wokwi
 
 from . import App, Dut
 from .log import MessageQueue, PexpectProcess
 from .utils import FIXTURES_SERVICES, ClassCliOptions, to_str
 
 
-def _drop_none_kwargs(kwargs: t.Dict[t.Any, t.Any]):
+def _drop_none_kwargs(kwargs: dict[t.Any, t.Any]):
     return {k: v for k, v in kwargs.items() if v is not None}
 
 
-if sys.platform == 'darwin':
-    _ctx = multiprocessing.get_context('fork')
-else:
-    _ctx = multiprocessing.get_context()
+_ctx = multiprocessing.get_context('spawn')
 
 _stdout = sys.__stdout__
 
@@ -43,10 +40,6 @@ DUT_GLOBAL_INDEX = 0
 # This variable holds values that were used in 'parametrize_fixtures'.
 # It helps to obtain the necessary information for a custom DUT, such as '_meta', '_services', and 'test_case_name'.
 PARAMETRIZED_FIXTURES_CACHE = {}
-
-
-def msg_queue_gn() -> MessageQueue:
-    return MessageQueue()
 
 
 def _listen(q: MessageQueue, filepath: str, with_timestamp: bool = True, count: int = 1, total: int = 1) -> None:
@@ -145,9 +138,6 @@ def _fixture_classes_and_options_fn(
     qemu_prog_path,
     qemu_cli_args,
     qemu_extra_args,
-    wokwi_cli_path,
-    wokwi_timeout,
-    wokwi_scenario,
     wokwi_diagram,
     skip_regenerate_image,
     encrypt,
@@ -161,9 +151,9 @@ def _fixture_classes_and_options_fn(
     _meta,
     **kwargs,
 ) -> ClassCliOptions:
-    classes: t.Dict[str, type] = {}
-    mixins: t.Dict[str, t.List[type]] = defaultdict(list)
-    kwargs: t.Dict[str, t.Dict[str, t.Any]] = defaultdict(dict)
+    classes: dict[str, type] = {}
+    mixins: dict[str, list[type]] = defaultdict(list)
+    kwargs: dict[str, dict[str, t.Any]] = defaultdict(dict)
 
     for fixture in FIXTURES_SERVICES.keys():
         if fixture == 'app':
@@ -173,22 +163,26 @@ def _fixture_classes_and_options_fn(
                     from pytest_embedded_qemu import DEFAULT_IMAGE_FN, QemuApp
 
                     classes[fixture] = QemuApp
-                    kwargs[fixture].update({
-                        'msg_queue': msg_queue,
-                        'part_tool': part_tool,
-                        'qemu_image_path': qemu_image_path,
-                        'skip_regenerate_image': skip_regenerate_image,
-                        'encrypt': encrypt,
-                        'keyfile': keyfile,
-                        'qemu_prog_path': qemu_prog_path,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'msg_queue': msg_queue,
+                            'part_tool': part_tool,
+                            'qemu_image_path': qemu_image_path,
+                            'skip_regenerate_image': skip_regenerate_image,
+                            'encrypt': encrypt,
+                            'keyfile': keyfile,
+                            'qemu_prog_path': qemu_prog_path,
+                        }
+                    )
                 else:
                     from pytest_embedded_idf import IdfApp
 
                     classes[fixture] = IdfApp
-                    kwargs[fixture].update({
-                        'part_tool': part_tool,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'part_tool': part_tool,
+                        }
+                    )
             elif 'arduino' in _services:
                 from pytest_embedded_arduino import ArduinoApp
 
@@ -226,26 +220,32 @@ def _fixture_classes_and_options_fn(
                     from pytest_embedded_idf import IdfSerial
 
                     classes[fixture] = IdfSerial
-                    kwargs[fixture].update({
-                        'app': None,
-                        'confirm_target_elf_sha256': confirm_target_elf_sha256,
-                        'erase_nvs': erase_nvs,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'app': None,
+                            'confirm_target_elf_sha256': confirm_target_elf_sha256,
+                            'erase_nvs': erase_nvs,
+                        }
+                    )
                 elif 'arduino' in _services:
                     from pytest_embedded_arduino import ArduinoSerial
 
                     classes[fixture] = ArduinoSerial
-                    kwargs[fixture].update({
-                        'app': None,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'app': None,
+                        }
+                    )
                 elif 'nuttx' in _services:
                     from pytest_embedded_nuttx import NuttxSerial
 
                     classes[fixture] = NuttxSerial
-                    kwargs[fixture].update({
-                        'app': None,
-                        'baud': int(baud or NuttxSerial.SERIAL_BAUDRATE),
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'app': None,
+                            'baud': int(baud or NuttxSerial.SERIAL_BAUDRATE),
+                        }
+                    )
                 else:
                     from pytest_embedded_serial_esp import EspSerial
 
@@ -309,19 +309,18 @@ def _fixture_classes_and_options_fn(
                 }
         elif fixture == 'wokwi':
             if 'wokwi' in _services:
-                from pytest_embedded_wokwi import WokwiCLI
+                from pytest_embedded_wokwi import Wokwi
 
-                classes[fixture] = WokwiCLI
-                kwargs[fixture].update({
-                    'wokwi_cli_path': wokwi_cli_path,
-                    'wokwi_timeout': wokwi_timeout,
-                    'wokwi_scenario': wokwi_scenario,
-                    'wokwi_diagram': wokwi_diagram,
-                    'msg_queue': msg_queue,
-                    'app': None,
-                    'meta': _meta,
-                    'firmware_resolver': None,
-                })
+                classes[fixture] = Wokwi
+                kwargs[fixture].update(
+                    {
+                        'wokwi_diagram': wokwi_diagram,
+                        'msg_queue': msg_queue,
+                        'app': None,
+                        'meta': _meta,
+                        'firmware_resolver': None,
+                    }
+                )
         elif fixture == 'dut':
             classes[fixture] = Dut
             kwargs[fixture] = {
@@ -342,9 +341,11 @@ def _fixture_classes_and_options_fn(
                 from pytest_embedded_wokwi import WokwiDut
 
                 classes[fixture] = WokwiDut
-                kwargs[fixture].update({
-                    'wokwi': None,
-                })
+                kwargs[fixture].update(
+                    {
+                        'wokwi': None,
+                    }
+                )
 
                 if 'idf' in _services:
                     from pytest_embedded_wokwi.idf import IDFFirmwareResolver
@@ -361,16 +362,20 @@ def _fixture_classes_and_options_fn(
                     from pytest_embedded_nuttx import NuttxQemuDut
 
                     classes[fixture] = NuttxQemuDut
-                    kwargs[fixture].update({
-                        'qemu': None,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'qemu': None,
+                        }
+                    )
                 else:
                     from pytest_embedded_qemu import QemuDut
 
                     classes[fixture] = QemuDut
-                    kwargs[fixture].update({
-                        'qemu': None,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'qemu': None,
+                        }
+                    )
             elif 'jtag' in _services:
                 if 'idf' in _services:
                     from pytest_embedded_idf import IdfDut
@@ -381,42 +386,52 @@ def _fixture_classes_and_options_fn(
 
                     classes[fixture] = SerialDut
 
-                kwargs[fixture].update({
-                    'serial': None,
-                    'openocd': None,
-                    'gdb': None,
-                })
+                kwargs[fixture].update(
+                    {
+                        'serial': None,
+                        'openocd': None,
+                        'gdb': None,
+                    }
+                )
             elif 'serial' in _services or 'esp' in _services:
                 if 'esp' in _services and 'idf' in _services:
                     from pytest_embedded_idf import IdfDut
 
                     classes[fixture] = IdfDut
-                    kwargs[fixture].update({
-                        'skip_check_coredump': skip_check_coredump,
-                        'panic_output_decode_script': panic_output_decode_script,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'skip_check_coredump': skip_check_coredump,
+                            'panic_output_decode_script': panic_output_decode_script,
+                        }
+                    )
                 elif 'esp' in _services and 'nuttx' in _services:
                     from pytest_embedded_nuttx import NuttxEspDut
 
                     classes[fixture] = NuttxEspDut
-                    kwargs[fixture].update({
-                        'serial': None,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'serial': None,
+                        }
+                    )
                 elif 'nuttx' in _services:
                     from pytest_embedded_nuttx import NuttxSerialDut
 
                     classes[fixture] = NuttxSerialDut
-                    kwargs[fixture].update({
-                        'serial': None,
-                    })
+                    kwargs[fixture].update(
+                        {
+                            'serial': None,
+                        }
+                    )
                 else:
                     from pytest_embedded_serial import SerialDut
 
                     classes[fixture] = SerialDut
 
-                kwargs[fixture].update({
-                    'serial': None,
-                })
+                kwargs[fixture].update(
+                    {
+                        'serial': None,
+                    }
+                )
 
     return ClassCliOptions(classes, mixins, kwargs)
 
@@ -427,7 +442,7 @@ def app_fn(_fixture_classes_and_options: ClassCliOptions) -> App:
     return cls(**_drop_none_kwargs(kwargs))
 
 
-def serial_gn(_fixture_classes_and_options, msg_queue, app) -> t.Optional[t.Union['Serial', 'LinuxSerial']]:
+def serial_gn(_fixture_classes_and_options, msg_queue, app) -> t.Union['Serial', 'LinuxSerial'] | None:
     if hasattr(app, 'target') and app.target == 'linux':
         from pytest_embedded_idf import LinuxSerial
 
@@ -495,7 +510,7 @@ def qemu_gn(_fixture_classes_and_options: ClassCliOptions, app) -> t.Optional['Q
     return cls(**_drop_none_kwargs(kwargs))
 
 
-def wokwi_gn(_fixture_classes_and_options: ClassCliOptions, app) -> t.Optional['WokwiCLI']:
+def wokwi_gn(_fixture_classes_and_options: ClassCliOptions, app) -> t.Optional['Wokwi']:
     """A wokwi subprocess that could read/redirect/write"""
     if 'wokwi' not in _fixture_classes_and_options.classes:
         return None
@@ -513,10 +528,10 @@ def dut_gn(
     openocd: t.Optional['OpenOcd'],
     gdb: t.Optional['Gdb'],
     app: App,
-    serial: t.Optional[t.Union['Serial', 'LinuxSerial']],
+    serial: t.Union['Serial', 'LinuxSerial'] | None,
     qemu: t.Optional['Qemu'],
-    wokwi: t.Optional['WokwiCLI'],
-) -> t.Union[Dut, t.List[Dut]]:
+    wokwi: t.Optional['Wokwi'],
+) -> Dut | list[Dut]:
     global DUT_GLOBAL_INDEX
     DUT_GLOBAL_INDEX += 1
 
@@ -550,7 +565,7 @@ def dut_gn(
     return cls(**_drop_none_kwargs(kwargs), mixins=mixins)
 
 
-def set_parametrized_fixtures_cache(values: t.Dict):
+def set_parametrized_fixtures_cache(values: dict):
     global PARAMETRIZED_FIXTURES_CACHE
     PARAMETRIZED_FIXTURES_CACHE = values.copy()
 
@@ -561,7 +576,7 @@ def _close_or_terminate(obj):
         return
 
     try:
-        if isinstance(obj, (subprocess.Popen, multiprocessing.process.BaseProcess)):
+        if isinstance(obj, subprocess.Popen | multiprocessing.process.BaseProcess):
             obj.terminate()
             obj.kill()
         elif isinstance(obj, io.IOBase):
@@ -604,7 +619,7 @@ class DutFactory:
     #    [openocd, gdb, serial, qemu, wokwi, dut]  # dut-1
     #    ...
     # ]
-    obj_stack: t.ClassVar[t.List[t.List[t.Any]]] = []
+    obj_stack: t.ClassVar[list[list[t.Any]]] = []
 
     @classmethod
     def close(cls):
@@ -633,39 +648,36 @@ class DutFactory:
         embedded_services: str = '',
         app_path: str = '',
         build_dir: str = 'build',
-        port: t.Optional[str] = None,
-        port_serial_number: t.Optional[str] = None,
-        port_location: t.Optional[str] = None,
-        port_mac: t.Optional[str] = None,
-        target: t.Optional[str] = None,
-        beta_target: t.Optional[str] = None,
-        baud: t.Optional[int] = None,
-        flash_port: t.Optional[str] = None,
-        skip_autoflash: t.Optional[bool] = None,
-        erase_all: t.Optional[bool] = None,
-        esptool_baud: t.Optional[int] = None,
-        esp_flash_force: t.Optional[bool] = False,
-        part_tool: t.Optional[str] = None,
-        confirm_target_elf_sha256: t.Optional[bool] = None,
-        erase_nvs: t.Optional[bool] = None,
-        skip_check_coredump: t.Optional[bool] = None,
-        panic_output_decode_script: t.Optional[str] = None,
-        openocd_prog_path: t.Optional[str] = None,
-        openocd_cli_args: t.Optional[str] = None,
-        gdb_prog_path: t.Optional[str] = None,
-        gdb_cli_args: t.Optional[str] = None,
-        no_gdb: t.Optional[bool] = None,
-        qemu_image_path: t.Optional[str] = None,
-        qemu_prog_path: t.Optional[str] = None,
-        qemu_cli_args: t.Optional[str] = None,
-        qemu_extra_args: t.Optional[str] = None,
-        wokwi_cli_path: t.Optional[str] = None,
-        wokwi_timeout: t.Optional[int] = 0,
-        wokwi_scenario: t.Optional[str] = None,
-        wokwi_diagram: t.Optional[str] = None,
-        skip_regenerate_image: t.Optional[bool] = None,
-        encrypt: t.Optional[bool] = None,
-        keyfile: t.Optional[str] = None,
+        port: str | None = None,
+        port_serial_number: str | None = None,
+        port_location: str | None = None,
+        port_mac: str | None = None,
+        target: str | None = None,
+        beta_target: str | None = None,
+        baud: int | None = None,
+        flash_port: str | None = None,
+        skip_autoflash: bool | None = None,
+        erase_all: bool | None = None,
+        esptool_baud: int | None = None,
+        esp_flash_force: bool | None = False,
+        part_tool: str | None = None,
+        confirm_target_elf_sha256: bool | None = None,
+        erase_nvs: bool | None = None,
+        skip_check_coredump: bool | None = None,
+        panic_output_decode_script: str | None = None,
+        openocd_prog_path: str | None = None,
+        openocd_cli_args: str | None = None,
+        gdb_prog_path: str | None = None,
+        gdb_cli_args: str | None = None,
+        no_gdb: bool | None = None,
+        qemu_image_path: str | None = None,
+        qemu_prog_path: str | None = None,
+        qemu_cli_args: str | None = None,
+        qemu_extra_args: str | None = None,
+        wokwi_diagram: str | None = None,
+        skip_regenerate_image: bool | None = None,
+        encrypt: bool | None = None,
+        keyfile: str | None = None,
     ):
         """
         Create a Device Under Test (DUT) object with customizable parameters.
@@ -708,9 +720,6 @@ class DutFactory:
             qemu_prog_path: QEMU program path.
             qemu_cli_args: QEMU CLI arguments.
             qemu_extra_args: Additional QEMU arguments.
-            wokwi_cli_path: Wokwi CLI path.
-            wokwi_timeout: Wokwi timeout.
-            wokwi_scenario: Wokwi scenario path.
             wokwi_diagram: Wokwi diagram path.
             skip_regenerate_image: Skip image regeneration flag.
             encrypt: Encryption flag.
@@ -725,10 +734,15 @@ class DutFactory:
         """
         layout = []
         try:
-            global PARAMETRIZED_FIXTURES_CACHE
-            msg_queue = msg_queue_gn()
+            from .plugin import _MP_MANAGER  # avoid circular import
+
+            if _MP_MANAGER is None:
+                raise SystemExit('The _MP_MANAGER is not initialized, please use this function under pytest.')
+
+            msg_queue = _MP_MANAGER.MessageQueue()
             layout.append(msg_queue)
 
+            global PARAMETRIZED_FIXTURES_CACHE
             _pexpect_logfile = os.path.join(
                 PARAMETRIZED_FIXTURES_CACHE['_meta'].logdir, f'custom-dut-{DUT_GLOBAL_INDEX}.txt'
             )
@@ -773,9 +787,6 @@ class DutFactory:
                 'qemu_prog_path': qemu_prog_path,
                 'qemu_cli_args': qemu_cli_args,
                 'qemu_extra_args': qemu_extra_args,
-                'wokwi_cli_path': wokwi_cli_path,
-                'wokwi_timeout': wokwi_timeout,
-                'wokwi_scenario': wokwi_scenario,
                 'wokwi_diagram': wokwi_diagram,
                 'skip_regenerate_image': skip_regenerate_image,
                 'encrypt': encrypt,

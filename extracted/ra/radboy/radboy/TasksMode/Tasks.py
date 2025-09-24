@@ -50,6 +50,7 @@ from scipy.io.wavfile import write
 from radboy.DB.SimpleScanner import SimpleScanner
 from radboy.DB.NW.NetWorth import *
 from decimal import Decimal as DEC
+from radboy.DB.lsToday import *
 def today():
     dt=datetime.now()
     return date(dt.year,dt.month,dt.day)
@@ -5431,6 +5432,12 @@ where:
                     'cmds':["#"+str(count),f"lookup_non0","lun0","checkn0","ckn0","lsn0"],
                     'desc':f'get total for valid fields short view and only show non-zero (Positive[+]) Location fields',
                     'exec':lambda self=self,entry=entry: self.getTotalwithBreakDownForScan(short=True,nonZero=True),
+                    }
+        count+=1
+        self.options[str(uuid1())]={
+                    'cmds':["#"+str(count),f"lookup_non0","system list","sysls","sys ls","sys-ls"],
+                    'desc':f'list system files',
+                    'exec':lambda self=self: systemls(),
                     }
         count+=1
         self.options["b1"]={

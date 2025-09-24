@@ -61,10 +61,10 @@ class StatefulSets:
                 namespace: str,
                 body: Callable[[ThreadPoolExecutor, str, str, bool], T],
                 post: Callable[[T], T] = None,
-                action: str = 'action', max_workers=0, show_out=True) -> list[T]:
+                action: str = 'action', max_workers=0, show_out=True, on_any = False) -> list[T]:
         pods = StatefulSets.pod_names(statefulset, namespace)
 
-        return Pods.on_pods(pods, namespace, body, post=post, action=action, max_workers=max_workers, show_out=show_out)
+        return Pods.on_pods(pods, namespace, body, post=post, action=action, max_workers=max_workers, show_out=show_out, on_any=on_any)
 
     @functools.lru_cache()
     def pod_names(ss: str, ns: str):

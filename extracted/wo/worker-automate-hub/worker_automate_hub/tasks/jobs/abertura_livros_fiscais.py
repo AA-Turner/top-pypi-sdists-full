@@ -7,10 +7,7 @@ import sys
 import os
 from pywinauto.findwindows import ElementNotFoundError
 from pywinauto.keyboard import send_keys
-
 # sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
-
-
 from worker_automate_hub.utils.logger import logger
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaHistoricoStatusEnum,
@@ -242,7 +239,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             # Clicando em incluir livro
             try:
                 console.print("Clicando em incluir livro")
-                cords = (695, 729)
+                cords = (698, 728)
                 pyautogui.click(x=cords[0], y=cords[1])
                 await worker_sleep(5)
             except:
@@ -502,181 +499,8 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
 
             main_window.close()
 
-            await worker_sleep(5)
+            await worker_sleep(3)
 
-            console.print("Selecionar Livro Saída aberto")
-
-            # Selecionar linha livro de saída aberto
-            # imagem = "assets\\abertura_livros\\livro_saida_aberto.png"
-            imagem = "assets\\abertura_livros\\livro_saida_aberto.png"
-
-            # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)
-
-            if localizacao:
-                print(f"Imagem livro de saída aberto encontrado em: {localizacao}")
-                pyautogui.moveTo(localizacao)
-                pyautogui.click()
-            else:
-                console.print("Imagem livro de saída aberto não encontrado na tela.")
-
-            # Clicar em alterar livro
-            # imagem = "assets\\abertura_livros\\alterar_livro.png"
-            imagem = "assets\\abertura_livros\\alterar_livro.png"
-            # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(
-                imagem, confidence=0.9
-            )  # você pode ajustar o confidence
-
-            if localizacao:
-                print(f"Imagem alterar livro encontrado em: {localizacao}")
-                pyautogui.moveTo(localizacao)
-                pyautogui.click()
-            else:
-                console.print("Imagem alterar livro não encontrada na tela.")
-
-            await worker_sleep(8)
-
-            # Clicar em Livro fiscal
-            # imagem = "assets\\abertura_livros\\livro_fiscal.png"
-            imagem = "assets\\abertura_livros\\livro_fiscal.png"
-            # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(
-                imagem, confidence=0.9
-            )  # você pode ajustar o confidence
-
-            if localizacao:
-                print(f"Imagem Livro fiscal encontrado em: {localizacao}")
-                pyautogui.moveTo(localizacao)
-                pyautogui.click()
-            else:
-                console.print("Imagem Livro fiscal não encontrada na tela.")
-
-            await worker_sleep(4)
-
-            # Clicar em Gerar Relatório
-            # imagem = "assets\\abertura_livros\\gerar_registros.png"
-            imagem = "assets\\abertura_livros\\gerar_registros.png"
-
-            # Tenta localizar a imagem na tela
-            localizacao = pyautogui.locateCenterOnScreen(
-                imagem, confidence=0.9
-            )  # você pode ajustar o confidence
-
-            if localizacao:
-                print(f"Imagem gerar relatório encontrado em: {localizacao}")
-                pyautogui.moveTo(localizacao)
-                pyautogui.click()
-            else:
-                console.print("Imagem gerar relatório não encontrada na tela.")
-
-            await worker_sleep(4)
-
-            ##### Janela Gerar Registro ####
-            console.print("Confirmar Registro")
-            app = Application().connect(class_name="TMsgBox", timeout=60)
-            main_window = app["TMsgBox"]
-            main_window.set_focus()
-
-            # Clicar em Sim
-            main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
-
-            await worker_sleep(4)
-
-            console.print("Clicar em confirmar")
-            app = Application().connect(
-                class_name="TPerguntasLivrosFiscaisForm", timeout=60
-            )
-            main_window = app["TPerguntasLivrosFiscaisForm"]
-            main_window.set_focus()
-            main_window.child_window(class_name="TButton", found_index=1).click_input()
-
-            await worker_sleep(60)
-
-            # Clicar no aviso
-            try:
-                app_msgbox = Application().connect(class_name="TMsgBox", timeout=10)
-                box = app_msgbox["TMsgBox"]
-                print("Janela 'TMsgBox' encontrada.")
-                box.set_focus()
-                box.child_window(class_name="TBitBtn", found_index=0).click_input()
-                print("1Clicou no botão 'TBitBtn'.")
-                await worker_sleep(5)
-            except:
-                pass
-            await worker_sleep(5)
-            try:
-                app_msg = Application().connect(class_name="TMessageForm", timeout=10)
-                form = app_msg["TMessageForm"]
-                console.print("Janela de confirmação 'TMessageForm' encontrada.")
-                form.set_focus()
-                form.child_window(class_name="TButton", found_index=1).click_input()
-                print("2Clicou no botão de confirmação.")
-                await worker_sleep(5)
-            except:
-                pass
-            await worker_sleep(5)
-            try:
-                app_msg = Application().connect(class_name="TMessageForm", timeout=10)
-                form = app_msg["TMessageForm"]
-                console.print("Janela de confirmação 'TMessageForm' encontrada.")
-                form.set_focus()
-                form.child_window(class_name="TButton", found_index=0).click_input()
-                print("3Clicou no botão de confirmação.")
-                await worker_sleep(5)
-            except:
-                pass
-            await worker_sleep(5)
-            try:
-                app_msg = Application().connect(class_name="TMessageForm", timeout=10)
-                form = app_msg["TMessageForm"]
-                console.print("Janela de confirmação 'TMessageForm' encontrada.")
-                form.set_focus()
-                form.child_window(class_name="TButton", found_index=1).click_input()
-                print("4Clicou no botão de confirmação.")
-                await worker_sleep(5)
-            except:
-                pass
-            await worker_sleep(5)
-            try:
-                app_msg = Application().connect(class_name="TMessageForm", timeout=10)
-                form = app_msg["TMessageForm"]
-                console.print("Janela de confirmação 'TMessageForm' encontrada.")
-                form.set_focus()
-                form.child_window(class_name="TButton", found_index=0).click_input()
-                print("5Clicou no botão de confirmação.")
-                await worker_sleep(5)
-            except:
-                pass
-            await worker_sleep(5)
-            try:
-                # Caminho da imagem que deve desaparecer
-                console.print("Aguardar carregar dados")
-                # imagem = "assets\\abertura_livros\\janela_carregada.png"
-                imagem = "assets\\abertura_livros\\janela_carregada.png"
-
-                # Tempo máximo de espera (em segundos)
-                tempo_limite = 600  # 10 minutos
-                intervalo = 2  # segundos entre as verificações
-
-                inicio = time.time()
-
-                while True:
-                    localizacao = pyautogui.locateOnScreen(imagem, confidence=0.9)
-
-                    if localizacao:
-                        print("Imagem ainda presente... aguardando")
-                    else:
-                        print("Imagem desapareceu da tela.")
-                        break  # A imagem sumiu, podemos seguir
-
-                    if time.time() - inicio > tempo_limite:
-                        print("Tempo esgotado. A imagem não desapareceu.")
-                        break
-
-                    time.sleep(intervalo)
-            except:
-                pass
             # Conecta na janela principal
             console.print("Janela Livro de Apuração ICMS 2ª Etapa")
             app = Application().connect(class_name="TFrmPrincipalFiscal", timeout=60)
@@ -712,7 +536,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             await worker_sleep(2)
             send_keys("{ENTER}")
 
-            await worker_sleep(5)
+            # await worker_sleep(5)
             console.print("Inserindo competência...")
 
             # Conecta na janela
@@ -740,12 +564,32 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             # Tenta localizar a imagem na tela
             localizacao = pyautogui.locateCenterOnScreen(
                 imagem, confidence=0.9
-            )  # você pode ajustar o confidence
-
+            )  
+  
             if localizacao:
                 print(f"Imagem incluir apuração encontrado em: {localizacao}")
                 pyautogui.moveTo(localizacao)
                 pyautogui.click()
+
+                await worker_sleep(10)
+
+                imagem = "assets\\abertura_livros\\aviso_erro.png"
+
+                # Tenta localizar a imagem na tela
+                localizacao_erro = pyautogui.locateCenterOnScreen(
+                    imagem, confidence=0.9
+                )  
+    
+                if localizacao_erro:
+                    return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=f"Erro ao Incluir apuração, situação diferente de confirmado.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                )
+
+                main_window.close()
+                
                 console.print("Apuração incluida com sucesso")
                 retorno = "Apuração incluida com sucesso"
                 return RpaRetornoProcessoDTO(
@@ -755,6 +599,7 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 console.print("Imagem incluir apuração não encontrada na tela.")
 
     except Exception as erro:
+
         console.print(f"Erro ao executar abertura de livros fiscais, erro : {erro}")
         return RpaRetornoProcessoDTO(
             sucesso=False,

@@ -316,8 +316,6 @@ OS_PACKAGE_MSG_SENDING_ERROR = "Error sending os_packages message, got %d %r"
 
 METRICS_BATCH_MSG_SENDING_ERROR = "Failed to send metrics batch message, got %d %r"
 
-MESSAGES_THROTTLED_BY_BACKEND_ERROR = "Message(s) of type '%s' were throttled due to backend limits and will be retried after: %s (in %s seconds)"
-
 PARAMETERS_BATCH_MSG_SENDING_ERROR = (
     "Failed to send parameters batch message, got %d %r"
 )

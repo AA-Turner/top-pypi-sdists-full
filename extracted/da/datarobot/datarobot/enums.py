@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from enum import auto, Enum, EnumMeta
+from enum import Enum, EnumMeta, auto
 from typing import List, Optional
 
 from strenum import StrEnum
@@ -1011,6 +1011,7 @@ class UseCaseEntityType(StrEnum, metaclass=DRStrEnum):
     NOTEBOOK = "notebook"
     APPLICATION = "application"
     RECIPE = "recipe"
+    FILE = "file"
 
 
 class UseCaseAPIPathEntityType(StrEnum):
@@ -1018,6 +1019,7 @@ class UseCaseAPIPathEntityType(StrEnum):
     DATASET = "datasets"
     APPLICATION = "applications"
     RECIPE = "recipes"
+    FILE = "files"
 
 
 UseCaseReferenceEntityMap: dict[Optional[UseCaseEntityType], UseCaseAPIPathEntityType] = {
@@ -1025,6 +1027,7 @@ UseCaseReferenceEntityMap: dict[Optional[UseCaseEntityType], UseCaseAPIPathEntit
     UseCaseEntityType.DATASET: UseCaseAPIPathEntityType.DATASET,
     UseCaseEntityType.APPLICATION: UseCaseAPIPathEntityType.APPLICATION,
     UseCaseEntityType.RECIPE: UseCaseAPIPathEntityType.RECIPE,
+    UseCaseEntityType.FILE: UseCaseAPIPathEntityType.FILE,
 }
 
 
@@ -1090,6 +1093,12 @@ class DataStoreListTypes(StrEnum):
 class DrDatabaseV1Types(StrEnum):
     BIGQUERY = "bigquery-v1"
     DATABRICKS = "databricks-v1"
+
+
+class DataTypes(StrEnum):
+    STRUCTURED = "structured"
+    UNSTRUCTURED = "unstructured"
+    ALL = "all"
 
 
 class TrainingDataSubsets(StrEnum, metaclass=DRStrEnum):
@@ -1604,6 +1613,12 @@ class RecipeInputType(StrEnum):
     DATASET = "dataset"
 
 
+class SparkInstanceSizes(StrEnum):
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
+
 class RecipeType(StrEnum):
     SQL = "SQL"
     WRANGLING = "WRANGLING"
@@ -1686,6 +1701,13 @@ class VectorDatabaseRetrievers(StrEnum):
     SINGLE_LOOKUP_RETRIEVER = "SINGLE_LOOKUP_RETRIEVER"
     CONVERSATIONAL_RETRIEVER = "CONVERSATIONAL_RETRIEVER"
     MULTI_STEP_RETRIEVER = "MULTI_STEP_RETRIEVER"
+
+
+class VectorDatabaseRetrievalMode(StrEnum):
+    """Vector database retriever modes."""
+
+    SIMILARITY = "similarity"
+    MAXIMAL_MARGINAL_RELEVANCE = "maximal_marginal_relevance"
 
 
 class PineconeCloud(StrEnum):
@@ -1819,9 +1841,21 @@ class ModerationGuardModelTargetType(StrEnum):
 
 
 class ModerationGuardOotbType(StrEnum):
+    """Defines the available OOTB guards."""
+
     TOKEN_COUNT = "token_count"
     FAITHFULNESS = "faithfulness"
     ROUGE_1 = "rouge_1"
+    AGENT_GOAL_ACCURACY = "agent_goal_accuracy"
+    AGENT_GOAL_ACCURACY_WITH_REFERENCE = "agent_goal_accuracy_with_reference"
+    COST = "cost"
+    TASK_ADHERENCE = "task_adherence"
+    TOOL_CALL_ACCURACY = "tool_call_accuracy"
+    # deprecated, will be converted to snake_case on sight
+    CAMELIZED_AGENT_GOAL_ACCURACY = "agentGoalAccuracy"
+    CAMELIZED_AGENT_GOAL_ACCURACY_WITH_REFERENCE = "agentGoalAccuracyWithReference"
+    CAMELIZED_TASK_ADHERENCE = "taskAdherence"
+    CAMELIZED_TOOL_CALL_ACCURACY = "toolCallAccuracy"
 
 
 class ModerationGuardLlmType(StrEnum):
@@ -1880,3 +1914,22 @@ class ToolCallAccuracyArgumentComparisonMode(StrEnum):
 
     EXACT_MATCH = "exact_match"
     IGNORE_ARGUMENTS = "ignore_arguments"
+
+
+class GridSearchSearchType(StrEnum):
+    """Grid search search type"""
+
+    BRUTE_FORCE = "full"
+    SMART = "smart"
+    BAYESIAN = "bayesian"
+
+
+class GridSearchAlgorithm(StrEnum):
+    """Grid search algorithm"""
+
+    EXHAUSTIVE_SEARCH = "Exhaustive Search"
+    PATTERN_SEARCH = "Pattern Search"
+    ACCELERATED_SEARCH = "Accelerated Search"
+    GREEDY_EXHAUSTIVE_SEARCH = "Greedy Exhaustive Search"
+    TPE_SEARCH = "Bayesian TPE Search"
+    GAUSSIAN_SEARCH = "Bayesian GP Search"

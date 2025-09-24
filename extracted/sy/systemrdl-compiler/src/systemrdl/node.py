@@ -1,7 +1,7 @@
 import re
 import itertools
 from copy import deepcopy, copy
-from collections import deque
+from collections import deque, OrderedDict
 from typing import TYPE_CHECKING, Optional, Iterator, Any, List, Tuple, Dict
 from typing import Sequence, Union, overload, TypeVar, Type
 
@@ -14,8 +14,6 @@ from .core import rdlformatcode, helpers
 if TYPE_CHECKING:
     from .compiler import RDLEnvironment
     from .source_ref import SourceRefBase
-    from .core.parameter import Parameter
-    from collections import OrderedDict
     from markdown import Markdown
 
 T = TypeVar("T")
@@ -30,7 +28,14 @@ class Node:
         # Do not call directly. Use factory() static method instead
         self.env = env
 
-        #: Reference to :class:`~systemrdl.component.Component` that instantiates this node
+        #: Reference to :class:`~systemrdl.component.Component` data object.
+        #:
+        #: .. deprecated:: 1.30
+        #:   Querying the internal ``Component`` objects is no longer recommended.
+        #:
+        #:   Equivalents for most concepts have been made available as direct
+        #:   methods or properties of :class:`Node` objects. It is strongly
+        #:   recommended to use these instead to prevent compatibility issues.
         self.inst = inst
 
         #: Reference to parent :class:`~Node`
@@ -639,20 +644,20 @@ class Node:
 
         A reference to a descendant node::
 
-            foo.bar -> foo.bar.baz.abcd = "baz.abcd"
+            foo.bar->foo.bar.baz.abcd = "baz.abcd"
 
         Relative path that traverses upwards::
 
-            foo.bar.baz -> foo.abc.def = "^.^.abc.def"
+            foo.bar.baz->foo.abc.def = "^.^.abc.def"
 
         Relative path to self results in an empty string::
 
-            foo.bar.baz -> foo.bar.baz = ""
+            foo.bar.baz->foo.bar.baz = ""
 
         Paths between array nodes with/without indexes will result in upwards paths::
 
-            foo.array[].baz -> foo.array[0].baz = "^.^.array[0].baz"
-            foo.array[0].baz -> foo.array[].baz = "^.^.array[].baz"
+            foo.array[].baz->foo.array[0].baz = "^.^.array[0].baz"
+            foo.array[0].baz->foo.array[].baz = "^.^.array[].baz"
 
         Parameters
         ----------
@@ -850,14 +855,19 @@ class Node:
         return self.inst.property_src_ref
 
     @property
-    def parameters(self) -> 'OrderedDict[str, Parameter]':
+    def parameters(self) -> 'OrderedDict[str, Any]':
         """
-        Parameters of this component
+        Returns a dictionary of the parameters of this component, and their final
+        elaborated values.
+
         These are stored in the order that they were defined
 
         .. versionadded:: 1.30
         """
-        return self.inst.parameters_dict
+        param_values_dict = OrderedDict()
+        for param_name, param in self.inst.parameters_dict.items():
+            param_values_dict[param_name] = param.get_value()
+        return param_values_dict
 
     @property
     def external(self) -> bool:

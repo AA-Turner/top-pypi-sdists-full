@@ -16,13 +16,13 @@ from typing import Any, Dict, Union
 
 import trafaret as t
 
-from datarobot.enums import enum_to_list, NemoLLMType
+from datarobot.enums import NemoLLMType, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.genai.comparison_chat import get_entity_id
 from datarobot.models.genai.playground import Playground
 from datarobot.models.genai.playground_moderation_configuration import (
-    moderation_configuration_without_id,
     ModerationConfigurationWithoutId,
+    moderation_configuration_without_id,
 )
 
 nemo_llm_configuration = t.Dict(

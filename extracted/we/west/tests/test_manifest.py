@@ -692,6 +692,9 @@ def test_no_projects():
     m = Manifest.from_data('manifest: {}')
     assert len(m.projects) == 1  # just ManifestProject
 
+    m = Manifest.from_data('manifest:')
+    assert len(m.projects) == 1
+
     m = M('''
     self:
       path: foo
@@ -1161,7 +1164,8 @@ def test_get_projects(tmp_workspace):
 def test_as_dict_and_yaml(manifest_repo):
     # coverage for as_dict, as_frozen_dict, as_yaml, as_frozen_yaml.
 
-    # keep content_str and content_dict in sync.
+    # keep content_str, content_dict and expected_yaml in sync.
+
     content_str = '''\
     manifest:
       projects:
@@ -1173,6 +1177,11 @@ def test_as_dict_and_yaml(manifest_repo):
         path: project-two
         clone-depth: 1
         west-commands: commands.yml
+      group-filter:
+        - -Ddisabled
+        - +Cenabled
+        - -Bdisabled
+        - +Aenabled
     '''
     content_dict = {'manifest':
                     {'projects':
@@ -1185,7 +1194,28 @@ def test_as_dict_and_yaml(manifest_repo):
                        'path': 'project-two',
                        'clone-depth': 1,
                        'west-commands': 'commands.yml'}],
-                     'self': {'path': os.path.basename(manifest_repo)}}}
+                     'self': {'path': os.path.basename(manifest_repo)},
+                     'group-filter': ['-Bdisabled', '-Ddisabled', ],
+                     }}
+
+    expected_yaml = '''\
+manifest:
+  group-filter:
+  - -Bdisabled
+  - -Ddisabled
+  projects:
+  - name: p1
+    revision: master
+    url: https://example.com/p1
+  - clone-depth: 1
+    name: p2
+    path: project-two
+    revision: deadbeef
+    url: https://example.com/p2
+    west-commands: commands.yml
+  self:
+    path: mp
+'''
 
     with open(manifest_repo / 'west.yml', 'w') as f:
         f.write(content_str)
@@ -1214,6 +1244,11 @@ def test_as_dict_and_yaml(manifest_repo):
     yaml_roundtrip = yaml.safe_load(manifest.as_yaml())
     assert as_dict == content_dict
     assert yaml_roundtrip == content_dict
+
+    # Deterministic output
+    assert manifest.as_yaml().replace(" ", "") == expected_yaml.replace(" ", "")
+    # More demanding: compare whitespace too
+    assert expected_yaml == manifest.as_yaml()
 
     # With no cloned projects, however, we should not be able to freeze.
 

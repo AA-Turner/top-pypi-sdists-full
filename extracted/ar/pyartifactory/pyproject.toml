@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "PyArtifactory"
-version = "2.11.1"
+version = "2.11.2"
 description = "Typed interactions with the Jfrog Artifactory REST API"
 authors = [
     "Ananias CARVALHO <carvalhoananias@hotmail.com>",
@@ -52,8 +52,8 @@ pytest-md = "^0.2.0"
 pytest-emoji = "^0.2.0"
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.isort]
 multi_line_output = 3

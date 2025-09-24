@@ -27,11 +27,13 @@ __all__ = (
     "DeleteUniqueIdErrorTypeType",
     "DeleteUniqueIdStatusType",
     "EntityResolutionServiceName",
+    "IdMappingIncrementalRunTypeType",
     "IdMappingTypeType",
     "IdMappingWorkflowRuleDefinitionTypeType",
     "IdNamespaceTypeType",
     "IncrementalRunTypeType",
     "JobStatusType",
+    "JobTypeType",
     "ListIdMappingJobsPaginatorName",
     "ListIdMappingWorkflowsPaginatorName",
     "ListIdNamespacesPaginatorName",
@@ -55,11 +57,13 @@ __all__ = (
 AttributeMatchingModelType = Literal["MANY_TO_MANY", "ONE_TO_ONE"]
 DeleteUniqueIdErrorTypeType = Literal["SERVICE_ERROR", "VALIDATION_ERROR"]
 DeleteUniqueIdStatusType = Literal["ACCEPTED", "COMPLETED"]
+IdMappingIncrementalRunTypeType = Literal["ON_DEMAND"]
 IdMappingTypeType = Literal["PROVIDER", "RULE_BASED"]
 IdMappingWorkflowRuleDefinitionTypeType = Literal["SOURCE", "TARGET"]
 IdNamespaceTypeType = Literal["SOURCE", "TARGET"]
 IncrementalRunTypeType = Literal["IMMEDIATE"]
 JobStatusType = Literal["FAILED", "QUEUED", "RUNNING", "SUCCEEDED"]
+JobTypeType = Literal["BATCH", "DELETE_ONLY", "INCREMENTAL"]
 ListIdMappingJobsPaginatorName = Literal["list_id_mapping_jobs"]
 ListIdMappingWorkflowsPaginatorName = Literal["list_id_mapping_workflows"]
 ListIdNamespacesPaginatorName = Literal["list_id_namespaces"]

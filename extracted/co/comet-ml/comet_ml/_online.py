@@ -24,7 +24,15 @@ import requests
 
 from . import announcements, reporter
 from ._reporting import EXPERIMENT_CREATION_FAILED
-from ._typing import Any, Dict, HeartBeatResponse, List, Optional, Tuple
+from ._typing import (
+    Any,
+    Dict,
+    ExperimentThrottledStatus,
+    HeartBeatResponse,
+    List,
+    Optional,
+    Tuple,
+)
 from .api_helpers.experiment_key import get_experiment_key
 from .artifacts import Artifact, LoggedArtifact, hf_dataset
 from .backend_response_helper import (
@@ -628,15 +636,15 @@ class Experiment(CometExperiment):
 
     def _check_experiment_throttled(
         self,
-    ) -> Tuple[bool, Optional[str], Optional[List[str]]]:
+    ) -> ExperimentThrottledStatus:
         experiment_metadata = self.rest_api_client.get_experiment_metadata(self.id)
         throttled = experiment_metadata.get("throttle", False)
         if throttled:
             message = experiment_metadata.get("throttleMessage")
             reasons = experiment_metadata.get("throttleReasons")
-            return True, message, reasons
+            return ExperimentThrottledStatus(True, message, reasons)
 
-        return False, None, None
+        return ExperimentThrottledStatus(False, None, None)
 
     @property
     def url(self):

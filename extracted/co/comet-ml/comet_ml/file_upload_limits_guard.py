@@ -11,7 +11,6 @@
 #  This source code is licensed under the MIT license.
 # *******************************************************
 from threading import Event
-from typing import List
 
 from .constants import (
     ASSET_TYPE_CURVE,

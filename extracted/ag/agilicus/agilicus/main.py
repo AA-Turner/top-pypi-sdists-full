@@ -7967,6 +7967,8 @@ def watch_issuers(ctx, **kwargs):
 @click.option(
     "--authentication-config-upstream-ntlm-passthrough", type=bool, default=None
 )
+@click.option("--client-injection-enabled", type=bool, default=None)
+@click.option("--client-injection-version", default=None)
 @click.pass_context
 def update_application_configs(
     ctx,

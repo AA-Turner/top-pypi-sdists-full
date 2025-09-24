@@ -14,6 +14,7 @@ from unittest.mock import create_autospec
 from zipfile import ZipFile
 
 from comet_ml import Experiment
+from comet_ml._typing import ExperimentThrottledStatus
 from comet_ml.config import (
     OFFLINE_EXPERIMENT_JSON_FILE_NAME,
     OFFLINE_EXPERIMENT_MESSAGES_JSON_FILE_NAME,
@@ -133,8 +134,8 @@ def experiment_builder(
         def send_notification(self, title, status=None, additional_data=None):
             pass
 
-        def _check_experiment_throttled(self):
-            return False
+        def _check_experiment_throttled(self) -> ExperimentThrottledStatus:
+            return ExperimentThrottledStatus(False, None, None)
 
     result = _TestingExperiment(
         api_key,

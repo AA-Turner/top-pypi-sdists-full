@@ -109,7 +109,7 @@ class DomainViewSet(
 
     @extend_schema(
         description="Trigger an asynchronous update task",
-        responses={202: AsyncOperationResponseSerializer},
+        responses={200: DomainSerializer, 202: AsyncOperationResponseSerializer},
     )
     def update(self, request, pk, **kwargs):
         """Prevent trying to update the default domain."""

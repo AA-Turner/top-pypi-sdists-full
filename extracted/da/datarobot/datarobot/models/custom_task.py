@@ -100,7 +100,7 @@ class CustomTask(APIObject):
         calibrate_predictions: Optional[bool] = None,
     ) -> None:
         if latest_version is not None:
-            # TODO: Annotate CustomTaskVersion [DSX-2323]
+            # TODO: Annotate CustomTaskVersion
             latest_version = CustomTaskVersion(**latest_version)  # type: ignore[no-untyped-call, arg-type]
 
         self.id = id
@@ -118,8 +118,7 @@ class CustomTask(APIObject):
         return f"{self.__class__.__name__}({self.name or self.id!r})"
 
     def _update_values(self, new_response: CustomTask) -> None:
-        # type (CustomTask) -> None
-        for attr in self._fields():  # type: ignore[no-untyped-call]
+        for attr in self._fields():
             new_value = getattr(new_response, attr)
             setattr(self, attr, new_value)
 

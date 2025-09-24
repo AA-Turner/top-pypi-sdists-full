@@ -1,7 +1,7 @@
 r'''
 # `newrelic_synthetics_private_location`
 
-Refer to the Terraform Registry for docs: [`newrelic_synthetics_private_location`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location).
+Refer to the Terraform Registry for docs: [`newrelic_synthetics_private_location`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SyntheticsPrivateLocation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.syntheticsPrivateLocation.SyntheticsPrivateLocation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location newrelic_synthetics_private_location}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location newrelic_synthetics_private_location}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class SyntheticsPrivateLocation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location newrelic_synthetics_private_location} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location newrelic_synthetics_private_location} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param description: The private location description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
-        :param name: The name of the private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
-        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#account_id SyntheticsPrivateLocation#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#id SyntheticsPrivateLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param verified_script_execution: The private location requires a password to edit if value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#verified_script_execution SyntheticsPrivateLocation#verified_script_execution}
+        :param description: The private location description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
+        :param name: The name of the private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
+        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#account_id SyntheticsPrivateLocation#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#id SyntheticsPrivateLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param verified_script_execution: The private location requires a password to edit if value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#verified_script_execution SyntheticsPrivateLocation#verified_script_execution}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class SyntheticsPrivateLocation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SyntheticsPrivateLocation to import.
-        :param import_from_id: The id of the existing SyntheticsPrivateLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SyntheticsPrivateLocation that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SyntheticsPrivateLocation to import is found.
         '''
         if __debug__:
@@ -307,11 +307,11 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param description: The private location description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
-        :param name: The name of the private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
-        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#account_id SyntheticsPrivateLocation#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#id SyntheticsPrivateLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param verified_script_execution: The private location requires a password to edit if value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#verified_script_execution SyntheticsPrivateLocation#verified_script_execution}
+        :param description: The private location description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
+        :param name: The name of the private location. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
+        :param account_id: The ID of the account in New Relic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#account_id SyntheticsPrivateLocation#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#id SyntheticsPrivateLocation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param verified_script_execution: The private location requires a password to edit if value is true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#verified_script_execution SyntheticsPrivateLocation#verified_script_execution}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -422,7 +422,7 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> builtins.str:
         '''The private location description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#description SyntheticsPrivateLocation#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -432,7 +432,7 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the private location.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#name SyntheticsPrivateLocation#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -442,14 +442,14 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The ID of the account in New Relic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#account_id SyntheticsPrivateLocation#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#account_id SyntheticsPrivateLocation#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#id SyntheticsPrivateLocation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#id SyntheticsPrivateLocation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -463,7 +463,7 @@ class SyntheticsPrivateLocationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''The private location requires a password to edit if value is true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/synthetics_private_location#verified_script_execution SyntheticsPrivateLocation#verified_script_execution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/synthetics_private_location#verified_script_execution SyntheticsPrivateLocation#verified_script_execution}
         '''
         result = self._values.get("verified_script_execution")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)

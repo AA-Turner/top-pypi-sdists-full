@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from io import StringIO
-from typing import Any, cast, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -30,8 +30,7 @@ _get_metadata_path = _base_metadata_path + "{prediction_id}/"
 _get_path = "projects/{project_id}/predictions/{prediction_id}/"
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.api_object import ServerDataDictType
 
     class ShapWarnings(TypedDict):

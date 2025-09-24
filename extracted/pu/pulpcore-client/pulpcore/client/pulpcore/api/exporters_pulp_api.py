@@ -1209,10 +1209,10 @@ class ExportersPulpApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> PulpExporterResponse:
         """Update a pulp exporter
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param pulp_exporter_href: (required)
         :type pulp_exporter_href: str
@@ -1253,6 +1253,7 @@ class ExportersPulpApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PulpExporterResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -1284,10 +1285,10 @@ class ExportersPulpApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[PulpExporterResponse]:
         """Update a pulp exporter
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param pulp_exporter_href: (required)
         :type pulp_exporter_href: str
@@ -1328,6 +1329,7 @@ class ExportersPulpApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PulpExporterResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -1362,7 +1364,7 @@ class ExportersPulpApi:
     ) -> RESTResponseType:
         """Update a pulp exporter
 
-        Trigger an asynchronous partial update task
+        Update the entity partially and trigger an asynchronous task if necessary
 
         :param pulp_exporter_href: (required)
         :type pulp_exporter_href: str
@@ -1403,6 +1405,7 @@ class ExportersPulpApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PulpExporterResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -1831,10 +1834,10 @@ class ExportersPulpApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> AsyncOperationResponse:
+    ) -> PulpExporterResponse:
         """Update a pulp exporter
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param pulp_exporter_href: (required)
         :type pulp_exporter_href: str
@@ -1875,6 +1878,7 @@ class ExportersPulpApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PulpExporterResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -1906,10 +1910,10 @@ class ExportersPulpApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[AsyncOperationResponse]:
+    ) -> ApiResponse[PulpExporterResponse]:
         """Update a pulp exporter
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param pulp_exporter_href: (required)
         :type pulp_exporter_href: str
@@ -1950,6 +1954,7 @@ class ExportersPulpApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PulpExporterResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(
@@ -1984,7 +1989,7 @@ class ExportersPulpApi:
     ) -> RESTResponseType:
         """Update a pulp exporter
 
-        Trigger an asynchronous update task
+        Update the entity and trigger an asynchronous task if necessary
 
         :param pulp_exporter_href: (required)
         :type pulp_exporter_href: str
@@ -2025,6 +2030,7 @@ class ExportersPulpApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PulpExporterResponse",
             '202': "AsyncOperationResponse",
         }
         response_data = self.api_client.call_api(

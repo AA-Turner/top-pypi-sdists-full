@@ -17,16 +17,16 @@ from functools import wraps
 import os
 import platform
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
-    cast,
     Dict,
     FrozenSet,
     Optional,
     Tuple,
-    TYPE_CHECKING,
     TypeVar,
     Union,
+    cast,
 )
 from urllib.parse import urljoin, urlparse
 import warnings
@@ -402,7 +402,7 @@ class RESTClientObject(requests.Session, BrowserMixin):
         # for this function than what is provided by APIObject, and
         # this is the only way I know to do this other than writing
         # manual docs in the .rst files
-        return super(RESTClientObject, self).open_in_browser()
+        return super().open_in_browser()
 
 
 def _http_message(response: Response) -> str:

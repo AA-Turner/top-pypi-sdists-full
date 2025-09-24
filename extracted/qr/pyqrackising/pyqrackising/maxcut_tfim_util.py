@@ -5,6 +5,21 @@ import os
 from numba import njit, prange
 
 
+@njit
+def get_cut(solution, nodes):
+    bit_string = ""
+    l, r = [], []
+    for i in range(len(solution)):
+        if solution[i]:
+            bit_string += "1"
+            r.append(nodes[i])
+        else:
+            bit_string += "0"
+            l.append(nodes[i])
+
+    return bit_string, l, r
+
+
 @njit(parallel=True)
 def init_theta(delta_t, tot_t, h_mult, n_qubits, J_eff, degrees):
     theta = np.empty(n_qubits, dtype=np.float32)
@@ -43,6 +58,22 @@ def init_thresholds(n_qubits):
     thresholds /= tot_prob
 
     return thresholds
+
+
+@njit
+def low_width(G_m, nodes, n_qubits):
+    if n_qubits == 0:
+        return "", 0, ([], [])
+
+    if n_qubits == 1:
+        return "0", 0, (nodes, [])
+
+    if n_qubits == 2:
+        weight = G_m[0, 1]
+        if weight < 0.0:
+            return "00", 0, (nodes, [])
+
+        return "01", weight, ([nodes[0]], [nodes[1]])
 
 
 @njit(parallel=True)

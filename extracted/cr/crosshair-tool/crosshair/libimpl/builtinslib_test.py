@@ -939,6 +939,31 @@ def test_str_replace_method() -> None:
     check_states(f, POST_FAIL)
 
 
+def test_str_startswith(space) -> None:
+    symbolic_char = proxy_for_type(str, "x")
+    symbolic_empty = proxy_for_type(str, "y")
+    with ResumedTracing():
+        space.add(len(symbolic_char) == 1)
+        space.add(len(symbolic_empty) == 0)
+        assert symbolic_char.startswith(symbolic_empty)
+        assert symbolic_char.startswith(symbolic_char)
+        assert symbolic_char.startswith(("foo", symbolic_empty))
+        assert not symbolic_char.startswith(("foo", "bar"))
+        assert symbolic_char.startswith(("", "bar"))
+        assert symbolic_char.startswith("")
+        assert symbolic_char.startswith(symbolic_empty, 1)
+        assert symbolic_char.startswith(symbolic_empty, 1, 1)
+        assert str.startswith(symbolic_char, symbolic_empty)
+        assert "foo".startswith(symbolic_empty)
+        assert not "".startswith(symbolic_char)
+
+        # Yes, the empty string is findable off the left side but not the right
+        assert "x".startswith("", -10, -9)
+        assert symbolic_char.startswith(symbolic_empty, -10, -9)
+        assert not "x".startswith("", 9, 10)
+        assert not symbolic_char.startswith(symbolic_empty, 9, 10)
+
+
 @pytest.mark.demo
 def test_str_index_method() -> None:
     def f(a: str) -> int:
@@ -3132,6 +3157,17 @@ def test_callable_as_bool() -> None:
         return bool(fn)
 
     check_states(f, CONFIRMED)
+
+
+def test_callable_can_return_different_values(space) -> None:
+    fn = proxy_for_type(Callable[[], int], "fn")
+    with ResumedTracing():
+        first_return = fn()
+        second_return = fn()
+        returns_are_equal = first_return == second_return
+        returns_are_not_equal = first_return != second_return
+    assert space.is_possible(returns_are_equal)
+    assert space.is_possible(returns_are_not_equal)
 
 
 @pytest.mark.smoke

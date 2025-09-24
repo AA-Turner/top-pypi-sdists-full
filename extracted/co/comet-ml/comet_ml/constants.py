@@ -33,6 +33,7 @@ ASSET_TYPE_DATAFRAME = "dataframe"
 ASSET_TYPE_CONFUSION_MATRIX = "confusion-matrix"
 ASSET_TYPE_GIT_PATCH = "git-patch"
 ASSET_TYPE_3D_POINTS = "3d-image"
+ASSET_TYPE_ASSET_ITEM = "asset-item"
 
 OTHER_KEY_CREATED_FROM = "Created from"
 

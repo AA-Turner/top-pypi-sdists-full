@@ -1944,6 +1944,7 @@ class OfflineSender(object):
                 upload_type=message["upload_type"],
                 base_url=self.connection.server_address,
                 log_connection_error_as_debug=False,
+                critical=False,
             )
         )
         LOGGER.debug("Processing uploading message done")
@@ -1983,6 +1984,8 @@ class OfflineSender(object):
                 verify_tls=self.check_tls_certificate,
                 estimated_size=0,
                 log_connection_error_as_debug=False,
+                upload_type=message["upload_type"],
+                critical=False,
             )
         )
         LOGGER.debug("Processing remote uploading message done")
@@ -2507,11 +2510,13 @@ class OfflineSender(object):
                     estimated_size=UNUSED_INT,
                     thumbnail_path=thumbnail_path,
                     log_connection_error_as_debug=False,
+                    critical=False,
                 ),
             )
 
         asset_item_url = self.connection.get_upload_url(message["upload_type"])
-        for item in asset_item.unserialize_items(message["items"]):
+        items = asset_item.deserialize_items(message["items"])
+        for item in items:
             self.file_upload_manager.upload_asset_item_thread(
                 options=AssetItemUploadOptions(
                     api_key=self.api_key,
@@ -2523,7 +2528,11 @@ class OfflineSender(object):
                     estimated_size=UNUSED_INT,
                     asset_id=asset_id,
                     asset_item=item,
+                    all_items=items,
                     log_connection_error_as_debug=False,
+                    critical=False,
+                    upload_type=message["upload_type"],
+                    asset_name=message["name"],
                 ),
             )
 

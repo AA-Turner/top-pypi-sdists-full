@@ -16,7 +16,7 @@ import copy
 import json
 import os
 import time
-from typing import Any, cast, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union, cast
 
 from requests import Response
 from requests_toolbelt import MultipartEncoder
@@ -405,7 +405,7 @@ class CustomModelVersionDependencyBuild(APIObject):
         updated_data = self._update_server_data(
             data, self.custom_model_id, self.custom_model_version_id
         )
-        self._set_values(**self._safe_data(updated_data, do_recursive=True))  # type: ignore[no-untyped-call]
+        self._set_values(**self._safe_data(updated_data, do_recursive=True))
 
 
 class CustomDependencyConstraint(APIObject):
@@ -1299,7 +1299,7 @@ class CustomModelVersion(APIObject):
         response = self._client.patch(path, data=payload)
 
         data = response.json()
-        self._set_values(**self._safe_data(data, do_recursive=True))  # type: ignore[no-untyped-call]
+        self._set_values(**self._safe_data(data, do_recursive=True))
         # _safe_data will make the keys in requiredMetadata lowercase,
         # which is not OK. we need to preserve case
         self.required_metadata = data.get(  # pylint: disable=attribute-defined-outside-init
@@ -1324,7 +1324,7 @@ class CustomModelVersion(APIObject):
         response = self._client.get(path)
 
         data = response.json()
-        self._set_values(**self._safe_data(data, do_recursive=True))  # type: ignore[no-untyped-call]
+        self._set_values(**self._safe_data(data, do_recursive=True))
 
     def get_feature_impact(self, with_metadata: bool = False) -> List[Dict[str, Any]]:
         """Get custom model feature impact.

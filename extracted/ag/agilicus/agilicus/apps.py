@@ -551,6 +551,7 @@ def update_application_configs(
     oidc_proxy_header_request_replace=None,
     oidc_config_rewrite_set_cookie=None,
     oidc_config_rewrite_cookie=None,
+    client_injection_enabled=None,
     **kwargs,
 ):
     additional_context = config.setdefault("additional_context", {})
@@ -630,6 +631,10 @@ def update_application_configs(
         request["replace"] = _build_oidc_header_replace_from_tuple(
             oidc_proxy_header_request_replace
         )
+
+    if client_injection_enabled is not None:
+        client_injection = config.setdefault("client_injection", {})
+        client_injection["enabled"] = client_injection_enabled
 
 
 def update_oidc_standard_headers(

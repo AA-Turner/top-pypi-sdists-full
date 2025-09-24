@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import cast, List, Optional, Type, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, List, Optional, Type, TypeVar, cast
 
 import trafaret as t
 
@@ -25,8 +25,7 @@ TModelingFeaturelist = TypeVar("TModelingFeaturelist", bound="ModelingFeaturelis
 TDatasetFeaturelist = TypeVar("TDatasetFeaturelist", bound="DatasetFeaturelist")
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.api_object import ServerDataDictType
     from datarobot.models.project import Project
 

@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import cast, List, Optional
+from typing import List, Optional, cast
 
 from requests import Response
 import trafaret as t

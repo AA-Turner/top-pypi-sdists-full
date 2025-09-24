@@ -22,6 +22,7 @@ See :ref:`user_guide_concepts` in the online documentation for more information.
 from __future__ import annotations
 
 import warnings
+from collections.abc import Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -40,19 +41,24 @@ except ImportError:
 from datafusion._internal import DataFrame as DataFrameInternal
 from datafusion._internal import ParquetColumnOptions as ParquetColumnOptionsInternal
 from datafusion._internal import ParquetWriterOptions as ParquetWriterOptionsInternal
-from datafusion.expr import Expr, SortExpr, sort_or_default
+from datafusion.expr import (
+    Expr,
+    SortKey,
+    ensure_expr,
+    ensure_expr_list,
+    expr_list_to_raw_expr_list,
+    sort_list_to_raw_sort_list,
+)
 from datafusion.plan import ExecutionPlan, LogicalPlan
 from datafusion.record_batch import RecordBatchStream
 
 if TYPE_CHECKING:
     import pathlib
-    from typing import Callable, Sequence
+    from typing import Callable
 
     import pandas as pd
     import polars as pl
     import pyarrow as pa
-
-    from datafusion._internal import expr as expr_internal
 
 from enum import Enum
 
@@ -119,68 +125,8 @@ class ParquetWriterOptions:
     """Advanced parquet writer options.
 
     Allows settings the writer options that apply to the entire file. Some options can
-    also be set on a column by column basis, with the field `column_specific_options`
-    (see `ParquetColumnOptions`).
-
-    Attributes:
-        data_pagesize_limit: Sets best effort maximum size of data page in bytes.
-        write_batch_size: Sets write_batch_size in bytes.
-        writer_version: Sets parquet writer version. Valid values are `1.0` and
-            `2.0`.
-        skip_arrow_metadata: Skip encoding the embedded arrow metadata in the
-            KV_meta.
-        compression: Compression type to use. Default is "zstd(3)".
-            Available compression types are
-            - "uncompressed": No compression.
-            - "snappy": Snappy compression.
-            - "gzip(n)": Gzip compression with level n.
-            - "brotli(n)": Brotli compression with level n.
-            - "lz4": LZ4 compression.
-            - "lz4_raw": LZ4_RAW compression.
-            - "zstd(n)": Zstandard compression with level n.
-        dictionary_enabled: Sets if dictionary encoding is enabled. If None, uses
-            the default parquet writer setting.
-        dictionary_page_size_limit: Sets best effort maximum dictionary page size,
-            in bytes.
-        statistics_enabled: Sets if statistics are enabled for any column Valid
-            values are `none`, `chunk`, and `page`. If None, uses the default
-            parquet writer setting.
-        max_row_group_size: Target maximum number of rows in each row group
-            (defaults to 1M rows). Writing larger row groups requires more memory to
-            write, but can get better compression and be faster to read.
-        created_by: Sets "created by" property.
-        column_index_truncate_length: Sets column index truncate length.
-        statistics_truncate_length: Sets statistics truncate length. If None, uses
-            the default parquet writer setting.
-        data_page_row_count_limit: Sets best effort maximum number of rows in a data
-            page.
-        encoding: Sets default encoding for any column. Valid values are `plain`,
-            `plain_dictionary`, `rle`, `bit_packed`, `delta_binary_packed`,
-            `delta_length_byte_array`, `delta_byte_array`, `rle_dictionary`, and
-            `byte_stream_split`. If None, uses the default parquet writer setting.
-        bloom_filter_on_write: Write bloom filters for all columns when creating
-            parquet files.
-        bloom_filter_fpp: Sets bloom filter false positive probability. If None,
-            uses the default parquet writer setting
-        bloom_filter_ndv: Sets bloom filter number of distinct values. If None, uses
-            the default parquet writer setting.
-        allow_single_file_parallelism: Controls whether DataFusion will attempt to
-            speed up writing parquet files by serializing them in parallel. Each
-            column in each row group in each output file are serialized in parallel
-            leveraging a maximum possible core count of n_files * n_row_groups *
-            n_columns.
-        maximum_parallel_row_group_writers: By default parallel parquet writer is
-            tuned for minimum memory usage in a streaming execution plan. You may
-            see a performance benefit when writing large parquet files by increasing
-            `maximum_parallel_row_group_writers` and
-            `maximum_buffered_record_batches_per_stream` if your system has idle
-            cores and can tolerate additional memory usage. Boosting these values is
-            likely worthwhile when writing out already in-memory data, such as from
-            a cached data frame.
-        maximum_buffered_record_batches_per_stream: See
-            `maximum_parallel_row_group_writers`.
-        column_specific_options: Overrides options for specific columns. If a column
-            is not a part of this dictionary, it will use the parameters provided here.
+    also be set on a column by column basis, with the field ``column_specific_options``
+    (see ``ParquetColumnOptions``).
     """
 
     def __init__(
@@ -208,7 +154,72 @@ class ParquetWriterOptions:
         maximum_buffered_record_batches_per_stream: int = 2,
         column_specific_options: Optional[dict[str, ParquetColumnOptions]] = None,
     ) -> None:
-        """Initialize the ParquetWriterOptions."""
+        """Initialize the ParquetWriterOptions.
+
+        Args:
+            data_pagesize_limit: Sets best effort maximum size of data page in bytes.
+            write_batch_size: Sets write_batch_size in bytes.
+            writer_version: Sets parquet writer version. Valid values are ``1.0`` and
+                ``2.0``.
+            skip_arrow_metadata: Skip encoding the embedded arrow metadata in the
+                KV_meta.
+            compression: Compression type to use. Default is ``zstd(3)``.
+                Available compression types are
+
+                - ``uncompressed``: No compression.
+                - ``snappy``: Snappy compression.
+                - ``gzip(n)``: Gzip compression with level n.
+                - ``brotli(n)``: Brotli compression with level n.
+                - ``lz4``: LZ4 compression.
+                - ``lz4_raw``: LZ4_RAW compression.
+                - ``zstd(n)``: Zstandard compression with level n.
+            compression_level: Compression level to set.
+            dictionary_enabled: Sets if dictionary encoding is enabled. If ``None``,
+                uses the default parquet writer setting.
+            dictionary_page_size_limit: Sets best effort maximum dictionary page size,
+                in bytes.
+            statistics_enabled: Sets if statistics are enabled for any column Valid
+                values are ``none``, ``chunk``, and ``page``. If ``None``, uses the
+                default parquet writer setting.
+            max_row_group_size: Target maximum number of rows in each row group
+                (defaults to 1M rows). Writing larger row groups requires more memory
+                to write, but can get better compression and be faster to read.
+            created_by: Sets "created by" property.
+            column_index_truncate_length: Sets column index truncate length.
+            statistics_truncate_length: Sets statistics truncate length. If ``None``,
+                uses the default parquet writer setting.
+            data_page_row_count_limit: Sets best effort maximum number of rows in a data
+                page.
+            encoding: Sets default encoding for any column. Valid values are ``plain``,
+                ``plain_dictionary``, ``rle``, ``bit_packed``, ``delta_binary_packed``,
+                ``delta_length_byte_array``, ``delta_byte_array``, ``rle_dictionary``,
+                and ``byte_stream_split``. If ``None``, uses the default parquet writer
+                setting.
+            bloom_filter_on_write: Write bloom filters for all columns when creating
+                parquet files.
+            bloom_filter_fpp: Sets bloom filter false positive probability. If ``None``,
+                uses the default parquet writer setting
+            bloom_filter_ndv: Sets bloom filter number of distinct values. If ``None``,
+                uses the default parquet writer setting.
+            allow_single_file_parallelism: Controls whether DataFusion will attempt to
+                speed up writing parquet files by serializing them in parallel. Each
+                column in each row group in each output file are serialized in parallel
+                leveraging a maximum possible core count of
+                ``n_files * n_row_groups * n_columns``.
+            maximum_parallel_row_group_writers: By default parallel parquet writer is
+                tuned for minimum memory usage in a streaming execution plan. You may
+                see a performance benefit when writing large parquet files by increasing
+                ``maximum_parallel_row_group_writers`` and
+                ``maximum_buffered_record_batches_per_stream`` if your system has idle
+                cores and can tolerate additional memory usage. Boosting these values is
+                likely worthwhile when writing out already in-memory data, such as from
+                a cached data frame.
+            maximum_buffered_record_batches_per_stream: See
+                ``maximum_parallel_row_group_writers``.
+            column_specific_options: Overrides options for specific columns. If a column
+                is not a part of this dictionary, it will use the parameters provided
+                here.
+        """
         self.data_pagesize_limit = data_pagesize_limit
         self.write_batch_size = write_batch_size
         self.writer_version = writer_version
@@ -241,29 +252,7 @@ class ParquetColumnOptions:
     """Parquet options for individual columns.
 
     Contains the available options that can be applied for an individual Parquet column,
-    replacing the global options in `ParquetWriterOptions`.
-
-    Attributes:
-        encoding: Sets encoding for the column path. Valid values are: `plain`,
-            `plain_dictionary`, `rle`, `bit_packed`, `delta_binary_packed`,
-            `delta_length_byte_array`, `delta_byte_array`, `rle_dictionary`, and
-            `byte_stream_split`. These values are not case-sensitive. If `None`, uses
-            the default parquet options
-        dictionary_enabled: Sets if dictionary encoding is enabled for the column path.
-            If `None`, uses the default parquet options
-        compression: Sets default parquet compression codec for the column path. Valid
-            values are `uncompressed`, `snappy`, `gzip(level)`, `lzo`, `brotli(level)`,
-            `lz4`, `zstd(level)`, and `lz4_raw`. These values are not case-sensitive. If
-            `None`, uses the default parquet options.
-        statistics_enabled: Sets if statistics are enabled for the column Valid values
-            are: `none`, `chunk`, and `page` These values are not case sensitive. If
-            `None`, uses the default parquet options.
-        bloom_filter_enabled: Sets if bloom filter is enabled for the column path. If
-            `None`, uses the default parquet options.
-        bloom_filter_fpp: Sets bloom filter false positive probability for the column
-            path. If `None`, uses the default parquet options.
-        bloom_filter_ndv: Sets bloom filter number of distinct values. If `None`, uses
-            the default parquet options.
+    replacing the global options in ``ParquetWriterOptions``.
     """
 
     def __init__(
@@ -276,7 +265,31 @@ class ParquetColumnOptions:
         bloom_filter_fpp: Optional[float] = None,
         bloom_filter_ndv: Optional[int] = None,
     ) -> None:
-        """Initialize the ParquetColumnOptions."""
+        """Initialize the ParquetColumnOptions.
+
+        Args:
+            encoding: Sets encoding for the column path. Valid values are: ``plain``,
+                ``plain_dictionary``, ``rle``, ``bit_packed``, ``delta_binary_packed``,
+                ``delta_length_byte_array``, ``delta_byte_array``, ``rle_dictionary``,
+                and ``byte_stream_split``. These values are not case-sensitive. If
+                ``None``, uses the default parquet options
+            dictionary_enabled: Sets if dictionary encoding is enabled for the column
+                path. If `None`, uses the default parquet options
+            compression: Sets default parquet compression codec for the column path.
+                Valid values are ``uncompressed``, ``snappy``, ``gzip(level)``, ``lzo``,
+                ``brotli(level)``, ``lz4``, ``zstd(level)``, and ``lz4_raw``. These
+                values are not case-sensitive. If ``None``, uses the default parquet
+                options.
+            statistics_enabled: Sets if statistics are enabled for the column Valid
+                values are: ``none``, ``chunk``, and ``page`` These values are not case
+                sensitive. If ``None``, uses the default parquet options.
+            bloom_filter_enabled: Sets if bloom filter is enabled for the column path.
+                If ``None``, uses the default parquet options.
+            bloom_filter_fpp: Sets bloom filter false positive probability for the
+                column path. If ``None``, uses the default parquet options.
+            bloom_filter_ndv: Sets bloom filter number of distinct values. If ``None``,
+                uses the default parquet options.
+        """
         self.encoding = encoding
         self.dictionary_enabled = dictionary_enabled
         self.compression = compression
@@ -394,9 +407,7 @@ class DataFrame:
             df = df.select("a", col("b"), col("a").alias("alternate_a"))
 
         """
-        exprs_internal = [
-            Expr.column(arg).expr if isinstance(arg, str) else arg.expr for arg in exprs
-        ]
+        exprs_internal = expr_list_to_raw_expr_list(exprs)
         return DataFrame(self.df.select(*exprs_internal))
 
     def drop(self, *columns: str) -> DataFrame:
@@ -414,9 +425,17 @@ class DataFrame:
         """Return a DataFrame for which ``predicate`` evaluates to ``True``.
 
         Rows for which ``predicate`` evaluates to ``False`` or ``None`` are filtered
-        out.  If more than one predicate is provided, these predicates will be
-        combined as a logical AND. If more complex logic is required, see the
-        logical operations in :py:mod:`~datafusion.functions`.
+        out. If more than one predicate is provided, these predicates will be
+        combined as a logical AND. Each ``predicate`` must be an
+        :class:`~datafusion.expr.Expr` created using helper functions such as
+        :func:`datafusion.col` or :func:`datafusion.lit`.
+        If more complex logic is required, see the logical operations in
+        :py:mod:`~datafusion.functions`.
+
+        Example::
+
+            from datafusion import col, lit
+            df.filter(col("a") > lit(1))
 
         Args:
             predicates: Predicate expression(s) to filter the DataFrame.
@@ -426,11 +445,19 @@ class DataFrame:
         """
         df = self.df
         for p in predicates:
-            df = df.filter(p.expr)
+            df = df.filter(ensure_expr(p))
         return DataFrame(df)
 
     def with_column(self, name: str, expr: Expr) -> DataFrame:
         """Add an additional column to the DataFrame.
+
+        The ``expr`` must be an :class:`~datafusion.expr.Expr` constructed with
+        :func:`datafusion.col` or :func:`datafusion.lit`.
+
+        Example::
+
+            from datafusion import col, lit
+            df.with_column("b", col("a") + lit(1))
 
         Args:
             name: Name of the column to add.
@@ -439,23 +466,27 @@ class DataFrame:
         Returns:
             DataFrame with the new column.
         """
-        return DataFrame(self.df.with_column(name, expr.expr))
+        return DataFrame(self.df.with_column(name, ensure_expr(expr)))
 
     def with_columns(
         self, *exprs: Expr | Iterable[Expr], **named_exprs: Expr
     ) -> DataFrame:
         """Add columns to the DataFrame.
 
-        By passing expressions, iteratables of expressions, or named expressions. To
-        pass named expressions use the form name=Expr.
+        By passing expressions, iterables of expressions, or named expressions.
+        All expressions must be :class:`~datafusion.expr.Expr` objects created via
+        :func:`datafusion.col` or :func:`datafusion.lit`.
+        To pass named expressions use the form ``name=Expr``.
 
-        Example usage: The following will add 4 columns labeled a, b, c, and d::
+        Example usage: The following will add 4 columns labeled ``a``, ``b``, ``c``,
+        and ``d``::
 
+            from datafusion import col, lit
             df = df.with_columns(
-                lit(0).alias('a'),
-                [lit(1).alias('b'), lit(2).alias('c')],
+                col("x").alias("a"),
+                [lit(1).alias("b"), col("y").alias("c")],
                 d=lit(3)
-                )
+            )
 
         Args:
             exprs: Either a single expression or an iterable of expressions to add.
@@ -464,24 +495,10 @@ class DataFrame:
         Returns:
             DataFrame with the new columns added.
         """
-
-        def _simplify_expression(
-            *exprs: Expr | Iterable[Expr], **named_exprs: Expr
-        ) -> list[expr_internal.Expr]:
-            expr_list = []
-            for expr in exprs:
-                if isinstance(expr, Expr):
-                    expr_list.append(expr.expr)
-                elif isinstance(expr, Iterable):
-                    expr_list.extend(inner_expr.expr for inner_expr in expr)
-                else:
-                    raise NotImplementedError
-            if named_exprs:
-                for alias, expr in named_exprs.items():
-                    expr_list.append(expr.alias(alias).expr)
-            return expr_list
-
-        expressions = _simplify_expression(*exprs, **named_exprs)
+        expressions = ensure_expr_list(exprs)
+        for alias, expr in named_exprs.items():
+            ensure_expr(expr)
+            expressions.append(expr.alias(alias).expr)
 
         return DataFrame(self.df.with_columns(expressions))
 
@@ -503,37 +520,47 @@ class DataFrame:
         return DataFrame(self.df.with_column_renamed(old_name, new_name))
 
     def aggregate(
-        self, group_by: list[Expr] | Expr, aggs: list[Expr] | Expr
+        self,
+        group_by: Sequence[Expr | str] | Expr | str,
+        aggs: Sequence[Expr] | Expr,
     ) -> DataFrame:
         """Aggregates the rows of the current DataFrame.
 
         Args:
-            group_by: List of expressions to group by.
-            aggs: List of expressions to aggregate.
+            group_by: Sequence of expressions or column names to group by.
+            aggs: Sequence of expressions to aggregate.
 
         Returns:
             DataFrame after aggregation.
         """
-        group_by = group_by if isinstance(group_by, list) else [group_by]
-        aggs = aggs if isinstance(aggs, list) else [aggs]
+        group_by_list = (
+            list(group_by)
+            if isinstance(group_by, Sequence) and not isinstance(group_by, (Expr, str))
+            else [group_by]
+        )
+        aggs_list = (
+            list(aggs)
+            if isinstance(aggs, Sequence) and not isinstance(aggs, Expr)
+            else [aggs]
+        )
 
-        group_by = [e.expr for e in group_by]
-        aggs = [e.expr for e in aggs]
-        return DataFrame(self.df.aggregate(group_by, aggs))
+        group_by_exprs = expr_list_to_raw_expr_list(group_by_list)
+        aggs_exprs = ensure_expr_list(aggs_list)
+        return DataFrame(self.df.aggregate(group_by_exprs, aggs_exprs))
 
-    def sort(self, *exprs: Expr | SortExpr) -> DataFrame:
-        """Sort the DataFrame by the specified sorting expressions.
+    def sort(self, *exprs: SortKey) -> DataFrame:
+        """Sort the DataFrame by the specified sorting expressions or column names.
 
         Note that any expression can be turned into a sort expression by
-        calling its` ``sort`` method.
+        calling its ``sort`` method.
 
         Args:
-            exprs: Sort expressions, applied in order.
+            exprs: Sort expressions or column names, applied in order.
 
         Returns:
             DataFrame after sorting.
         """
-        exprs_raw = [sort_or_default(expr) for expr in exprs]
+        exprs_raw = sort_list_to_raw_sort_list(exprs)
         return DataFrame(self.df.sort(*exprs_raw))
 
     def cast(self, mapping: dict[str, pa.DataType[Any]]) -> DataFrame:
@@ -588,7 +615,7 @@ class DataFrame:
     def collect(self) -> list[pa.RecordBatch]:
         """Execute this :py:class:`DataFrame` and collect results into memory.
 
-        Prior to calling ``collect``, modifying a DataFrme simply updates a plan
+        Prior to calling ``collect``, modifying a DataFrame simply updates a plan
         (no actual computation is performed). Calling ``collect`` triggers the
         computation.
 
@@ -745,8 +772,14 @@ class DataFrame:
     ) -> DataFrame:
         """Join two :py:class:`DataFrame` using the specified expressions.
 
-        On expressions are used to support in-equality predicates. Equality
-        predicates are correctly optimized
+        Join predicates must be :class:`~datafusion.expr.Expr` objects, typically
+        built with :func:`datafusion.col`. On expressions are used to support
+        in-equality predicates. Equality predicates are correctly optimized.
+
+        Example::
+
+            from datafusion import col
+            df.join_on(other_df, col("id") == col("other_id"))
 
         Args:
             right: Other DataFrame to join with.
@@ -757,7 +790,7 @@ class DataFrame:
         Returns:
             DataFrame after join.
         """
-        exprs = [expr.expr for expr in on_exprs]
+        exprs = [ensure_expr(expr) for expr in on_exprs]
         return DataFrame(self.df.join_on(right.df, exprs, how))
 
     def explain(self, verbose: bool = False, analyze: bool = False) -> None:
@@ -767,7 +800,7 @@ class DataFrame:
 
         Args:
             verbose: If ``True``, more details will be included.
-            analyze: If ``Tru`e``, the plan will run and metrics reported.
+            analyze: If ``True``, the plan will run and metrics reported.
         """
         self.df.explain(verbose, analyze)
 

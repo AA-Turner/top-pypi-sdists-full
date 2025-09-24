@@ -979,6 +979,7 @@ class ConnectionModelType(sgqlc.types.Enum):
     * `DATABRICKS_METASTORE_SQL_WAREHOUSE`: Databricks Metastore Sql
       Warehouse
     * `DATABRICKS_SQL_WAREHOUSE`: Databricks Sql Warehouse
+    * `DB2`: Db2
     * `DBT_CLOUD`: dbt Cloud
     * `DBT_CLOUD_V2`: dbt Cloud v2
     * `DBT_CLOUD_WEBHOOK`: dbt Cloud Webhook
@@ -1029,6 +1030,7 @@ class ConnectionModelType(sgqlc.types.Enum):
         "DATABRICKS_METASTORE",
         "DATABRICKS_METASTORE_SQL_WAREHOUSE",
         "DATABRICKS_SQL_WAREHOUSE",
+        "DB2",
         "DBT_CLOUD",
         "DBT_CLOUD_V2",
         "DBT_CLOUD_WEBHOOK",
@@ -1072,6 +1074,7 @@ class ConnectionSubtypeEnum(sgqlc.types.Enum):
 
     * `AZURE_DEDICATED_SQL_POOL`None
     * `AZURE_SQL_DATABASE`None
+    * `DB2`None
     * `MARIADB`None
     * `MOTHERDUCK`None
     * `MYSQL`None
@@ -1086,6 +1089,7 @@ class ConnectionSubtypeEnum(sgqlc.types.Enum):
     __choices__ = (
         "AZURE_DEDICATED_SQL_POOL",
         "AZURE_SQL_DATABASE",
+        "DB2",
         "MARIADB",
         "MOTHERDUCK",
         "MYSQL",
@@ -1111,6 +1115,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
     * `DATABRICKS_METASTORE`None
     * `DATABRICKS_METASTORE_SQL_WAREHOUSE`None
     * `DATABRICKS_SQL_WAREHOUSE`None
+    * `DB2`None
     * `DBT_CLOUD`None
     * `DBT_CLOUD_V2`None
     * `DBT_CLOUD_WEBHOOK`None
@@ -1161,6 +1166,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
         "DATABRICKS_METASTORE",
         "DATABRICKS_METASTORE_SQL_WAREHOUSE",
         "DATABRICKS_SQL_WAREHOUSE",
+        "DB2",
         "DBT_CLOUD",
         "DBT_CLOUD_V2",
         "DBT_CLOUD_WEBHOOK",
@@ -1408,6 +1414,7 @@ class DataCollectorScheduleModelDeleteReason(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `CONNECTION_DELETED`: connection_deleted
+    * `DEPRECATED_JOB_TYPE`: deprecated_job_type
     * `MONITOR_DELETED`: monitor_deleted
     * `NO_COLLECTOR`: no_collector
     * `RULE_DELETED`: rule_deleted
@@ -1417,6 +1424,7 @@ class DataCollectorScheduleModelDeleteReason(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "CONNECTION_DELETED",
+        "DEPRECATED_JOB_TYPE",
         "MONITOR_DELETED",
         "NO_COLLECTOR",
         "RULE_DELETED",
@@ -4696,6 +4704,7 @@ class SqlDialect(sgqlc.types.Enum):
     * `BIGQUERY`None
     * `CLICKHOUSE`None
     * `DATABRICKS`None
+    * `DB2`None
     * `DREMIO`None
     * `HIVE`None
     * `MARIADB`None
@@ -4722,6 +4731,7 @@ class SqlDialect(sgqlc.types.Enum):
         "BIGQUERY",
         "CLICKHOUSE",
         "DATABRICKS",
+        "DB2",
         "DREMIO",
         "HIVE",
         "MARIADB",
@@ -5480,6 +5490,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
     * `BIGQUERY`: BigQuery
     * `CLICKHOUSE`: ClickHouse
     * `DATA_LAKE`: Data Lake
+    * `DB2`: Db2
     * `DREMIO`: Dremio
     * `ETL`: etl
     * `MYSQL`: MySQL
@@ -5499,6 +5510,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
         "BIGQUERY",
         "CLICKHOUSE",
         "DATA_LAKE",
+        "DB2",
         "DREMIO",
         "ETL",
         "MYSQL",
@@ -67386,6 +67398,8 @@ class Warehouse(sgqlc.types.Type):
         "supports_custom_sql_rules",
         "supports_high_segment_count",
         "supports_activity_filters",
+        "supports_metric_segmentation",
+        "supports_metric_aggregation",
         "mcon",
         "metadata_connection",
         "metadata_schedule",
@@ -67691,6 +67705,18 @@ class Warehouse(sgqlc.types.Type):
 
     supports_activity_filters = sgqlc.types.Field(Boolean, graphql_name="supportsActivityFilters")
     """Indicates if the warehouse supports activity filters"""
+
+    supports_metric_segmentation = sgqlc.types.Field(
+        Boolean, graphql_name="supportsMetricSegmentation"
+    )
+    """Indicates if the warehouse supports segmentation in metric
+    monitors
+    """
+
+    supports_metric_aggregation = sgqlc.types.Field(
+        Boolean, graphql_name="supportsMetricAggregation"
+    )
+    """Indicates if the warehouse supports grouping in metric monitors"""
 
     mcon = sgqlc.types.Field(String, graphql_name="mcon")
     """MCON for the warehouse"""

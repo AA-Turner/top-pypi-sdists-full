@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydaikin
-Version: 2.16.1
+Version: 2.17.0
 Summary: Python Daikin HVAC appliances interface
 Author-email: Fredrik Erlandsson <fredrik.e@gmail.com>, Yari Adan <mustang@yadan.org>
 Maintainer-email: Fredrik Erlandsson <fredrik.e@gmail.com>, Matthias Lemainque <matthias.lemainque+pydaikin@gmail.com>

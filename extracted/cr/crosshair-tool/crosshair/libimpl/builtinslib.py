@@ -346,7 +346,7 @@ class AtomicSymbolicValue(SymbolicValue):
         raise CrossHairInternal(f"_pytype not implemented in {cls}")
 
     @classmethod
-    def _smt_promote_literal(cls, val: object) -> Optional[z3.SortRef]:
+    def _smt_promote_literal(cls, literal: object) -> Optional[z3.ExprRef]:
         raise CrossHairInternal(f"_smt_promote_literal not implemented in {cls}")
 
     @classmethod
@@ -1120,7 +1120,7 @@ class SymbolicBool(SymbolicIntable, AtomicSymbolicValue):
         return bool
 
     @classmethod
-    def _smt_promote_literal(cls, literal) -> Optional[z3.SortRef]:
+    def _smt_promote_literal(cls, literal) -> Optional[z3.ExprRef]:
         if isinstance(literal, bool):
             return z3.BoolVal(literal)
         return None
@@ -1189,7 +1189,7 @@ class SymbolicInt(SymbolicIntable, AtomicSymbolicValue):
         return int
 
     @classmethod
-    def _smt_promote_literal(cls, literal) -> Optional[z3.SortRef]:
+    def _smt_promote_literal(cls, literal) -> Optional[z3.ExprRef]:
         if isinstance(literal, int):
             return z3IntVal(literal)
         return None
@@ -1410,7 +1410,7 @@ class PreciseIeeeSymbolicFloat(SymbolicFloat):
         return _PRECISE_IEEE_FLOAT_SORT
 
     @classmethod
-    def _smt_promote_literal(cls, literal) -> Optional[z3.SortRef]:
+    def _smt_promote_literal(cls, literal) -> Optional[z3.ExprRef]:
         if isinstance(literal, float):
             return z3.FPVal(literal, cls._ch_smt_sort())
         return None
@@ -1533,7 +1533,7 @@ class RealBasedSymbolicFloat(SymbolicFloat):
         return z3.RealSort()
 
     @classmethod
-    def _smt_promote_literal(cls, literal) -> Optional[z3.SortRef]:
+    def _smt_promote_literal(cls, literal) -> Optional[z3.ExprRef]:
         if isinstance(literal, float) and isfinite(literal):
             return z3.RealVal(literal)
         return None
@@ -2447,7 +2447,7 @@ class SymbolicType(AtomicSymbolicValue, SymbolicValue, Untracable):
         return type
 
     @classmethod
-    def _smt_promote_literal(cls, literal) -> Optional[z3.SortRef]:
+    def _smt_promote_literal(cls, literal) -> Optional[z3.ExprRef]:
         if isinstance(literal, type):
             return context_statespace().extra(SymbolicTypeRepository).get_type(literal)
         return None
@@ -2668,10 +2668,25 @@ class SymbolicCallable:
     __annotations__: dict = {}
 
     def __init__(self, values: list):
+        """
+        A function that will ignore its arguments and produce return values
+        from the list given.
+        If the given list is exhausted, the function will just repeatedly
+        return the final value in the list.
+
+        If `values` is concrete, it must be non-mepty.
+        If `values` is a symbolic list, it will be forced to be non-empty
+        (the caller must enure that's possible).
+        """
         assert not is_tracing()
         with ResumedTracing():
-            if not values:
-                raise IgnoreAttempt
+            has_values = len(values) > 0
+        if isinstance(values, CrossHairValue):
+            space = context_statespace()
+            assert space.is_possible(has_values)
+            space.add(has_values)
+        else:
+            assert has_values
         self.values = values
         self.idx = 0
 
@@ -2695,6 +2710,7 @@ class SymbolicCallable:
         if idx >= len(values):
             return values[-1]
         else:
+            self.idx += 1
             return values[idx]
 
     def __bool__(self):
@@ -3406,6 +3422,26 @@ class AnySymbolicStr(AbcString):
             return "0" * fill_length + self
 
 
+def _unfindable_range(start: Optional[int], end: Optional[int], mylen: int) -> bool:
+    """
+    Emulates some preliminary checks that CPython makes before searching
+    for substrings within some bounds. (in e.g. str.find, str.startswith, etc)
+    """
+    if start is None or start == 0 or start <= -mylen:
+        return False
+
+    # At this point, we know that `start` is defined and points to an index after 0
+    if end is None or end >= mylen:
+        return start > mylen
+
+    # At this point, we know that `end` is defined and points to an index before the end of the string
+    if start < 0:
+        start += mylen
+    if end < 0:
+        end += mylen
+    return end < start
+
+
 class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
     """
     A symbolic string that lazily generates SymbolicInt-based characters as needed.
@@ -3444,10 +3480,8 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
             codepoints = tuple(self._codepoints)
         return "".join(chr(realize(x)) for x in codepoints)
 
-    # This is normally an AtomicSymbolicValue method, but sometimes it's used in a
-    # duck-typing way.
     @classmethod
-    def _smt_promote_literal(cls, val: object) -> Optional[z3.SortRef]:
+    def _ch_create_from_literal(cls, val: object) -> Optional[CrossHairValue]:
         if isinstance(val, str):
             return LazyIntSymbolicStr(list(map(ord, val)))
         return None
@@ -3481,6 +3515,10 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
         with NoTracing():
             if not isinstance(i, (Integral, slice)):
                 raise TypeError(type(i))
+            # This could/should? be symbolic by naming all the possibilities.
+            # Note the slice case still must realize the return length.
+            # Especially because we no longer explore realization trees except
+            # as a last resort.
             i = deep_realize(i)
             with ResumedTracing():
                 newcontents = self._codepoints[i]
@@ -3561,11 +3599,15 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
             return any(self.endswith(s, start, end) for s in substr)
         if not isinstance(substr, str):
             raise TypeError
+        substrlen = len(substr)
         if start is None and end is None:
             matchable = self
         else:
             matchable = self[start:end]
-        return matchable[-len(substr) :] == substr
+        if substrlen == 0:
+            return not _unfindable_range(start, end, len(self))
+        else:
+            return matchable[-substrlen:] == substr
 
     def startswith(self, substr, start=None, end=None):
         if isinstance(substr, tuple):
@@ -3575,6 +3617,10 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
         if start is None and end is None:
             matchable = self
         else:
+            # Wacky special case: the empty string is findable off the left
+            # side but not the right!
+            if _unfindable_range(start, end, len(self)):
+                return False
             matchable = self[start:end]
         return matchable[: len(substr)] == substr
 
@@ -3615,7 +3661,7 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
             end += mylen
         matchstr = self[start:end] if start != 0 or end is not mylen else self
         if len(substr) == 0:
-            # Add oddity of CPython. We can find the empty string when over-slicing
+            # An oddity of CPython. We can find the empty string when over-slicing
             # off the left side of the string, but not off the right:
             # ''.find('', 3, 4) == -1
             # ''.find('', -4, -3) == 0
@@ -4790,14 +4836,17 @@ def _str_format_map(self, map) -> Union[AnySymbolicStr, str]:
 
 
 def _str_startswith(self, substr, start=None, end=None) -> bool:
-    if not isinstance(self, str):
-        raise TypeError
     with NoTracing():
+        if isinstance(self, LazyIntSymbolicStr):
+            with ResumedTracing():
+                return self.startswith(substr, start, end)
+        elif not isinstance(self, str):
+            raise TypeError
         # Handle native values with native implementation:
         if type(substr) is str:
             return self.startswith(substr, start, end)
         if type(substr) is tuple:
-            if all(type(i) is str for i in substr):
+            if all(type(s) is str for s in substr):
                 return self.startswith(substr, start, end)
         symbolic_self = LazyIntSymbolicStr([ord(c) for c in self])
     return symbolic_self.startswith(substr, start, end)

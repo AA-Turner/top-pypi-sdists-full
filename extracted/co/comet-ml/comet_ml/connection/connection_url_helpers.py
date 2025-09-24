@@ -10,7 +10,7 @@
 #  Copyright (C) 2015-2024 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
-from ..constants import ASSET_TYPE_VISUALIZATION
+from ..constants import ASSET_TYPE_ASSET_ITEM, ASSET_TYPE_VISUALIZATION
 from ..utils import url_join
 
 SYSTEM_DETAILS_ENDPOINT = "experiment/system-details"
@@ -93,6 +93,10 @@ def create_asset_url(server_address: str) -> str:
     return url_join(server_address, "asset")
 
 
+def upload_thumbnail_url(server_address: str, asset_id: str) -> str:
+    return url_join(server_address, "asset/%s/thumbnail" % asset_id)
+
+
 def status_report_update_url(server_address: str) -> str:
     return url_join(server_address, "status-report/update")
 
@@ -120,7 +124,7 @@ UPLOAD_TYPE_URL_MAP = {
     "shap": visualization_upload_url(),
     "prophet": visualization_upload_url(),
     ASSET_TYPE_VISUALIZATION: visualization_upload_url(),
-    "asset-item": asset_item_upload_url(),
+    ASSET_TYPE_ASSET_ITEM: asset_item_upload_url(),
 }
 
 

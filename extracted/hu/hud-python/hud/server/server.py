@@ -20,7 +20,6 @@ from hud.server.low_level import LowLevelServerWithInit
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Callable
 
-    from mcp.shared.context import RequestContext
     from starlette.requests import Request
 
 __all__ = ["MCPServer"]
@@ -36,6 +35,31 @@ def _run_with_sigterm(coro_fn: Callable[..., Any], *args: Any, **kwargs: Any) ->
     global _sigterm_received
 
     sys.stderr.flush()
+
+    # Check if we're already in an event loop
+    try:
+        loop = asyncio.get_running_loop()
+        logger.warning(
+            "HUD server is running in an existing event loop. "
+            "SIGTERM handling may be limited. "
+            "Consider using await hub.run_async() instead of hub.run() in async contexts."
+        )
+
+        task = loop.create_task(coro_fn(*args, **kwargs))
+
+        # Try to handle SIGTERM if possible
+        if sys.platform != "win32":
+
+            def handle_sigterm(signum: Any, frame: Any) -> None:
+                logger.info("SIGTERM received in async context, cancelling task...")
+                loop.call_soon_threadsafe(task.cancel)
+
+            signal.signal(signal.SIGTERM, handle_sigterm)
+
+        return
+
+    except RuntimeError:
+        pass
 
     async def _runner() -> None:
         stop_evt: asyncio.Event | None = None
@@ -127,7 +151,11 @@ class MCPServer(FastMCP):
                     # Force flush logs to ensure they're visible
                     sys.stderr.flush()
 
-                    if self._shutdown_fn is not None and _sigterm_received:
+                    if (
+                        self._shutdown_fn is not None
+                        and _sigterm_received
+                        and not self._shutdown_has_run
+                    ):
                         logger.info("SIGTERM detected! Calling @mcp.shutdown handler...")
                         sys.stderr.flush()
                         try:
@@ -137,7 +165,9 @@ class MCPServer(FastMCP):
                         except Exception as e:
                             logger.error("Error during @mcp.shutdown: %s", e)
                             sys.stderr.flush()
-                        _sigterm_received = False
+                        finally:
+                            self._shutdown_has_run = True
+                            _sigterm_received = False
                     elif self._shutdown_fn is not None:
                         logger.info(
                             "No SIGTERM. This is a hot reload (SIGINT) or normal exit. Skipping @mcp.shutdown handler."  # noqa: E501
@@ -153,27 +183,53 @@ class MCPServer(FastMCP):
         self._initializer_fn: Callable | None = None
         self._did_init = False
         self._replaced_server = False
+        self._shutdown_has_run = False  # Guard against double-execution of shutdown hook
 
     def _replace_with_init_server(self) -> None:
         """Replace the low-level server with init version when needed."""
         if self._replaced_server:
             return
 
-        def _run_init(ctx: RequestContext | None = None) -> Any:
+        async def _run_init(ctx: object | None = None) -> None:
+            """Run the user initializer exactly once, with stdout redirected."""
             if self._initializer_fn is not None and not self._did_init:
                 self._did_init = True
-                # Redirect stdout to stderr during initialization to prevent
-                # any library prints from corrupting the MCP protocol
+                # Prevent stdout from polluting the MCP protocol on stdio/HTTP
                 with contextlib.redirect_stdout(sys.stderr):
-                    # Check if function accepts ctx parameter
                     import inspect
 
-                    sig = inspect.signature(self._initializer_fn)
-                    if "ctx" in sig.parameters:
-                        return self._initializer_fn(ctx)
+                    fn = self._initializer_fn
+                    sig = inspect.signature(fn)
+                    params = sig.parameters
+
+                    ctx_param = params.get("ctx") or params.get("_ctx")
+                    if ctx_param is not None:
+                        if ctx_param.kind == inspect.Parameter.KEYWORD_ONLY:
+                            result = fn(**{ctx_param.name: ctx})
+                        else:
+                            result = fn(ctx)
                     else:
-                        # Call without ctx for simpler usage
-                        return self._initializer_fn()
+                        required_params = [
+                            p
+                            for p in params.values()
+                            if p.default is inspect._empty
+                            and p.kind
+                            in (
+                                inspect.Parameter.POSITIONAL_ONLY,
+                                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                                inspect.Parameter.KEYWORD_ONLY,
+                            )
+                        ]
+                        if required_params:
+                            param_list = ", ".join(p.name for p in required_params)
+                            raise TypeError(
+                                "Initializer must accept no args or a single `ctx` argument; "
+                                f"received required parameters: {param_list}"
+                            )
+                        result = fn()
+                    if inspect.isawaitable(result):
+                        await result
+                    return None
             return None
 
         # Save the old server's handlers before replacing it
@@ -258,7 +314,22 @@ class MCPServer(FastMCP):
             self._register_hud_helpers()
             logger.info("Registered HUD helper endpoints at /hud/*")
 
-        await super().run_async(transport=transport, show_banner=show_banner, **transport_kwargs)
+        try:
+            await super().run_async(
+                transport=transport, show_banner=show_banner, **transport_kwargs
+            )
+        finally:
+            # Fallback: ensure SIGTERM-triggered shutdown runs even when a custom
+            # lifespan bypasses our default fastmcp shutdown path.
+            global _sigterm_received
+            if self._shutdown_fn is not None and _sigterm_received and not self._shutdown_has_run:
+                try:
+                    await self._shutdown_fn()
+                except Exception as e:  # pragma: no cover - defensive logging
+                    logger.error("Error during @mcp.shutdown (fallback): %s", e)
+                finally:
+                    self._shutdown_has_run = True
+                    _sigterm_received = False
 
     # Tool registration helper -- appends BaseTool to FastMCP
     def add_tool(self, obj: Any, **kwargs: Any) -> None:

@@ -1,7 +1,6 @@
 """
 """
 
-from .. import utils
 from ..config import Config
 
 
@@ -11,6 +10,7 @@ if Config.zero_gpu:
     from . import decorator
     from . import gradio
     from . import torch
+    from . import utils
 
     if torch.is_in_bad_fork():
         raise RuntimeError(

@@ -176,6 +176,7 @@ from agilicus_api.model.cipher_encryption_algorithm import CipherEncryptionAlgor
 from agilicus_api.model.cipher_integrity_algorithm import CipherIntegrityAlgorithm
 from agilicus_api.model.clear_file_association_request import ClearFileAssociationRequest
 from agilicus_api.model.clear_file_association_response import ClearFileAssociationResponse
+from agilicus_api.model.client_injection import ClientInjection
 from agilicus_api.model.cluster import Cluster
 from agilicus_api.model.cluster_config import ClusterConfig
 from agilicus_api.model.cluster_spec import ClusterSpec

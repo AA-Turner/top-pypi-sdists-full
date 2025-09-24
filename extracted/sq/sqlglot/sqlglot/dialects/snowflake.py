@@ -324,6 +324,15 @@ def _build_regexp_extract(expr_type: t.Type[E]) -> t.Callable[[t.List], E]:
     return _builder
 
 
+def _build_like(expr_type: t.Type[E]) -> t.Callable[[t.List], E | exp.Escape]:
+    def _builder(args: t.List) -> E | exp.Escape:
+        like_expr = expr_type(this=args[0], expression=args[1])
+        escape = seq_get(args, 2)
+        return exp.Escape(this=like_expr, expression=escape) if escape else like_expr
+
+    return _builder
+
+
 def _regexpextract_sql(self, expression: exp.RegexpExtract | exp.RegexpExtractAll) -> str:
     # Other dialects don't support all of the following parameters, so we need to
     # generate default values as necessary to ensure the transpilation is correct
@@ -522,14 +531,24 @@ class Snowflake(Dialect):
         **Dialect.TYPE_TO_EXPRESSIONS,
         exp.DataType.Type.INT: {
             *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.INT],
+            exp.Ascii,
             exp.Length,
+            exp.BitLength,
+            exp.Levenshtein,
         },
         exp.DataType.Type.VARCHAR: {
             *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.VARCHAR],
+            exp.Base64DecodeString,
+            exp.Base64Encode,
             exp.MD5,
             exp.AIAgg,
             exp.AIClassify,
             exp.AISummarizeAgg,
+            exp.Chr,
+            exp.Collate,
+            exp.HexDecodeString,
+            exp.HexEncode,
+            exp.Initcap,
             exp.RegexpExtract,
             exp.RegexpReplace,
             exp.Repeat,
@@ -541,9 +560,12 @@ class Snowflake(Dialect):
         },
         exp.DataType.Type.BINARY: {
             *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.BINARY],
+            exp.Base64DecodeBinary,
+            exp.Compress,
             exp.MD5Digest,
             exp.SHA1Digest,
             exp.SHA2Digest,
+            exp.Unhex,
         },
         exp.DataType.Type.BIGINT: {
             *Dialect.TYPE_TO_EXPRESSIONS[exp.DataType.Type.BIGINT],
@@ -678,6 +700,7 @@ class Snowflake(Dialect):
             "DATE_TRUNC": _date_trunc_to_time,
             "DATEADD": _build_date_time_add(exp.DateAdd),
             "DATEDIFF": _build_datediff,
+            "DAYOFWEEKISO": exp.DayOfWeekIso.from_arg_list,
             "DIV0": _build_if_from_div0,
             "EDITDISTANCE": lambda args: exp.Levenshtein(
                 this=seq_get(args, 0), expression=seq_get(args, 1), max_dist=seq_get(args, 2)
@@ -746,6 +769,8 @@ class Snowflake(Dialect):
             "TO_JSON": exp.JSONFormat.from_arg_list,
             "VECTOR_L2_DISTANCE": exp.EuclideanDistance.from_arg_list,
             "ZEROIFNULL": _build_if_from_zeroifnull,
+            "LIKE": _build_like(exp.Like),
+            "ILIKE": _build_like(exp.ILike),
         }
         FUNCTIONS.pop("PREDICT")
 
@@ -1816,3 +1841,9 @@ class Snowflake(Dialect):
 
         def modelattribute_sql(self, expression: exp.ModelAttribute) -> str:
             return f"{self.sql(expression, 'this')}!{self.sql(expression, 'expression')}"
+
+        def format_sql(self, expression: exp.Format) -> str:
+            if expression.name.lower() == "%s" and len(expression.expressions) == 1:
+                return self.func("TO_CHAR", expression.expressions[0])
+
+            return self.function_fallback_sql(expression)

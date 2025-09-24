@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copyparty
-Version: 1.19.12
+Version: 1.19.14
 Summary:   Portable file server with accelerated resumable uploads, deduplication, WebDAV, FTP, zeroconf, media indexer, video thumbnails, audio transcoding, and write-only folders
 Author-email: ed <copyparty@ocv.me>
 License: MIT
@@ -115,6 +115,7 @@ made in Norway 🇳🇴
     * [shares](#shares) - share a file or folder by creating a temporary link
     * [batch rename](#batch-rename) - select some files and press `F2` to bring up the rename UI
     * [rss feeds](#rss-feeds) - monitor a folder with your RSS reader
+    * [opds feeds](#opds-feeds) - browse and download files from your e-book reader
     * [recent uploads](#recent-uploads) - list all recent uploads
     * [media player](#media-player) - plays almost every audio format there is
         * [playlists](#playlists) - create and play [m3u8](https://en.wikipedia.org/wiki/M3U) playlists
@@ -1103,6 +1104,28 @@ url parameters:
   * `n` = filename
   * `a` = filesize
   * uppercase = reverse-sort; `M` = oldest file first
+
+
+## opds feeds
+
+browse and download files from your e-book reader
+
+enabled with the `opds` volflag or `--opds` global option
+
+add `?opds` to the end of the url you would like to browse, then input that in your opds client.
+for example: `https://copyparty.example/books/?opds`.
+
+to log in with a password, enter it into either of the username or password fields in your client.
+
+- if you've enabled `--usernames`, then you need to enter both username and password .
+
+note: some clients (e.g. Moon+ Reader) will not send the password when downloading cover images, which will
+cause your ip to be banned by copyparty. to work around this, you can grant the [`g` permission](#accounts-and-volumes)
+to unauthenticated requests and enable [filekeys](#filekeys) to prevent guessing filenames. for example:
+`-vbooks:books:r,ed:g:c,fk,opds`
+
+by default, not all file types will be listed in opds feeds. to change this, add the extension to 
+`--opds-exts` (volflag: `opds_exts`), or empty the list to list everything
 
 
 ## recent uploads

@@ -102,6 +102,9 @@ from worker_automate_hub.tasks.jobs.extracao_fechamento_emsys import (
 from worker_automate_hub.tasks.jobs.opex_capex import (
     opex_capex,
 )
+from worker_automate_hub.tasks.jobs.entrada_de_notas_22 import (
+    entrada_de_notas_22,
+)
 
 
 task_definitions = {
@@ -208,7 +211,8 @@ task_definitions = {
     "8c28726d-458d-4119-afa0-202695b79a8f": extracao_fechamento_emsys,
     "16debe45-3520-4f63-acfe-ef0e8784fcab": extracao_saldo_estoque,
     "9cbc6016-7c0e-4a3a-8ee9-fb9dc4b35e33": extracao_saldo_estoque_fiscal,
-    "07072711-c9d0-49e4-b180-530cecbe0728": opex_capex
+    "07072711-c9d0-49e4-b180-530cecbe0728": opex_capex,
+    "98bc6679-2e6b-4757-9fdc-b27eebd98f54": entrada_de_notas_22
 }
 
 

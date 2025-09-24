@@ -17,8 +17,8 @@ import trafaret as t
 
 from datarobot.models.deployment import Deployment
 from datarobot.models.genai.custom_model_validation import (
-    custom_model_validation_trafaret,
     CustomModelValidation,
+    custom_model_validation_trafaret,
     get_entity_id,
 )
 from datarobot.models.model import Model

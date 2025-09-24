@@ -30,40 +30,47 @@ aggregation_value_trafaret = t.Dict(
 evaluation_dataset_metric_aggregation_trafaret = t.Dict(
     {
         t.Key("llm_blueprint_id"): t.String,
-        t.Key("evaluation_dataset_configuration_id"): t.String,
-        t.Key("ootb_dataset_name"): t.Or(t.String, t.Null),
+        t.Key("evaluation_dataset_configuration_id", optional=True, default=None): t.Or(
+            t.String, t.Null
+        ),
+        t.Key("ootb_dataset_name", optional=True, default=None): t.Or(t.String, t.Null),
         t.Key("metric_name"): t.String(allow_blank=True),
-        t.Key("deployment_id"): t.Or(t.String, t.Null),
-        t.Key("dataset_id"): t.Or(t.String, t.Null),
-        t.Key("dataset_name"): t.Or(t.String(allow_blank=True), t.Null),
+        t.Key("dataset_id", optional=True, default=None): t.Or(t.String, t.Null),
+        t.Key("dataset_name", optional=True, default=None): t.Or(
+            t.String(allow_blank=True), t.Null
+        ),
         t.Key("chat_id"): t.String,
         t.Key("chat_name"): t.String(allow_blank=True),
-        t.Key("aggregation_value"): t.Or(t.Float, t.List(aggregation_value_trafaret)),
+        t.Key(
+            "aggregation_value",
+            optional=True,
+            default=None,
+        ): t.Or(t.Float, t.List(aggregation_value_trafaret), t.Null),
         t.Key("aggregation_type"): t.Enum(*enum_to_list(AggregationType)),
         t.Key("creation_date"): t.String,
         t.Key("creation_user_id"): t.String,
         t.Key("tenant_id"): t.String,
-        t.Key("custom_model_guard_id"): t.String,
+        t.Key("custom_model_guard_id", optional=True, default=None): t.Or(t.String, t.Null),
     }
 ).ignore_extra("*")
 
 
 class EvaluationDatasetMetricAggregation(APIObject):
-    """Information about an evaluation dataset metric aggregation job.
-      This job runs a metric against LLMs using an evaluation dataset and aggregates the results.
+    """Information about the aggregated metric results for one metric and one evaluation dataset.
+    This class can list already computed aggregations or start the job computing the aggregations.
+    Jobs will prompt an LLM blueprint or agentic workflow, compute metrics and aggregate the
+    results across prompts.
 
     Attributes
     ----------
     llm_blueprint_id : str
         The LLM blueprint ID.
-    evaluation_dataset_configuration_id : str
+    evaluation_dataset_configuration_id : str | None
         The evaluation dataset configuration ID.
     ootb_dataset_name : str | None
         The name of the Datarobot-provided dataset that does not require additional configuration.
     metric_name : str
         The name of the metric.
-    deployment_id : str | None
-        A deployment ID if the evaluation was run against a deployment.
     dataset_id : str | None
         The ID of the dataset used in the evaluation.
     dataset_name : str | None
@@ -72,7 +79,7 @@ class EvaluationDatasetMetricAggregation(APIObject):
         The ID of the chat created to run the evaluation.
     chat_name : str
         The name of the chat that was created to run the evaluation.
-    aggregation_value : float | List[Dict[str, float]]
+    aggregation_value : float | List[Dict[str, float]] | None
         The aggregated metric result.
     aggregation_type : AggregationType
         The type of aggregation used for the metric results.
@@ -92,15 +99,14 @@ class EvaluationDatasetMetricAggregation(APIObject):
     def __init__(
         self,
         llm_blueprint_id: str,
-        evaluation_dataset_configuration_id: str,
+        evaluation_dataset_configuration_id: Optional[str],
         ootb_dataset_name: Optional[str],
         metric_name: str,
-        deployment_id: Optional[str],
         dataset_id: Optional[str],
         dataset_name: Optional[str],
         chat_id: str,
         chat_name: str,
-        aggregation_value: Union[float, List[Dict[str, float]]],
+        aggregation_value: Optional[Union[float, List[Dict[str, float]]]],
         aggregation_type: AggregationType,
         creation_date: str,
         creation_user_id: str,
@@ -111,7 +117,6 @@ class EvaluationDatasetMetricAggregation(APIObject):
         self.evaluation_dataset_configuration_id = evaluation_dataset_configuration_id
         self.ootb_dataset_name = ootb_dataset_name
         self.metric_name = metric_name
-        self.deployment_id = deployment_id
         self.dataset_id = dataset_id
         self.dataset_name = dataset_name
         self.chat_id = chat_id
@@ -225,7 +230,9 @@ class EvaluationDatasetMetricAggregation(APIObject):
         return [cls.from_server_data(data) for data in r_data]
 
     @classmethod
-    def delete(cls, llm_blueprint_ids: Optional[List[str]], chat_ids: Optional[List[str]]) -> None:
+    def delete(
+        cls, llm_blueprint_ids: Optional[List[str]] = None, chat_ids: Optional[List[str]] = None
+    ) -> None:
         """Delete the associated evaluation dataset metric aggregations.  Either llm_blueprint_ids
         or chat_ids must be provided.  If both are provided, only results matching both will be removed.
 

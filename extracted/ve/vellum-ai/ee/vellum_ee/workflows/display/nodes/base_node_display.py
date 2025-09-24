@@ -323,12 +323,12 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
         )
         return node_definition
 
-    def get_node_output_display(self, output: OutputReference) -> Tuple[Type[BaseNode], NodeOutputDisplay]:
+    def get_node_output_display(self, output: OutputReference) -> NodeOutputDisplay:
         explicit_display = self.output_display.get(output)
         if explicit_display:
-            return self._node, explicit_display
+            return explicit_display
 
-        return (self._node, NodeOutputDisplay(id=uuid4_from_hash(f"{self.node_id}|{output.name}"), name=output.name))
+        return NodeOutputDisplay(id=uuid4_from_hash(f"{self.node_id}|{output.name}"), name=output.name)
 
     def get_node_port_display(self, port: Port) -> PortDisplay:
         overrides = self.port_displays.get(port)
@@ -346,6 +346,9 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
         default_port = next((port for port in unadorned_node.Ports if port.default), None)
         if default_port in port_displays:
             return port_displays[default_port].id
+
+        if default_port:
+            return self.get_node_port_display(default_port).id
 
         first_port = next((port for port in unadorned_node.Ports), None)
         if not first_port:

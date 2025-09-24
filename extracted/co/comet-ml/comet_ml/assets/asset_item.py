@@ -10,16 +10,19 @@
 #  Copyright (C) 2015-2021 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
+from typing import Any, Dict, List, NamedTuple
 
 
-class AssetItem:
-    def __init__(self, file_path: str, file_name: str, type: str) -> None:
-        self.file_path = file_path
-        self.file_name = file_name
-        self.type = type
+class AssetItem(NamedTuple):
+    file_path: str
+    file_name: str
+    type: str
+
+    def serialize(self) -> Dict[str, Any]:
+        return self._asdict()
 
 
-def unserialize_items(serialized_items):
+def deserialize_items(serialized_items: List[Dict[str, Any]]) -> List[AssetItem]:
     unserialized_items = []
 
     for item in serialized_items:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: telnetlib3
-Version: 2.0.7
+Version: 2.0.8
 Summary: Python 3 asyncio Telnet server and client Protocol library
 Home-page: http://telnetlib3.rtfd.org/
 Author: Jeff Quast

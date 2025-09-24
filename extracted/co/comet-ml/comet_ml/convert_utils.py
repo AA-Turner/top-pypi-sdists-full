@@ -17,12 +17,9 @@ import json
 import logging
 import math
 import numbers
-import os.path
-import pathlib
 from typing import (
     IO,
     Any,
-    AnyStr,
     Callable,
     Dict,
     List,

@@ -7,7 +7,7 @@ from collections import defaultdict
 from copy import deepcopy
 from datetime import date, datetime
 import re
-from typing import Any, cast, Dict, Iterable, List, Match, Optional, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Match, Optional, Tuple, Union, cast
 
 from dateutil import parser, tz
 import numpy as np

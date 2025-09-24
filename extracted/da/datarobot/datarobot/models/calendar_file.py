@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 import json
 import os
-from typing import Dict, Iterable, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 
 from requests import Response
 import trafaret as t
@@ -28,7 +28,7 @@ from datarobot.utils.waiters import wait_for_async_resolution
 from .. import errors
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class CountryCode(TypedDict):
         name: str

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyqrackising
-Version: 5.1.6
+Version: 5.3.3
 Summary: Fast MAXCUT, TSP, and sampling heuristics from near-ideal transverse field Ising model (TFIM)
 Home-page: https://github.com/vm6502q/PyQrackIsing
 Author: Dan Strano

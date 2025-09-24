@@ -157,14 +157,19 @@ class DensityMatrixSimulation(Simulation):
 
         for operation in operations:
             if isinstance(operation, (GateOperation, Observable)):
-                matrix = operation.matrix
+                targets = operation.targets
+                num_ctrl = len(operation._ctrl_modifiers)
+                # Extract gate_type if available
                 result, temp = DensityMatrixSimulation._apply_gate(
                     result,
                     temp,
                     qubit_count,
-                    matrix,
-                    operation.targets,
+                    operation.matrix,
+                    targets[num_ctrl:],
+                    targets[:num_ctrl],
+                    operation._ctrl_modifiers,
                     dispatcher,
+                    getattr(operation, "gate_type"),
                 )
             if isinstance(operation, KrausOperation):
                 result, temp = DensityMatrixSimulation._apply_kraus(
@@ -186,54 +191,77 @@ class DensityMatrixSimulation(Simulation):
         temp: np.ndarray,
         qubit_count: int,
         matrix: np.ndarray,
-        targets: tuple[int],
+        targets: tuple[int, ...],
+        controls: tuple[int, ...] | None,
+        control_state: tuple[int, ...] | None,
         dispatcher: QuantumGateDispatcher,
+        gate_type: str | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Apply a unitary gate matrix E to a density matrix D according to:
+        """Apply a unitary gate matrix U to a density matrix \rho according to:
 
             .. math::
-                D \rightarrow E D E^{\dagger}
+                \rho \rightarrow U \rho U^{\dagger}
 
         This represents the quantum evolution of a density matrix under a unitary
         operation, where the gate is applied on the left and its Hermitian conjugate
         on the right to preserve the trace and Hermitian properties of the density matrix.
 
         Args:
-            result (np.ndarray): Initial density matrix in reshaped form [2]^(2*qubit_count).
+            result (np.ndarray): Initial density matrix in reshaped form [2]*(2*qubit_count).
                 This buffer may be modified during computation and used for intermediate results.
             temp (np.ndarray): Pre-allocated buffer used for multiply_matrix output operations.
                 Must have the same shape and dtype as result.
             qubit_count (int): Number of qubits in the circuit.
-            matrix (np.ndarray): Unitary gate matrix E to be applied to the density matrix.
+            matrix (np.ndarray): Unitary gate matrix U to be applied to the density matrix.
                 Will be converted to complex dtype if necessary.
-            targets (tuple[int]): Target qubits that the unitary gate acts upon.
-            dispatcher (QuantumGateDispatcher): Dispatches multiplying based on quibit count.
+            targets (tuple[int, ...]): Target qubits that the unitary gate acts upon.
+            controls (tuple[int, ...] | None): The qubits to control the operation on. Default ().
+            control_state (tuple[int, ...] | None): A tuple of same length as `controls` with either
+                a 0 or 1 in each index, corresponding to whether to control on the `|0⟩` or `|1⟩` state.
+                Default (1,) * len(controls).
+            dispatcher (QuantumGateDispatcher): Dispatches multiplying based on qubit count.
+            gate_type (str | None): Optional gate type identifier for optimized dispatch.
 
         Returns:
             tuple[np.ndarray, np.ndarray]: A tuple containing:
-                - The output density matrix (E * D * E†)
+                - The output density matrix (U * \rho * U†)
                 - A spare buffer that can be reused for subsequent operations
 
         Note:
             The function uses efficient buffer swapping to minimize memory allocations.
             The shifted targets (targets + qubit_count) are used for the right-side
-            multiplication with E† to account for the doubled dimension structure
+            multiplication with U† to account for the doubled dimension structure
             of the reshaped density matrix.
         """
-        targets_new = targets + tuple([target + qubit_count for target in targets])
-
-        _, needs_swap = multiply_matrix(
+        _, needs_swap1 = multiply_matrix(
             state=result,
-            matrix=np.kron(matrix, matrix.conjugate()),
-            targets=targets_new,
+            matrix=matrix,
+            targets=targets,
+            controls=controls,
+            control_state=control_state,
             out=temp,
             return_swap_info=True,
             dispatcher=dispatcher,
+            gate_type=gate_type,
         )
 
-        # Always true with new gate dispatch
-        result, temp = temp, result
+        if needs_swap1:
+            result, temp = temp, result
 
+        multiply_matrix(
+            state=result,
+            matrix=matrix.conj(),
+            targets=tuple(t + qubit_count for t in targets),
+            controls=tuple(c + qubit_count for c in controls),
+            control_state=control_state,
+            out=temp,
+            return_swap_info=True,
+            dispatcher=dispatcher,
+            # TODO: remove condition once CNot dispatch is fixed
+            gate_type=gate_type if len(targets) == 1 else None,
+        )
+        # Always swap with new gate dispatch
+        result, temp = temp, result
         return result, temp
 
     @staticmethod
@@ -244,7 +272,7 @@ class DensityMatrixSimulation(Simulation):
         work_buffer2: np.ndarray,
         qubit_count: int,
         matrices: list[np.ndarray],
-        targets: tuple[int],
+        targets: tuple[int, ...],
         dispatcher: QuantumGateDispatcher,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Apply a list of matrices {E_i} to a density matrix D according to:
@@ -266,7 +294,7 @@ class DensityMatrixSimulation(Simulation):
                 Must have the same shape and dtype as result.
             qubit_count (int): Number of qubits in the circuit.
             matrices (list[np.ndarray]): Kraus operators {E_i} to be applied to the density matrix.
-            targets (tuple[int]): Target qubits that the Kraus operators act upon.
+            targets (tuple[int, ...]): Target qubits that the Kraus operators act upon.
             dispatcher (QuantumGateDispatcher): Dispatches multiplying based on quibit count.
 
         Returns:

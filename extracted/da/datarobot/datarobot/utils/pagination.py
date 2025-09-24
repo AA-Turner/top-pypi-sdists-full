@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, Generator, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, Generator, Union
 
 if TYPE_CHECKING:
     from datarobot.rest import RESTClientObject

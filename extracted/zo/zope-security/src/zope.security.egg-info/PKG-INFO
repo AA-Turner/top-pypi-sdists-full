@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.security
-Version: 8.0
+Version: 8.1
 Summary: Zope Security Framework
 Home-page: http://github.com/zopefoundation/zope.security
 Author: Zope Foundation and Contributors
@@ -102,6 +102,12 @@ Documentation is available at https://zopesecurity.readthedocs.io/
 =========
  Changes
 =========
+
+8.1 (2025-09-23)
+----------------
+
+- Fix ``zope.security._zope_security_checker`` extension build failure with C23.
+
 
 8.0 (2025-09-15)
 ----------------

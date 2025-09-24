@@ -41,8 +41,7 @@ class RenderCollection(
 
     No vector version of the wrapper exists.
 
-    Example:
-        Return the list of frames for the number of steps ``render`` wasn't called.
+    Example - Return the list of frames for the number of steps ``render`` wasn't called.
         >>> import gymnasium as gym
         >>> env = gym.make("LunarLander-v3", render_mode="rgb_array")
         >>> env = RenderCollection(env)
@@ -58,7 +57,7 @@ class RenderCollection(
         >>> len(frames)
         0
 
-        Return the list of frames for the number of steps the episode was running.
+    Example - Return the list of frames for the number of steps the episode was running.
         >>> import gymnasium as gym
         >>> env = gym.make("LunarLander-v3", render_mode="rgb_array")
         >>> env = RenderCollection(env, pop_frames=False)
@@ -74,7 +73,7 @@ class RenderCollection(
         >>> len(frames)
         6
 
-        Collect all frames for all episodes, without clearing them when render is called
+    Example - Collect all frames for all episodes, without clearing them when render is called
         >>> import gymnasium as gym
         >>> env = gym.make("LunarLander-v3", render_mode="rgb_array")
         >>> env = RenderCollection(env, pop_frames=False, reset_clean=False)
@@ -182,8 +181,6 @@ class RecordVideo(
     By default, the recording will be stopped once reset is called.
     However, you can also create recordings of fixed length (possibly spanning several episodes)
     by passing a strictly positive value for ``video_length``.
-
-    No vector version of the wrapper exists.
 
     Examples - Run the environment for 50 episodes, and save the video every 10 episodes starting from the 0th:
         >>> import os
@@ -324,7 +321,10 @@ class RecordVideo(
 
         frame = self.env.render()
         if isinstance(frame, list):
-            if len(frame) == 0:  # render was called
+            if len(frame) == 0:
+                logger.warn(
+                    "Trying to capture render frame but 'env.render()' has just been called. The frame cannot be captured."
+                )
                 return
             self.render_history += frame
             frame = frame[-1]
@@ -418,7 +418,9 @@ class RecordVideo(
             moviepy_logger = None if self.disable_logger else "bar"
             path = os.path.join(self.video_folder, f"{self._video_name}.mp4")
             clip.write_videofile(path, logger=moviepy_logger)
+            del clip
 
+        del self.recorded_frames
         self.recorded_frames = []
         self.recording = False
         self._video_name = None

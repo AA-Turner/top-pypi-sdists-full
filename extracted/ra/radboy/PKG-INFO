@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: radboy
-Version: 0.0.752
+Version: 0.0.755
 Summary: A Retail Calculator for Android/Linux
 Author: Carl Joseph Hirner III
 Author-email: Carl Hirner III <k.j.hirner.wisdom@gmail.com>
@@ -50,6 +50,7 @@ Requires-Dist: chemlib
 Requires-Dist: chemicals
 Requires-Dist: chempy
 Requires-Dist: magpylib
+Requires-Dist: humanfriendly
 Provides-Extra: linux
 Requires-Dist: gnureadline; extra == "linux"
 Provides-Extra: android

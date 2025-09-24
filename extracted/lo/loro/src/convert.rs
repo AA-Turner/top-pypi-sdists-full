@@ -1,6 +1,5 @@
 use std::{borrow::Cow, collections::HashMap, sync::Mutex};
 
-use fxhash::FxHashMap;
 use loro::FractionalIndex;
 use pyo3::{
     exceptions::PyTypeError,
@@ -8,6 +7,7 @@ use pyo3::{
     types::{PyBool, PyBytes, PyDict, PyList, PyMapping, PyString},
     BoundObject, PyResult,
 };
+use rustc_hash::FxHashMap;
 
 use crate::{
     awareness::PeerInfo,

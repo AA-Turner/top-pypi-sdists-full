@@ -9,13 +9,15 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 import datetime
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 import dateutil
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.enums import (
     RegisteredModelDeploymentSortKey,
     RegisteredModelSortDirection,
@@ -518,9 +520,8 @@ class RegisteredModel(APIObject, BrowserMixin):
            >>> registered_model = RegisteredModel.get('5c939e08962d741e34f609f0')
            >>> sharing_role = SharingRole(
            ...    role=SHARING_ROLE.CONSUMER,
-           ...    recipient_type=SHARING_RECIPIENT_TYPE.USER,
-           ...    id='5c939e08962d741e34f609f0',
-           ...    can_share=True,
+           ...    share_recipient_type=SHARING_RECIPIENT_TYPE.USER,
+           ...    username='jim.bob@datarobot.com'
            ...    )
            >>> registered_model.share(roles=[sharing_role])
 

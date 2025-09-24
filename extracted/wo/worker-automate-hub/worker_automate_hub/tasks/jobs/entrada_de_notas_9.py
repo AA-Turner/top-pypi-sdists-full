@@ -605,7 +605,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                     console.print(f"Tanque a ser distribuido: {info_distribuicao_obs}... \n")
                     send_keys("^({HOME})")
                     await worker_sleep(1)
-                    send_keys("{DOWN " + str(index_tanque) + "}", pause=0.1)
+                    send_keys("{DOWN " + str(index_tanque) + "}", pause=0.5)
                     await worker_sleep(1)
                     #Copiar e extrai o Seq Item XML
                     send_keys("^c")
@@ -617,7 +617,7 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                         item_executado = seq_item
                     else:
                         while seq_item == item_executado:
-                            send_keys("{DOWN}", pause=0.1)
+                            send_keys("{DOWN}", pause=0.5)
                             index_tanque += 1
                             send_keys("^c")
                             copiado = pyperclip.paste()
@@ -626,12 +626,11 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                             seq_item = colunas[0]
                             
                     send_keys("+{F10}")
-                    await worker_sleep(1)
+                    await worker_sleep(2)
                     send_keys("{DOWN 6}")
-                    await worker_sleep(1)
+                    await worker_sleep(2)
                     send_keys("{ENTER}")
                     await worker_sleep(4)
-
                     
                     max_attempts = 5
                     i = 0
@@ -640,7 +639,6 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                         if distribuir_item_window["IsOpened"] == True:
                             app = Application().connect(title="Distribui Item Tanque")
                             main_window = app["Distribui Item Tanque"]
-
                             main_window.set_focus()
                             break
                         else:
@@ -665,11 +663,11 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                     center_y = (grid_rect.top + grid_rect.bottom) // 2
 
                     pyautogui.click(center_x, center_y)
-                    await worker_sleep(3)
+                    await worker_sleep(4)
                     send_keys("^({HOME})")
-                    await worker_sleep(3)
+                    await worker_sleep(4)
                     send_keys("{LEFT 3}")
-                    await worker_sleep(3)
+                    await worker_sleep(4)
 
                     distribuiu_algo = False
                     distribuicao_atual = []
@@ -714,11 +712,11 @@ async def entrada_de_notas_9(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                                     quantidade_combustivel = re.findall(r'\((.*?)\)', second_info_distribuicao_obs)[0].replace('.', '')
 
                                     send_keys("{LEFT 3}")
-                                    await worker_sleep(1)
+                                    await worker_sleep(2)
                                     send_keys("{RIGHT 3}")
 
                                     pyautogui.press('enter')
-                                    await worker_sleep(1)
+                                    await worker_sleep(2)
                                     pyautogui.write(quantidade_combustivel)
                                     pyautogui.press('enter')
                                     list_tanques_distribuidos.append(second_info_distribuicao_obs)

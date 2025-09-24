@@ -43,6 +43,7 @@ from .gradio import patch_gradio_queue
 from .gradio import try_process_queue_event
 from .tqdm import remove_tqdm_multiprocessing_lock
 from .tqdm import tqdm
+from .utils import apply_cleanups
 from .types import * # TODO: Please don't do that
 
 
@@ -97,9 +98,11 @@ class Worker(Generic[Res]):
         self._sentinel.start()
 
     def _close_on_exit(self):
+        assert (pid := self.process.pid) is not None
         self.process.join()
         self.arg_queue.close()
         self.res_queue.wlock_release()
+        apply_cleanups(pid)
         self.res_queue.put(None)
 
 

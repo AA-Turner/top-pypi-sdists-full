@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import cast, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 import trafaret as t
 from typing_extensions import NotRequired
@@ -39,7 +39,8 @@ FeaturesWithSamples = namedtuple(
 
 if TYPE_CHECKING:
     from PIL.Image import Image
-    from mypy_extensions import TypedDict
+
+    from datarobot._compat import TypedDict
 
     class PredictionType(TypedDict):
         values: Union[float, List[float]]

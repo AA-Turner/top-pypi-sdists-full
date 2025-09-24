@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comet_ml
-Version: 3.52.1
+Version: 3.53.0
 Summary: Supercharging Machine Learning
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
@@ -9,13 +9,12 @@ License: MIT
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 Requires-Dist: dulwich!=0.20.33,>=0.20.6; python_version >= "3.0"
 Requires-Dist: everett[ini]<3.2.0,>=1.0.1

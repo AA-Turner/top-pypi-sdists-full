@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycobertura
-Version: 4.0.0
+Version: 4.1.0
 Summary: "A Cobertura coverage parser that can diff reports and show coverage progress."
 Home-page: https://github.com/aconrad/pycobertura
 Author: "Alex Conrad"

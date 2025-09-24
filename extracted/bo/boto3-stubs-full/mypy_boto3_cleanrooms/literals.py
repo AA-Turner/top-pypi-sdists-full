@@ -47,6 +47,7 @@ __all__ = (
     "ErrorMessageTypeType",
     "FilterableMemberStatusType",
     "IdNamespaceTypeType",
+    "JobTypeType",
     "JoinOperatorType",
     "JoinRequiredOptionType",
     "ListAnalysisTemplatesPaginatorName",
@@ -123,6 +124,7 @@ DifferentialPrivacyAggregationTypeType = Literal["AVG", "COUNT", "COUNT_DISTINCT
 ErrorMessageTypeType = Literal["DETAILED"]
 FilterableMemberStatusType = Literal["ACTIVE", "INVITED"]
 IdNamespaceTypeType = Literal["SOURCE", "TARGET"]
+JobTypeType = Literal["BATCH", "DELETE_ONLY", "INCREMENTAL"]
 JoinOperatorType = Literal["AND", "OR"]
 JoinRequiredOptionType = Literal["QUERY_RUNNER"]
 ListAnalysisTemplatesPaginatorName = Literal["list_analysis_templates"]

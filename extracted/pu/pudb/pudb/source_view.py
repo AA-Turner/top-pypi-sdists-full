@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 __copyright__ = """
 Copyright (C) 2009-2017 Andreas Kloeckner
 Copyright (C) 2014-2017 Aaron Meurer
@@ -22,47 +25,57 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
-
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
 
 import urwid
+from typing_extensions import override
+
+
+if TYPE_CHECKING:
+    from bdb import Breakpoint
+    from collections.abc import Collection, Sequence
+
+    from pudb.debugger import DebuggerUI
 
 
 TABSTOP = 8
 
 
+@dataclass(eq=False)
 class SourceLine(urwid.Widget):
-    _sizing = frozenset([urwid.Sizing.FLOW])
+    _sizing: ClassVar[frozenset[urwid.Sizing]] = frozenset([urwid.Sizing.FLOW])
 
-    def __init__(self, dbg_ui, text, line_nr="", attr=None, has_breakpoint=False):
-        super().__init__()
+    dbg_ui: DebuggerUI
+    text: str
+    line_nr: str = ""
+    attr: Sequence[tuple[str, int | None]] | None = None
+    has_breakpoint: bool = False
+    is_current: bool = False
+    highlight: bool = False
 
-        self.dbg_ui = dbg_ui
-        self.text = text
-        self.attr = attr
-        self.line_nr = line_nr
-        self.has_breakpoint = has_breakpoint
-        self.is_current = False
-        self.highlight = False
-
+    @override
     def selectable(self):
         return True
 
-    def set_current(self, is_current):
+    def set_current(self, is_current: bool):
         self.is_current = is_current
         self._invalidate()
 
-    def set_highlight(self, highlight):
+    def set_highlight(self, highlight: bool):
         self.highlight = highlight
         self._invalidate()
 
-    def set_breakpoint(self, has_breakpoint):
+    def set_breakpoint(self, has_breakpoint: bool):
         self.has_breakpoint = has_breakpoint
         self._invalidate()
 
+    @override
     def rows(self, size, focus=False):
         return 1
 
-    def render(self, size, focus=False):
+    @override
+    def render(self, size: tuple[int, int], focus: bool = False):
         from pudb.debugger import CONFIG
         render_line_nr = CONFIG["line_numbers"]
 
@@ -70,7 +83,7 @@ class SourceLine(urwid.Widget):
         hscroll = self.dbg_ui.source_hscroll_start
 
         # attrs is a list of words like "focused" and "breakpoint"
-        attrs = []
+        attrs: list[str] = []
 
         if self.is_current:
             crnt = ">"
@@ -92,9 +105,9 @@ class SourceLine(urwid.Widget):
 
         text = self.text
         if not attrs and self.attr is not None:
-            attr = self.attr + [("source", None)]
+            attr = [*self.attr, ("source", None)]
         else:
-            attr = [(" ".join(attrs+["source"]), None)]
+            attr = [(" ".join([*attrs, "source"]), None)]
 
         from urwid.util import apply_target_encoding, trim_text_attr_cs
 
@@ -107,9 +120,10 @@ class SourceLine(urwid.Widget):
             line_prefix = self.line_nr
 
         line_prefix = crnt+bp+line_prefix
-        line_prefix_attr = [("current line marker", 1),
-                            ("breakpoint marker", 1)] \
-                + line_prefix_attr
+        line_prefix_attr = [
+            ("current line marker", 1),
+             ("breakpoint marker", 1),
+             *line_prefix_attr]
 
         # assume rendered width is same as len
         line_prefix_len = len(line_prefix)
@@ -215,7 +229,11 @@ class ArgumentParser:
 try:
     import pygments  # noqa
 except ImportError:
-    def format_source(debugger_ui, lines, breakpoints):
+    def format_source(
+                debugger_ui: DebuggerUI,
+                lines: Sequence[str],
+                breakpoints: Collection[int],
+            ) -> list[SourceLine]:
         lineno_format = "%%%dd " % (len(str(len(lines))))
         return [
             SourceLine(
@@ -246,7 +264,7 @@ else:
     #       one of several translation operations at the
     #       beginning of add_snippet().
     #
-    ATTR_MAP = {  # noqa: N806
+    ATTR_MAP = {
         t.Token: "source",
         t.Keyword.Namespace: "namespace",
         t.Token.Argument: "argument",
@@ -274,7 +292,7 @@ else:
 
     # Token translation table. Maps token types and their
     # associated strings to new token types.
-    ATTR_TRANSLATE = {  # noqa: N806
+    ATTR_TRANSLATE = {
             t.Keyword: {
                 "class": t.Token.Keyword2,
                 "def": t.Token.Keyword2,
@@ -287,7 +305,14 @@ else:
                 },
             }
 
-    class UrwidFormatter(Formatter):
+    class UrwidFormatter(Formatter[str]):
+        result: list[SourceLine]
+        current_line: str
+        current_attr: list[tuple[str, int]]
+        debugger_ui: DebuggerUI
+        lineno_format: str
+        breakpoints: Sequence[Breakpoint]
+
         def __init__(self, debugger_ui, lineno_format, breakpoints, **options):
             Formatter.__init__(self, **options)
             self.current_line = ""
@@ -325,7 +350,7 @@ else:
                     ttype = ttype.parent
                 else:
                     raise RuntimeError(
-                            "untreated token type: %s" % str(ttype))
+                            f"untreated token type: {ttype!s}")
 
             attr = ATTR_MAP[ttype]
 
@@ -360,7 +385,11 @@ else:
             if self.current_line:
                 self.shipout_line()
 
-    def format_source(debugger_ui, lines, breakpoints):
+    def format_source(
+                debugger_ui: DebuggerUI,
+                lines: Sequence[str],
+                breakpoints: Collection[int],
+            ) -> list[SourceLine]:
         lineno_format = "%%%dd " % (len(str(len(lines))))
         formatter = UrwidFormatter(debugger_ui, lineno_format, breakpoints)
         highlight(

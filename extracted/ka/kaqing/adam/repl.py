@@ -18,7 +18,7 @@ from adam.log import Log
 from adam.repl_commands import ReplCommands
 from adam.repl_session import ReplSession
 from adam.repl_state import ReplState
-from adam.utils import deep_merge_dicts, lines_to_tabular, log2
+from adam.utils import deep_merge_dicts, deep_sort_dict, lines_to_tabular, log2
 from adam.apps import Apps
 from . import __version__
 
@@ -102,9 +102,9 @@ def enter_repl(state: ReplState):
                 for cmd in sorted_cmds:
                     s1 = time.time()
                     try:
-                        completions = deep_merge_dicts(completions, cmd.completion(state))
+                        completions = deep_sort_dict(deep_merge_dicts(completions, cmd.completion(state)))
                     finally:
-                        if Config().get('debug.timings', False):
+                        if Config().get('debugs.timings', False):
                             Config().debug('Timing completion calc', cmd.command(), f'{time.time() - s1:.2f}')
 
                 completer = NestedCompleter.from_nested_dict(completions)
@@ -145,14 +145,14 @@ def enter_repl(state: ReplState):
         except EOFError:  # Handle Ctrl+D (EOF) for graceful exit
             break
         except Exception as e:
-            if Config().get('debug.exit-on-error', False):
+            if Config().get('debugs.exit-on-error', False):
                 raise e
             else:
                 log2(e)
                 Config().debug(traceback.format_exc())
         finally:
             state.clear_wait_log_flag()
-            if Config().get('debug.timings', False) and 'cmd' in locals() and 's0' in locals():
+            if Config().get('debugs.timings', False) and 'cmd' in locals() and 's0' in locals():
                 print('Timing command', cmd, f'{time.time() - s0:.2f}')
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=ClusterCommandHelper, help="Enter interactive shell.")

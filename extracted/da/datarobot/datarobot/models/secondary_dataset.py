@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import trafaret as t
 
@@ -23,8 +23,7 @@ from datarobot.models.api_object import APIObject
 from datarobot.utils import parse_time
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.helpers.feature_discovery import SecondaryDatasetDict
     from datarobot.models.api_object import ServerDataType
 

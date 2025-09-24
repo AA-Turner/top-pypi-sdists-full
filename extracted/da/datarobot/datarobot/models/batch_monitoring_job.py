@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 import typing
-from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 import trafaret as t
 
@@ -22,8 +22,8 @@ from datarobot.models.batch_job import (
     CsvSettings,
     IntakeSettings,
     OutputSettings,
-    recognize_sourcedata,
     Schedule,
+    recognize_sourcedata,
 )
 from datarobot.utils import get_id_from_response, pagination, to_api
 
@@ -34,8 +34,7 @@ from .api_object import APIObject
 LOG = logger.get_logger(__name__)
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.deployment import Deployment
 
     DeploymentType = Union[str, Deployment]

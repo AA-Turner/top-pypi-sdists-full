@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gymnasium
-Version: 1.2.0
+Version: 1.2.1
 Summary: A standard API for reinforcement learning and a diverse set of reference environments (formerly Gym).
 Author-email: Farama Foundation <contact@farama.org>
 License: MIT License
@@ -56,6 +56,7 @@ Requires-Dist: numpy>=2.1; extra == "torch"
 Provides-Extra: array-api
 Requires-Dist: array-api-compat>=1.11.0; extra == "array-api"
 Requires-Dist: numpy>=2.1; extra == "array-api"
+Requires-Dist: packaging>=23.0; extra == "array-api"
 Provides-Extra: other
 Requires-Dist: moviepy>=1.0.0; extra == "other"
 Requires-Dist: matplotlib>=3.0; extra == "other"

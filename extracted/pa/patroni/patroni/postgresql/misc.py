@@ -2,11 +2,71 @@ import errno
 import logging
 import os
 
+from enum import Enum
 from typing import Iterable, Tuple
 
 from ..exceptions import PostgresException
 
 logger = logging.getLogger(__name__)
+
+
+class PostgresqlState(str, Enum):
+    """Possible values of :attr:`Postgresql.state`.
+
+    Numeric indexes should NEVER change once assigned to maintain
+    backward compatibility with existing monitoring systems.
+    """
+
+    INITDB = ('initializing new cluster', 0)
+    INITDB_FAILED = ('initdb failed', 1)
+    CUSTOM_BOOTSTRAP = ('running custom bootstrap script', 2)
+    CUSTOM_BOOTSTRAP_FAILED = ('custom bootstrap failed', 3)
+    CREATING_REPLICA = ('creating replica', 4)
+    RUNNING = ('running', 5)
+    STARTING = ('starting', 6)
+    BOOTSTRAP_STARTING = ('starting after custom bootstrap', 7)
+    START_FAILED = ('start failed', 8)
+    RESTARTING = ('restarting', 9)
+    RESTART_FAILED = ('restart failed', 10)
+    STOPPING = ('stopping', 11)
+    STOPPED = ('stopped', 12)
+    STOP_FAILED = ('stop failed', 13)
+    CRASHED = ('crashed', 14)
+
+    def __new__(cls, value: str, index: int) -> 'PostgresqlState':
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        # Use setattr to avoid pyright type checking issues
+        setattr(obj, 'index', index)
+        return obj
+
+    def __repr__(self) -> str:
+        """Get an "official" string representation of a :class:`PostgresqlState` member."""
+        return self.value
+
+    def __str__(self) -> str:
+        """Get a string representation of a :class:`PostgresqlState` member."""
+        return self.__repr__()
+
+
+class PostgresqlRole(str, Enum):
+    """Possible values of :attr:`Postgresql.role`."""
+
+    PRIMARY = 'primary'
+    MASTER = 'master'
+    STANDBY_LEADER = 'standby_leader'
+    REPLICA = 'replica'
+    DEMOTED = 'demoted'
+    UNINITIALIZED = 'uninitialized'
+    PROMOTED = 'promoted'
+
+    def __repr__(self) -> str:
+        """Get an "official" string representation of a :class:`PostgresqlRole` member."""
+        return self.value
+
+    def __str__(self) -> str:
+        """Get a string representation of a :class:`PostgresqlRole` member."""
+        return self.__repr__()
 
 
 def postgres_version_to_int(pg_version: str) -> int:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Union, Mapping
+from typing import Any, Mapping
 from typing_extensions import Self, override
 
 import httpx
@@ -11,13 +11,13 @@ import httpx
 from . import _exceptions
 from ._qs import Querystring
 from ._types import (
-    NOT_GIVEN,
     Omit,
     Timeout,
     NotGiven,
     Transport,
     ProxiesTypes,
     RequestOptions,
+    not_given,
 )
 from ._utils import is_given, get_async_library
 from ._version import __version__
@@ -28,6 +28,7 @@ from .resources import (
     text_to_video,
     video_upscale,
     image_to_video,
+    text_to_speech,
     video_to_video,
     character_performance,
 )
@@ -59,6 +60,7 @@ class RunwayML(SyncAPIClient):
     text_to_image: text_to_image.TextToImageResource
     video_upscale: video_upscale.VideoUpscaleResource
     character_performance: character_performance.CharacterPerformanceResource
+    text_to_speech: text_to_speech.TextToSpeechResource
     organization: organization.OrganizationResource
     with_raw_response: RunwayMLWithRawResponse
     with_streaming_response: RunwayMLWithStreamedResponse
@@ -73,7 +75,7 @@ class RunwayML(SyncAPIClient):
         api_key: str | None = None,
         runway_version: str | None = "2024-11-06",
         base_url: str | httpx.URL | None = None,
-        timeout: Union[float, Timeout, None, NotGiven] = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -130,6 +132,7 @@ class RunwayML(SyncAPIClient):
         self.text_to_image = text_to_image.TextToImageResource(self)
         self.video_upscale = video_upscale.VideoUpscaleResource(self)
         self.character_performance = character_performance.CharacterPerformanceResource(self)
+        self.text_to_speech = text_to_speech.TextToSpeechResource(self)
         self.organization = organization.OrganizationResource(self)
         self.with_raw_response = RunwayMLWithRawResponse(self)
         self.with_streaming_response = RunwayMLWithStreamedResponse(self)
@@ -161,9 +164,9 @@ class RunwayML(SyncAPIClient):
         api_key: str | None = None,
         runway_version: str | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: float | Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.Client | None = None,
-        max_retries: int | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = not_given,
         default_headers: Mapping[str, str] | None = None,
         set_default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -250,6 +253,7 @@ class AsyncRunwayML(AsyncAPIClient):
     text_to_image: text_to_image.AsyncTextToImageResource
     video_upscale: video_upscale.AsyncVideoUpscaleResource
     character_performance: character_performance.AsyncCharacterPerformanceResource
+    text_to_speech: text_to_speech.AsyncTextToSpeechResource
     organization: organization.AsyncOrganizationResource
     with_raw_response: AsyncRunwayMLWithRawResponse
     with_streaming_response: AsyncRunwayMLWithStreamedResponse
@@ -264,7 +268,7 @@ class AsyncRunwayML(AsyncAPIClient):
         api_key: str | None = None,
         runway_version: str | None = "2024-11-06",
         base_url: str | httpx.URL | None = None,
-        timeout: Union[float, Timeout, None, NotGiven] = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         max_retries: int = DEFAULT_MAX_RETRIES,
         default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -321,6 +325,7 @@ class AsyncRunwayML(AsyncAPIClient):
         self.text_to_image = text_to_image.AsyncTextToImageResource(self)
         self.video_upscale = video_upscale.AsyncVideoUpscaleResource(self)
         self.character_performance = character_performance.AsyncCharacterPerformanceResource(self)
+        self.text_to_speech = text_to_speech.AsyncTextToSpeechResource(self)
         self.organization = organization.AsyncOrganizationResource(self)
         self.with_raw_response = AsyncRunwayMLWithRawResponse(self)
         self.with_streaming_response = AsyncRunwayMLWithStreamedResponse(self)
@@ -352,9 +357,9 @@ class AsyncRunwayML(AsyncAPIClient):
         api_key: str | None = None,
         runway_version: str | None = None,
         base_url: str | httpx.URL | None = None,
-        timeout: float | Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | Timeout | None | NotGiven = not_given,
         http_client: httpx.AsyncClient | None = None,
-        max_retries: int | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = not_given,
         default_headers: Mapping[str, str] | None = None,
         set_default_headers: Mapping[str, str] | None = None,
         default_query: Mapping[str, object] | None = None,
@@ -444,6 +449,7 @@ class RunwayMLWithRawResponse:
         self.character_performance = character_performance.CharacterPerformanceResourceWithRawResponse(
             client.character_performance
         )
+        self.text_to_speech = text_to_speech.TextToSpeechResourceWithRawResponse(client.text_to_speech)
         self.organization = organization.OrganizationResourceWithRawResponse(client.organization)
 
 
@@ -458,6 +464,7 @@ class AsyncRunwayMLWithRawResponse:
         self.character_performance = character_performance.AsyncCharacterPerformanceResourceWithRawResponse(
             client.character_performance
         )
+        self.text_to_speech = text_to_speech.AsyncTextToSpeechResourceWithRawResponse(client.text_to_speech)
         self.organization = organization.AsyncOrganizationResourceWithRawResponse(client.organization)
 
 
@@ -472,6 +479,7 @@ class RunwayMLWithStreamedResponse:
         self.character_performance = character_performance.CharacterPerformanceResourceWithStreamingResponse(
             client.character_performance
         )
+        self.text_to_speech = text_to_speech.TextToSpeechResourceWithStreamingResponse(client.text_to_speech)
         self.organization = organization.OrganizationResourceWithStreamingResponse(client.organization)
 
 
@@ -486,6 +494,7 @@ class AsyncRunwayMLWithStreamedResponse:
         self.character_performance = character_performance.AsyncCharacterPerformanceResourceWithStreamingResponse(
             client.character_performance
         )
+        self.text_to_speech = text_to_speech.AsyncTextToSpeechResourceWithStreamingResponse(client.text_to_speech)
         self.organization = organization.AsyncOrganizationResourceWithStreamingResponse(client.organization)
 
 

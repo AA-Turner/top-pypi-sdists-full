@@ -1,6 +1,6 @@
 [package]
 name = "loro_py"
-version = "1.6.0"
+version = "1.8.1"
 edition = "2021"
 readme = "README.md"
 
@@ -10,8 +10,7 @@ name = "loro"
 crate-type = ["cdylib"]
 
 [dependencies]
-# loro = { path = "../loro/crates/loro", features = ["counter", "jsonpath"] }
-loro = { version = "1.6.0", features = ["counter", "jsonpath"] }
-fxhash = "0.2.1"
+loro = { version = "1.8.1", features = ["counter", "jsonpath"] }
+rustc-hash = "2.1.1"
 pyo3 = { version = "0.26.0" }
 serde_json = "1"

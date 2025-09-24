@@ -1,23 +1,24 @@
 Metadata-Version: 2.4
 Name: qase-api-v2-client
-Version: 1.2.2
+Version: 2.0.0
 Summary: Qase TestOps API V2 client for Python
 Author-email: Qase Team <support@qase.io>
 Project-URL: Homepage, https://github.com/qase-tms/qase-python
 Keywords: OpenAPI,OpenAPI-Generator,Qase.io TestOps API
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: urllib3<=2.5.0,>=1.25.3
 Requires-Dist: python-dateutil
 Requires-Dist: pydantic>=2
 Requires-Dist: typing-extensions>=4.7.1
+Requires-Dist: lazy-imports<2,>=1
 
 # qase
 

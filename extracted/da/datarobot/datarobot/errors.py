@@ -9,7 +9,9 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
-from typing import Any, Callable, Dict, NamedTuple, Optional, Set, Union
+from __future__ import annotations
+
+from typing import Any, Dict, NamedTuple, Optional, Set, Union
 import warnings
 
 
@@ -187,6 +189,12 @@ class ContentRetrievalTerminatedError(Exception):
     """
 
 
+class CredentialsError(Exception):
+    """
+    Raised for errors related to credentials.
+    """
+
+
 class UpdateAttributesError(AttributeError):
     def __init__(self, class_name: str, invalid_key: str, message: str = ""):
         self.class_name: str = class_name
@@ -234,11 +242,12 @@ class OverwritingProjectOptionWarning(Warning):
     """
 
     def __init__(self, options: Dict[str, NamedTuple]) -> None:
-        details: Callable[[str], str] = (
-            lambda option: f"{option} had a value of {options[option].old_value} "  # type: ignore[attr-defined]
-            f"in the backend, possibly from previous calls to `Project.set_options`. {option} will be "
-            f"overwritten to {options[option].new_value}. \n"
-        )
+        def details(option: str) -> str:
+            return (
+                f"{option} had a value of {options[option].old_value} in the backend, "  # type: ignore[attr-defined]
+                "possibly from previous calls to `Project.set_options`. "
+                f"{option} will be overwritten to {options[option].new_value}. \n"
+            )
 
         self.message = f"Project option(s) {list(options.keys())} are already configured and will be overwritten."
         for option in options:

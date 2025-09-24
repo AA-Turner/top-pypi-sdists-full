@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: together
-Version: 1.5.25
+Version: 1.5.26
 Summary: Python client for Together's Cloud Platform!
 License: Apache-2.0
+License-File: LICENSE
 Author: Together AI
 Author-email: support@together.ai
 Requires-Python: >=3.10,<4.0
@@ -13,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: pyarrow
 Requires-Dist: aiohttp (>=3.9.3,<4.0.0)
 Requires-Dist: click (>=8.1.7,<9.0.0)

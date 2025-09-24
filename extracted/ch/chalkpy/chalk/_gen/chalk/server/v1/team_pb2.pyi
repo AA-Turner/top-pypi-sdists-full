@@ -249,6 +249,7 @@ class UpdateEnvironmentOperation(_message.Message):
         "kube_job_namespace",
         "kube_service_account_name",
         "environment_buckets",
+        "online_store_kind",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -269,6 +270,7 @@ class UpdateEnvironmentOperation(_message.Message):
     KUBE_JOB_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     KUBE_SERVICE_ACCOUNT_NAME_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_BUCKETS_FIELD_NUMBER: _ClassVar[int]
+    ONLINE_STORE_KIND_FIELD_NUMBER: _ClassVar[int]
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
     private_pip_repositories: str
@@ -280,6 +282,7 @@ class UpdateEnvironmentOperation(_message.Message):
     kube_job_namespace: str
     kube_service_account_name: str
     environment_buckets: _environment_pb2.EnvironmentObjectStorageConfig
+    online_store_kind: str
     def __init__(
         self,
         specs_config_json: _Optional[str] = ...,
@@ -293,6 +296,7 @@ class UpdateEnvironmentOperation(_message.Message):
         kube_job_namespace: _Optional[str] = ...,
         kube_service_account_name: _Optional[str] = ...,
         environment_buckets: _Optional[_Union[_environment_pb2.EnvironmentObjectStorageConfig, _Mapping]] = ...,
+        online_store_kind: _Optional[str] = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runwayml
-Version: 3.14.1
+Version: 3.15.0
 Summary: The official Python library for the runwayml API
 Project-URL: Homepage, https://github.com/runwayml/sdk-python
 Project-URL: Repository, https://github.com/runwayml/sdk-python
@@ -46,7 +46,7 @@ It is generated with [Stainless](https://www.stainless.com/).
 
 ## Documentation
 
-The REST API documentation can be found on [dev.runwayml.com](https://dev.runwayml.com). The full API of this library can be found in [api.md](https://github.com/runwayml/sdk-python/tree/main/api.md).
+The REST API documentation can be found on [docs.dev.runwayml.com](https://docs.dev.runwayml.com). The full API of this library can be found in [api.md](https://github.com/runwayml/sdk-python/tree/main/api.md).
 
 ## Installation
 

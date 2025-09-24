@@ -1,6 +1,6 @@
 [project]
 name = "radboy"
-version = "0.0.752"
+version = "0.0.755"
 authors = [
   { name="Carl Hirner III", email="k.j.hirner.wisdom@gmail.com" },
 ]
@@ -16,7 +16,7 @@ license-files = ["LICEN[CS]E*"]
 dependencies = [
 	"scipy",
 	"inputimeout",
-	'gdown','biip','sympy','scipy','plotext','haversine','holidays','odfpy','qrcode[pil]','chardet','nanoid','random-password-generator','cython','pint','pyupc-ean','openpyxl','plyer','colored','numpy','pandas','Pillow','python-barcode','qrcode','requests','sqlalchemy','argparse','geocoder','beautifulsoup4','pycryptodome','forecast_weather','boozelib','pint_pandas','xlsxwriter','chemlib','chemicals','chempy','magpylib',
+	'gdown','biip','sympy','scipy','plotext','haversine','holidays','odfpy','qrcode[pil]','chardet','nanoid','random-password-generator','cython','pint','pyupc-ean','openpyxl','plyer','colored','numpy','pandas','Pillow','python-barcode','qrcode','requests','sqlalchemy','argparse','geocoder','beautifulsoup4','pycryptodome','forecast_weather','boozelib','pint_pandas','xlsxwriter','chemlib','chemicals','chempy','magpylib','humanfriendly',
 ]
 [project.optional-dependencies]
 linux = [
@@ -29,5 +29,5 @@ android = [
 Homepage = "https://google.com"
 Issues = "https://google.com"
 [build-system]
-requires = ["setuptools >= 77.0.3",'gdown','biip','sympy','scipy','plotext','haversine','holidays','odfpy','qrcode[pil]','chardet','nanoid','random-password-generator','cython','pint','pyupc-ean','openpyxl','plyer','colored','numpy','pandas','Pillow','python-barcode','qrcode','requests','sqlalchemy','argparse','geocoder','beautifulsoup4','pycryptodome','forecast_weather','boozelib','inputimeout','xlsxwriter']
+requires = ["setuptools >= 77.0.3",'gdown','biip','sympy','scipy','plotext','haversine','holidays','odfpy','qrcode[pil]','chardet','nanoid','random-password-generator','cython','pint','pyupc-ean','openpyxl','plyer','colored','numpy','pandas','Pillow','python-barcode','qrcode','requests','sqlalchemy','argparse','geocoder','beautifulsoup4','pycryptodome','forecast_weather','boozelib','inputimeout','xlsxwriter','humanfriendly']
 build-backend = "setuptools.build_meta"

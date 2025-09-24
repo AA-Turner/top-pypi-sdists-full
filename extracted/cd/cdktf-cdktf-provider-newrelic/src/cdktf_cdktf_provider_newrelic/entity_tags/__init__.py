@@ -1,7 +1,7 @@
 r'''
 # `newrelic_entity_tags`
 
-Refer to the Terraform Registry for docs: [`newrelic_entity_tags`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags).
+Refer to the Terraform Registry for docs: [`newrelic_entity_tags`](https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EntityTags(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.entityTags.EntityTags",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags newrelic_entity_tags}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags newrelic_entity_tags}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class EntityTags(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags newrelic_entity_tags} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags newrelic_entity_tags} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param guid: The guid of the entity to tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#guid EntityTags#guid}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#tag EntityTags#tag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#id EntityTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#timeouts EntityTags#timeouts}
+        :param guid: The guid of the entity to tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#guid EntityTags#guid}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#tag EntityTags#tag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#id EntityTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#timeouts EntityTags#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class EntityTags(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EntityTags to import.
-        :param import_from_id: The id of the existing EntityTags that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EntityTags that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EntityTags to import is found.
         '''
         if __debug__:
@@ -139,7 +139,7 @@ class EntityTags(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#create EntityTags#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#create EntityTags#create}.
         '''
         value = EntityTagsTimeouts(create=create)
 
@@ -266,10 +266,10 @@ class EntityTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param guid: The guid of the entity to tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#guid EntityTags#guid}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#tag EntityTags#tag}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#id EntityTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#timeouts EntityTags#timeouts}
+        :param guid: The guid of the entity to tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#guid EntityTags#guid}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#tag EntityTags#tag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#id EntityTags#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#timeouts EntityTags#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -379,7 +379,7 @@ class EntityTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def guid(self) -> builtins.str:
         '''The guid of the entity to tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#guid EntityTags#guid}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#guid EntityTags#guid}
         '''
         result = self._values.get("guid")
         assert result is not None, "Required property 'guid' is missing"
@@ -391,7 +391,7 @@ class EntityTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EntityTagsTag"]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#tag EntityTags#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#tag EntityTags#tag}
         '''
         result = self._values.get("tag")
         assert result is not None, "Required property 'tag' is missing"
@@ -399,7 +399,7 @@ class EntityTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#id EntityTags#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#id EntityTags#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -411,7 +411,7 @@ class EntityTagsConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EntityTagsTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#timeouts EntityTags#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#timeouts EntityTags#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EntityTagsTimeouts"], result)
@@ -441,8 +441,8 @@ class EntityTagsTag:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param key: The tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#key EntityTags#key}
-        :param values: The tag values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#values EntityTags#values}
+        :param key: The tag key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#key EntityTags#key}
+        :param values: The tag values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#values EntityTags#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7dd412ea552f387dd9f9e3dc04f9d532b54ec363b31e412a9798646f4ed9069f)
@@ -457,7 +457,7 @@ class EntityTagsTag:
     def key(self) -> builtins.str:
         '''The tag key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#key EntityTags#key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#key EntityTags#key}
         '''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
@@ -467,7 +467,7 @@ class EntityTagsTag:
     def values(self) -> typing.List[builtins.str]:
         '''The tag values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#values EntityTags#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#values EntityTags#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"
@@ -661,7 +661,7 @@ class EntityTagsTagOutputReference(
 class EntityTagsTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#create EntityTags#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#create EntityTags#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0269b4a840807664a4ff89b2ef95a19c92506dfe5bd474a1679dafad8dd5c2ad)
@@ -672,7 +672,7 @@ class EntityTagsTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.0/docs/resources/entity_tags#create EntityTags#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.69.1/docs/resources/entity_tags#create EntityTags#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

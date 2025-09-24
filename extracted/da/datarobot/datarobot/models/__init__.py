@@ -67,6 +67,7 @@ from .feature_effect import (
     FeatureEffectsMulticlass,
 )
 from .featurelist import DatasetFeaturelist, Featurelist, ModelingFeaturelist
+from .files import Files, FilesCatalogSearch
 from .job import FeatureImpactJob, Job, TrainingPredictionsJob
 from .key_values import KeyValue
 from .model import (
@@ -84,6 +85,7 @@ from .model import (
 from .model_registry import RegisteredModel, RegisteredModelVersion
 from .modeljob import ModelJob
 from .ocr_job_resource import (
+    OCREngineSpecificParameters,
     OCRJobDatasetLanguage,
     OCRJobResource,
     OCRJobStatusEnum,

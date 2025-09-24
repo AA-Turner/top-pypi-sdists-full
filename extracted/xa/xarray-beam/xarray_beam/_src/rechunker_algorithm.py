@@ -24,14 +24,16 @@
 Forked from Rechunker:
 https://github.com/pangeo-data/rechunker/blob/master/rechunker/algorithm.py
 """
+from collections.abc import Sequence
 import logging
-from math import ceil, floor, lcm, prod
-from typing import List, Optional, Sequence, Tuple
+import math
 import warnings
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# pylint: disable=g-doc-return-or-yield
 
 
 def consolidate_chunks(
@@ -39,28 +41,24 @@ def consolidate_chunks(
     chunks: Sequence[int],
     itemsize: int,
     max_mem: int,
-    chunk_limits: Optional[Sequence[Optional[int]]] = None,
-) -> Tuple[int, ...]:
+    chunk_limits: Sequence[int | None] | None = None,
+) -> tuple[int, ...]:
   """Consolidate input chunks up to a certain memory limit.
 
   Consolidation starts on the highest axis and proceeds towards axis 0.
 
-  Parameters
-  ----------
-  shape : Tuple
-      Array shape
-  chunks : Tuple
-      Original chunk shape (must be in form (5, 10, 20), no irregular chunks)
-  max_mem : Int
-      Maximum permissible chunk memory size, measured in units of itemsize
-  chunk_limits : Tuple, optional
-      Maximum size of each chunk along each axis. If None, don't consolidate
-      axis. If -1, no limit.
+  Args:
+    shape: Array shape.
+    chunks: Original chunk shape (must be in form (5, 10, 20), no irregular
+      chunks).
+    itemsize: Number of bytes per array element.
+    max_mem: Maximum permissible chunk memory size, measured in units of
+      itemsize.
+    chunk_limits: Maximum size of each chunk along each axis. If None, don't
+      consolidate axis. If -1, no limit.
 
-  Returns
-  -------
-  new_chunks : tuple
-      The new chunks, size guaranteed to be <= mam_mem
+  Returns:
+    The new chunks, size guaranteed to be <= max_mem.
   """
 
   ndim = len(shape)
@@ -82,7 +80,7 @@ def consolidate_chunks(
       else:
         raise ValueError(f"Invalid chunk_limits {chunk_limits}.")
 
-  chunk_mem = itemsize * prod(chunks)
+  chunk_mem = itemsize * math.prod(chunks)
   if chunk_mem > max_mem:
     raise ValueError(f"chunk_mem {chunk_mem} > max_mem {max_mem}")
   headroom = max_mem / chunk_mem
@@ -95,7 +93,7 @@ def consolidate_chunks(
     upper_bound = min(shape[n_axis], chunk_limit_per_axis[n_axis])
     # try to just increase the chunk to the upper bound
     new_chunks[n_axis] = upper_bound
-    chunk_mem = itemsize * prod(new_chunks)
+    chunk_mem = itemsize * math.prod(new_chunks)
     upper_bound_headroom = max_mem / chunk_mem
     if upper_bound_headroom > 1:
       # ok it worked
@@ -105,9 +103,10 @@ def consolidate_chunks(
       # nope, that was too much
       # instead increase it by an integer multiple
       larger_chunk = int(chunks[n_axis] * int(headroom))
-      # not sure the min check is needed any more; it safeguards against making it too big
+      # not sure the min check is needed any more; it safeguards against making
+      # it too big
       new_chunks[n_axis] = min(larger_chunk, upper_bound)
-      chunk_mem = itemsize * prod(new_chunks)
+      chunk_mem = itemsize * math.prod(new_chunks)
       headroom = max_mem / chunk_mem
 
     logger.debug(f"  axis {n_axis}, {chunks[n_axis]} -> {new_chunks[n_axis]}")
@@ -120,7 +119,7 @@ def consolidate_chunks(
 
 def _calculate_shared_chunks(
     read_chunks: Sequence[int], write_chunks: Sequence[int]
-) -> Tuple[int, ...]:
+) -> tuple[int, ...]:
   # Intermediate chunks are the smallest possible chunks which fit
   # into both read_chunks and write_chunks.
   # Example:
@@ -136,10 +135,10 @@ def _calculate_shared_chunks(
 
 
 def calculate_stage_chunks(
-    read_chunks: Tuple[int, ...],
-    write_chunks: Tuple[int, ...],
+    read_chunks: tuple[int, ...],
+    write_chunks: tuple[int, ...],
     stage_count: int = 1,
-) -> List[Tuple[int, ...]]:
+) -> list[tuple[int, ...]]:
   """Calculate chunks after each stage of a multi-stage rechunking.
 
   Each stage consists of "split" step followed by a "consolidate" step.
@@ -165,7 +164,7 @@ def calculate_stage_chunks(
   cannot be stored in Zarr arrays.
   """
   approx_stages = np.geomspace(read_chunks, write_chunks, num=stage_count + 1)
-  return [tuple(floor(c) for c in stage) for stage in approx_stages[1:-1]]
+  return [tuple(math.floor(c) for c in stage) for stage in approx_stages[1:-1]]
 
 
 def _count_intermediate_chunks(
@@ -191,12 +190,14 @@ def _count_intermediate_chunks(
       >>> _count_intermediate_chunks(5, 7, 20)
       6
   """
-  multiple = lcm(source_chunk, target_chunk)
+  multiple = math.lcm(source_chunk, target_chunk)
   splits_per_lcm = multiple // source_chunk + multiple // target_chunk - 1
   lcm_count, remainder = divmod(size, multiple)
   if remainder:
     splits_in_remainder = (
-        ceil(remainder / source_chunk) + ceil(remainder / target_chunk) - 1
+        math.ceil(remainder / source_chunk)
+        + math.ceil(remainder / target_chunk)
+        - 1
     )
   else:
     splits_in_remainder = 0
@@ -207,7 +208,9 @@ def calculate_single_stage_io_ops(
     shape: Sequence[int], in_chunks: Sequence[int], out_chunks: Sequence[int]
 ) -> int:
   """Count the number of read/write operations required for rechunking."""
-  return prod(map(_count_intermediate_chunks, in_chunks, out_chunks, shape))
+  return math.prod(
+      map(_count_intermediate_chunks, in_chunks, out_chunks, shape)
+  )
 
 
 # not a tight upper bound, but ensures that the loop in
@@ -215,7 +218,7 @@ def calculate_single_stage_io_ops(
 MAX_STAGES = 100
 
 
-_MultistagePlan = List[Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]]
+_MultistagePlan = list[tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]]
 
 
 class ExcessiveIOWarning(Warning):
@@ -244,8 +247,8 @@ def multistage_rechunking_plan(
   if len(target_chunks) != ndim:
     raise ValueError(f"target_chunks {target_chunks} must have length {ndim}")
 
-  source_chunk_mem = itemsize * prod(source_chunks)
-  target_chunk_mem = itemsize * prod(target_chunks)
+  source_chunk_mem = itemsize * math.prod(source_chunks)
+  target_chunk_mem = itemsize * math.prod(target_chunks)
 
   if source_chunk_mem > max_mem:
     raise ValueError(
@@ -271,9 +274,9 @@ def multistage_rechunking_plan(
     write_chunks = tuple(target_chunks)
 
   if consolidate_reads:
-    read_chunk_limits: List[Optional[int]] = []
+    read_chunk_limits: list[int | None] = []
     for sc, wc in zip(source_chunks, write_chunks):
-      limit: Optional[int]
+      limit: int | None
       if wc > sc:
         # consolidate reads over this axis, up to the write chunk size
         limit = wc
@@ -292,8 +295,8 @@ def multistage_rechunking_plan(
   else:
     read_chunks = tuple(source_chunks)
 
-  prev_io_ops: Optional[float] = None
-  prev_plan: Optional[_MultistagePlan] = None
+  prev_io_ops: float | None = None
+  prev_plan: _MultistagePlan | None = None
 
   # increase the number of stages until min_mem is exceeded
   for stage_count in range(1, MAX_STAGES):
@@ -309,7 +312,7 @@ def multistage_rechunking_plan(
     ]
     plan = list(zip(pre_chunks, int_chunks, post_chunks))
 
-    int_mem = min(itemsize * prod(chunks) for chunks in int_chunks)
+    int_mem = min(itemsize * math.prod(chunks) for chunks in int_chunks)
     if int_mem >= min_mem:
       return plan  # success!
 
@@ -354,30 +357,23 @@ def rechunking_plan(
     max_mem: int,
     consolidate_reads: bool = True,
     consolidate_writes: bool = True,
-) -> Tuple[Tuple[int, ...], Tuple[int, ...], Tuple[int, ...]]:
+) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
   """Calculate a plan for rechunking arrays.
 
-  Parameters
-  ----------
-  shape : Tuple
-      Array shape
-  source_chunks : Tuple
-      Original chunk shape (must be in form (5, 10, 20), no irregular chunks)
-  target_chunks : Tuple
-      Target chunk shape (must be in form (5, 10, 20), no irregular chunks)
-  itemsize: int
-      Number of bytes used to represent a single array element
-  max_mem : int
-      Maximum permissible chunk memory size, measured in units of itemsize
-  consolidate_reads: bool, optional
-      Whether to apply read chunk consolidation
-  consolidate_writes: bool, optional
-      Whether to apply write chunk consolidation
+  Args:
+    shape: Array shape.
+    source_chunks: Original chunk shape (must be in form (5, 10, 20), no
+      irregular chunks).
+    target_chunks: Target chunk shape (must be in form (5, 10, 20), no
+      irregular chunks).
+    itemsize: Number of bytes used to represent a single array element.
+    max_mem: Maximum permissible chunk memory size, measured in units of
+      itemsize.
+    consolidate_reads: Whether to apply read chunk consolidation.
+    consolidate_writes: Whether to apply write chunk consolidation.
 
-  Returns
-  -------
-  new_chunks : tuple
-      The new chunks, size guaranteed to be <= mam_mem
+  Returns:
+    The new chunks, size guaranteed to be <= max_mem.
   """
   (stage,) = multistage_rechunking_plan(
       shape,

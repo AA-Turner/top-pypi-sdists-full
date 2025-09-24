@@ -9,6 +9,7 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
 
 
 class EligibilityResult:

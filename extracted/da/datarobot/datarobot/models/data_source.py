@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import cast, Iterable, List, Optional, Type, TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Iterable, List, Optional, Type, TypeVar, Union, cast
 
 import trafaret as t
 
@@ -26,8 +26,7 @@ from datarobot.utils.pagination import unpaginate
 from ..utils import from_api, parse_time
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.api_object import ServerDataType
 
     class DataSourceParametersPayload(TypedDict, total=False):

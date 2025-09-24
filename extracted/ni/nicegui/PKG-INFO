@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: nicegui
-Version: 2.24.1
+Version: 2.24.2
 Summary: Create web-based user interfaces with Python. The nice way.
 License: MIT
+License-File: LICENSE
 Keywords: gui,ui,web,interface,live
 Author: Zauberzeug GmbH
 Author-email: info@zauberzeug.com
@@ -15,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: highcharts
 Provides-Extra: matplotlib
 Provides-Extra: native

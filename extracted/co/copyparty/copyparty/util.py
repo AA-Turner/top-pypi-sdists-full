@@ -636,6 +636,9 @@ def read_utf8(log , ap  , strict )  :
     with open(ap, "rb") as f:
         buf = f.read()
 
+    if buf.startswith(b"\xef\xbb\xbf"):
+        buf = buf[3:]
+
     try:
         return buf.decode("utf-8", "strict")
     except UnicodeDecodeError as ex:

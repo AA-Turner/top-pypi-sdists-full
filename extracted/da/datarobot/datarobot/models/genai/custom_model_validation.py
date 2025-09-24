@@ -21,7 +21,7 @@ from datarobot.models.deployment import Deployment
 from datarobot.models.genai.playground import Playground
 from datarobot.models.model import Model
 from datarobot.models.use_cases.use_case import UseCase
-from datarobot.models.use_cases.utils import get_use_case_id, resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, get_use_case_id, resolve_use_cases
 from datarobot.utils.pagination import unpaginate
 from datarobot.utils.waiters import wait_for_async_resolution
 

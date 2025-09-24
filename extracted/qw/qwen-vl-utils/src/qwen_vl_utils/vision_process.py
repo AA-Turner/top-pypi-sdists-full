@@ -9,6 +9,7 @@ import warnings
 from functools import lru_cache
 from io import BytesIO
 from typing import Optional, Union, Tuple, List, Any, Dict
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 import torch
@@ -31,6 +32,7 @@ FPS = 2.0
 FRAME_FACTOR = 2
 FPS_MIN_FRAMES = 4
 FPS_MAX_FRAMES = 768
+MAX_NUM_WORKERS_FETCH_VIDEO = 8
 
 MODEL_SEQ_LEN = int(float(os.environ.get('MODEL_SEQ_LEN', 128000)))
 logger = logging.getLogger(__name__)
@@ -411,14 +413,20 @@ def fetch_video(ele: Dict[str, Any], image_patch_size: int = 14, return_video_sa
             logger.warning(f"video_reader_backend {video_reader_backend} error, use torchvision as default, msg: {e}")
             video, video_metadata, sample_fps = VIDEO_READER_BACKENDS["torchvision"](ele)
     else:
+        # The input is a list of frames
         assert isinstance(ele["video"], (list, tuple))
         process_info = ele.copy()
         process_info.pop("type", None)
         process_info.pop("video", None)
-        image_list = [
-            fetch_image({"image": video_element, **process_info}, image_patch_size=image_factor)
-            for video_element in ele["video"]
-        ]
+        # use ThreadPoolExecutor to parallel process frames
+        max_workers = min(MAX_NUM_WORKERS_FETCH_VIDEO, len(ele["video"]))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(fetch_image, {"image": video_element, **process_info}, image_factor)
+                for video_element in ele["video"]
+            ]
+            image_list = [future.result() for future in futures]
+
         nframes = ceil_by_factor(len(image_list), FRAME_FACTOR)
         if len(image_list) < nframes:
             image_list.extend([image_list[-1]] * (nframes - len(image_list)))
@@ -430,7 +438,7 @@ def fetch_video(ele: Dict[str, Any], image_patch_size: int = 14, return_video_sa
         ])
 
         # fake video metadata
-        raw_fps = process_info.pop("raw_fps", 24.0)
+        raw_fps = process_info.pop("raw_fps", sample_fps)
         video_metadata = dict(
             fps=raw_fps,
             frames_indices=[i for i in range(len(video))],

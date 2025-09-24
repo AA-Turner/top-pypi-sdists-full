@@ -12,6 +12,7 @@
 # *******************************************************
 
 import logging
+from typing import Callable
 
 from .._typing import (
     Any,
@@ -399,19 +400,30 @@ def get_tensorflow_gradient_histograms(
 
 
 def get_tensorflow_activation_histogram_indices(
-    model, output_tensor, inputs, index_list
-):
-    # type: (Any, Any, Any, List[int]) -> Optional[List[Histogram]]
-    # Logging activations does not work with tensorflow 1.11
+    model: Any, output_tensor: Any, inputs: Any, index_list: List[int]
+) -> Optional[List[Histogram]]:
+    """
+    Compute activation histograms for specific indices of a TensorFlow/Keras model.
+
+    Args:
+        model: A TensorFlow/Keras Model instance (e.g., tf.keras.Model).
+        output_tensor: A TensorFlow tensor representing the model's output or a specific layer's output.
+        inputs: Input data to the model (e.g., numpy array, TensorFlow tensor, or list thereof).
+        index_list: List of indices specifying which samples to compute histograms for.
+    Returns:
+        A list of Histogram objects for each index in index_list, or None if an error occurs.
+    """
     try:
         import tensorflow as tf
     except ImportError:
         return None
 
-    histograms = [Histogram() for i in range(len(index_list))]
-
     try:
-        function = tf.keras.backend.function(model.inputs, output_tensor)
+        function = _get_keras_function(model, output_tensor)
+        if function is None:
+            return None
+
+        histograms = [Histogram() for _ in range(len(index_list))]
 
         for i, batch_input in enumerate_tensor_list(
             len(model.inputs), inputs, index_list
@@ -433,18 +445,21 @@ def get_tensorflow_activation_histogram_indices(
         return None
 
 
-def get_tensorflow_activation_histogram_all(model, output_tensor, inputs, batch_size):
-    # type: (Any, Any, Any, int) -> Optional[List[Histogram]]
-    # Logging activations does not work with tensorflow 1.11
+def get_tensorflow_activation_histogram_all(
+    model: Any, output_tensor: Any, inputs: Any, batch_size: int
+) -> Optional[List[Histogram]]:
+
     try:
         import tensorflow as tf
     except ImportError:
         return None
 
-    histogram = Histogram()
-
     try:
-        function = tf.keras.backend.function(model.inputs, output_tensor)
+        function = _get_keras_function(model, output_tensor)
+        if function is None:
+            return None
+
+        histogram = Histogram()
 
         for batch_input in enumerate_tensors(len(model.inputs), inputs, batch_size):
             # Batch input is either a one-item input (tensor/ndarray) or a list of one-item
@@ -1077,3 +1092,29 @@ def check_experiment_closed_and_warn(
         )
 
     return not experiment.alive
+
+
+def _get_keras_function(model: Any, output_tensor: Any) -> Optional[Callable]:
+    try:
+        import keras
+
+        # try Keras 2.x API
+        if hasattr(keras.backend, "function"):
+            return keras.backend.function(model.inputs, output_tensor)
+
+        # try Keras 3.x API
+        from keras.models import Model
+
+        return Model(inputs=model.inputs, outputs=output_tensor)
+    except ImportError:
+        pass
+
+    try:
+        import tensorflow
+
+        # support for older versions of Keras API
+        return tensorflow.keras.backend.function(model.inputs, output_tensor)
+    except ImportError:
+        pass
+
+    return None

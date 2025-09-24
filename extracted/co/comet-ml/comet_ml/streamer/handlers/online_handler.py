@@ -22,7 +22,8 @@ from requests import RequestException
 
 from ...batch_utils import MessageBatch, MessageBatchItem, ParametersBatch
 from ...connection import RestApiClient, RestServerConnection
-from ...exceptions import CometRestApiException
+from ...connection.connection_url_helpers import upload_thumbnail_url
+from ...exceptions import CometRestApiException, FileUploadThrottledException
 from ...file_upload_manager import FileUploadManager
 from ...logging_messages import (
     ARTIFACT_REMOTE_ASSETS_BATCH_SENDING_REST_ERROR,
@@ -56,7 +57,6 @@ from ...logging_messages import (
     INSTALLED_PACKAGES_MSG_SENDING_ERROR,
     LOG_DEPENDENCY_MESSAGE_SENDING_ERROR,
     LOG_OTHER_MSG_SENDING_ERROR,
-    MESSAGES_THROTTLED_BY_BACKEND_ERROR,
     METRICS_BATCH_MSG_SENDING_ERROR,
     MODEL_GRAPH_MSG_SENDING_ERROR,
     OS_PACKAGE_MSG_SENDING_ERROR,
@@ -93,6 +93,7 @@ from ...messages import (
     UploadFileMessage,
     UploadInMemoryMessage,
 )
+from ...messages_utils import create_upload_message_from_options
 from ...s3.multipart_upload.upload_error import S3UploadError
 from ...upload_options import (
     AssetItemUploadOptions,
@@ -342,6 +343,35 @@ class OnlineMessageHandler(BaseMessageHandler):
                     connection_error=True,
                     failure_reason=str(response),
                 )
+            elif isinstance(response, FileUploadThrottledException):
+                # Handle HTTP 429 (Too Many Requests) for file uploads
+                reset_at = calculate_reset_at_from_response(response.response, LOGGER)
+
+                # Create a retry upload message using the utility function
+                retry_message = create_upload_message_from_options(
+                    upload_options=response.upload_options, message_id=message_id
+                )
+                if retry_message is None:
+                    LOGGER.error(
+                        "Failed to recreate upload message from options: %s during throttling retry handling",
+                        response.upload_options,
+                    )
+                    return
+
+                self._retry_incidents_manager.add_or_update_incident(
+                    retry_message.type, reset_at=reset_at, messages=[retry_message]
+                )
+
+                LOGGER.info(
+                    "File upload ('%s') throttled by backend for type '%s', retry after: %s (%d seconds)",
+                    retry_message.get_user_friendly_identifier(),
+                    retry_message.type,
+                    seconds_to_datetime_str(reset_at),
+                    int(reset_at - time.time()),
+                )
+
+                # Don't call _on_messages_sent_completed since this will be retried
+                return
 
         if message_callback is None:
             callback = lambda response: _callback(response)  # noqa: E731
@@ -397,8 +427,8 @@ class OnlineMessageHandler(BaseMessageHandler):
                 estimated_size=message._size,
                 upload_type=message.upload_type,
                 base_url=self._connection.server_address,
+                critical=message._critical,
             ),
-            critical=message._critical,
         )
         if message.clean is True:
             self._file_uploads_to_clean.append(message.file_path)
@@ -431,8 +461,8 @@ class OnlineMessageHandler(BaseMessageHandler):
                 estimated_size=message._size,
                 upload_type=message.upload_type,
                 base_url=self._connection.server_address,
+                critical=message._critical,
             ),
-            critical=message._critical,
         )
         LOGGER.debug("Processing in-memory uploading message done")
 
@@ -462,6 +492,7 @@ class OnlineMessageHandler(BaseMessageHandler):
                 timeout=self._file_upload_read_timeout,
                 verify_tls=self._verify_tls,
                 upload_endpoint=url,
+                upload_type=message.upload_type,
                 on_asset_upload=self._on_upload_success_callback(
                     message_id=message.message_id,
                     message_callback=message._on_asset_upload,
@@ -471,8 +502,8 @@ class OnlineMessageHandler(BaseMessageHandler):
                     message_callback=message._on_failed_asset_upload,
                 ),
                 estimated_size=message._size,
+                critical=message._critical,
             ),
-            critical=message._critical,
         )
         LOGGER.debug(
             "Remote asset has been scheduled for upload, asset URI: %r",
@@ -676,14 +707,12 @@ class OnlineMessageHandler(BaseMessageHandler):
                     reset_at = calculate_reset_at_from_response(
                         exc.response, logger=LOGGER
                     )
-                    # add 0.5 sec to make sure we do not hit throttling immediately after reset due to rounding effects
-                    reset_at += 0.5
                     self._retry_incidents_manager.add_or_update_incident(
                         message_type, reset_at=reset_at, messages=messages
                     )
 
                     LOGGER.info(
-                        MESSAGES_THROTTLED_BY_BACKEND_ERROR,
+                        "Message(s) of type '%s' were throttled due to backend limits and will be retried after: %s (in %s seconds)",
                         message_type,
                         seconds_to_datetime_str(reset_at),
                         int(reset_at - time.time()),
@@ -951,31 +980,37 @@ class OnlineMessageHandler(BaseMessageHandler):
     def _process_log_3d_cloud_message(
         self, message: Log3DCloudMessage, _: HandlerContext
     ) -> None:
-        asset_id = self._connection.create_asset(
-            experiment_key=self.experiment_key,
-            asset_name=message.name,
-            asset_type=message.type,
-            metadata=message.metadata,
-            step=message.step,
-        )
+        if message.asset_id is not None:
+            # The asset is already created - most probably retrying to send its items
+            asset_id = message.asset_id
+        else:
+            asset_id = self._connection.create_asset(
+                experiment_key=self.experiment_key,
+                asset_name=message.name,
+                asset_type=message.type,
+                metadata=message.metadata,
+                step=message.step,
+            )
 
-        thumbnail_upload_url = "%sasset/%s/thumbnail" % (
-            self._connection.server_address,
-            asset_id,
-        )
+        if message.thumbnail_path is not None:
+            thumbnail_upload_url = upload_thumbnail_url(
+                self._connection.server_address,
+                asset_id=asset_id,
+            )
 
-        self._file_upload_manager.upload_thumbnail_thread(
-            options=ThumbnailUploadOptions(
-                api_key=self.api_key,
-                experiment_id=self.experiment_key,
-                project_id=self.project_id,
-                timeout=self._file_upload_read_timeout,
-                verify_tls=self._verify_tls,
-                upload_endpoint=thumbnail_upload_url,
-                estimated_size=0,
-                thumbnail_path=message.thumbnail_path,
-            ),
-        )
+            self._file_upload_manager.upload_thumbnail_thread(
+                options=ThumbnailUploadOptions(
+                    api_key=self.api_key,
+                    experiment_id=self.experiment_key,
+                    project_id=self.project_id,
+                    timeout=self._file_upload_read_timeout,
+                    verify_tls=self._verify_tls,
+                    upload_endpoint=thumbnail_upload_url,
+                    estimated_size=0,
+                    thumbnail_path=message.thumbnail_path,
+                    critical=False,
+                ),
+            )
 
         asset_item_url = self._connection.get_upload_url(message.upload_type)
         for item in message.items:
@@ -990,6 +1025,16 @@ class OnlineMessageHandler(BaseMessageHandler):
                     estimated_size=0,
                     asset_id=asset_id,
                     asset_item=item,
+                    all_items=message.items,  # we need this to restore an original message if throttled
+                    upload_type=message.upload_type,
+                    asset_name=message.name,
+                    critical=False,
+                    on_asset_upload=self._on_upload_success_callback(
+                        message_id=message.message_id,
+                    ),
+                    on_failed_asset_upload=self._on_upload_failed_callback(
+                        message_id=message.message_id,
+                    ),
                 ),
             )
 

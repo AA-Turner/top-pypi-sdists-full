@@ -15,6 +15,7 @@ from typing import (
     Protocol,
     TypeVar,
     overload,
+    Self,
 )
 
 import numpy as np
@@ -471,3 +472,209 @@ def resolve_forward_ref(t: Any) -> Any:
     if isinstance(t, str):
         return eval(t)  # pylint: disable=eval-used
     return t
+
+
+# ========================= Engine Schema Types (Python mirror of Rust) =========================
+
+
+@dataclasses.dataclass
+class VectorTypeSchema:
+    element_type: "BasicValueType"
+    dimension: int | None
+
+    @staticmethod
+    def decode(obj: dict[str, Any]) -> "VectorTypeSchema":
+        return VectorTypeSchema(
+            element_type=BasicValueType.decode(obj["element_type"]),
+            dimension=obj.get("dimension"),
+        )
+
+    def encode(self) -> dict[str, Any]:
+        return {
+            "element_type": self.element_type.encode(),
+            "dimension": self.dimension,
+        }
+
+
+@dataclasses.dataclass
+class UnionTypeSchema:
+    variants: list["BasicValueType"]
+
+    @staticmethod
+    def decode(obj: dict[str, Any]) -> "UnionTypeSchema":
+        return UnionTypeSchema(
+            variants=[BasicValueType.decode(t) for t in obj["types"]]
+        )
+
+    def encode(self) -> dict[str, Any]:
+        return {"types": [variant.encode() for variant in self.variants]}
+
+
+@dataclasses.dataclass
+class BasicValueType:
+    """
+    Mirror of Rust BasicValueType in JSON form.
+
+    For Vector and Union kinds, extra fields are populated accordingly.
+    """
+
+    kind: Literal[
+        "Bytes",
+        "Str",
+        "Bool",
+        "Int64",
+        "Float32",
+        "Float64",
+        "Range",
+        "Uuid",
+        "Date",
+        "Time",
+        "LocalDateTime",
+        "OffsetDateTime",
+        "TimeDelta",
+        "Json",
+        "Vector",
+        "Union",
+    ]
+    vector: VectorTypeSchema | None = None
+    union: UnionTypeSchema | None = None
+
+    @staticmethod
+    def decode(obj: dict[str, Any]) -> "BasicValueType":
+        kind = obj["kind"]
+        if kind == "Vector":
+            return BasicValueType(
+                kind=kind,  # type: ignore[arg-type]
+                vector=VectorTypeSchema.decode(obj),
+            )
+        if kind == "Union":
+            return BasicValueType(
+                kind=kind,  # type: ignore[arg-type]
+                union=UnionTypeSchema.decode(obj),
+            )
+        return BasicValueType(kind=kind)  # type: ignore[arg-type]
+
+    def encode(self) -> dict[str, Any]:
+        result = {"kind": self.kind}
+        if self.kind == "Vector" and self.vector is not None:
+            result.update(self.vector.encode())
+        elif self.kind == "Union" and self.union is not None:
+            result.update(self.union.encode())
+        return result
+
+
+@dataclasses.dataclass
+class EnrichedValueType:
+    type: "ValueType"
+    nullable: bool = False
+    attrs: dict[str, Any] | None = None
+
+    @staticmethod
+    def decode(obj: dict[str, Any]) -> "EnrichedValueType":
+        return EnrichedValueType(
+            type=decode_engine_value_type(obj["type"]),
+            nullable=obj.get("nullable", False),
+            attrs=obj.get("attrs"),
+        )
+
+    def encode(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"type": self.type.encode()}
+        if self.nullable:
+            result["nullable"] = True
+        if self.attrs is not None:
+            result["attrs"] = self.attrs
+        return result
+
+
+@dataclasses.dataclass
+class FieldSchema:
+    name: str
+    value_type: EnrichedValueType
+
+    @staticmethod
+    def decode(obj: dict[str, Any]) -> "FieldSchema":
+        return FieldSchema(name=obj["name"], value_type=EnrichedValueType.decode(obj))
+
+    def encode(self) -> dict[str, Any]:
+        result = self.value_type.encode()
+        result["name"] = self.name
+        return result
+
+
+@dataclasses.dataclass
+class StructSchema:
+    fields: list[FieldSchema]
+    description: str | None = None
+
+    @classmethod
+    def decode(cls, obj: dict[str, Any]) -> Self:
+        return cls(
+            fields=[FieldSchema.decode(f) for f in obj["fields"]],
+            description=obj.get("description"),
+        )
+
+    def encode(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"fields": [field.encode() for field in self.fields]}
+        if self.description is not None:
+            result["description"] = self.description
+        return result
+
+
+@dataclasses.dataclass
+class StructType(StructSchema):
+    kind: Literal["Struct"] = "Struct"
+
+    def encode(self) -> dict[str, Any]:
+        result = super().encode()
+        result["kind"] = self.kind
+        return result
+
+
+@dataclasses.dataclass
+class TableType:
+    kind: Literal["KTable", "LTable"]
+    row: StructSchema
+    num_key_parts: int | None = None  # Only for KTable
+
+    @staticmethod
+    def decode(obj: dict[str, Any]) -> "TableType":
+        row_obj = obj["row"]
+        row = StructSchema(
+            fields=[FieldSchema.decode(f) for f in row_obj["fields"]],
+            description=row_obj.get("description"),
+        )
+        return TableType(
+            kind=obj["kind"],  # type: ignore[arg-type]
+            row=row,
+            num_key_parts=obj.get("num_key_parts"),
+        )
+
+    def encode(self) -> dict[str, Any]:
+        result: dict[str, Any] = {"kind": self.kind, "row": self.row.encode()}
+        if self.num_key_parts is not None:
+            result["num_key_parts"] = self.num_key_parts
+        return result
+
+
+ValueType = BasicValueType | StructType | TableType
+
+
+def decode_engine_field_schemas(objs: list[dict[str, Any]]) -> list[FieldSchema]:
+    return [FieldSchema.decode(o) for o in objs]
+
+
+def decode_engine_value_type(obj: dict[str, Any]) -> ValueType:
+    kind = obj["kind"]
+    if kind == "Struct":
+        return StructType.decode(obj)
+
+    if kind in TABLE_TYPES:
+        return TableType.decode(obj)
+
+    # Otherwise it's a basic value
+    return BasicValueType.decode(obj)
+
+
+def encode_engine_value_type(value_type: ValueType) -> dict[str, Any]:
+    """Encode a ValueType to its dictionary representation."""
+    return value_type.encode()

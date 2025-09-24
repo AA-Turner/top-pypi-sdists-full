@@ -36,7 +36,7 @@ class VLLMAdapter:
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         payload = {"lora_name": adapter_name, "lora_path": adapter_path}
         # Implement exponential backoff for retrying the adapter load request.
-        max_retries = 5
+        max_retries = 8
         backoff_factor = 2
         delay = 1  # initial delay in seconds
 

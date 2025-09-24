@@ -3,6 +3,7 @@ import yaml
 
 from adam.commands.command import Command
 from adam.commands.deploy.deploy_utils import creating, deploy_frontend, gen_labels
+from adam.commands.deploy.undeploy_pod import UndeployPod
 from adam.config import Config
 from adam.k8s_utils.config_maps import ConfigMaps
 from adam.k8s_utils.deployment import Deployments
@@ -38,6 +39,10 @@ class DeployPod(Command):
         state, args = self.apply_state(args, state)
         if not self.validate_state(state):
             return state
+
+        args, forced = Command.extract_options(args, '--force')
+        if forced:
+            UndeployPod().run(UndeployPod.COMMAND, state)
 
         if KubeContext.in_cluster():
             log2('This is doable only from outside of the Kubernetes cluster.')
@@ -103,7 +108,7 @@ class DeployPod(Command):
         return state
 
     def completion(self, state: ReplState):
-        return super().completion(state)
+        return super().completion(state, {'--force': None})
 
     def help(self, _: ReplState):
-        return f'{DeployPod.COMMAND}\t deploy Ops pod'
+        return f'{DeployPod.COMMAND} [--force]\t deploy Ops pod, --force to undeploy first'

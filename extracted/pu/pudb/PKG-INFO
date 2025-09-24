@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pudb
-Version: 2025.1
+Version: 2025.1.1
 Summary: A full-screen, console-based Python debugger
 Author-email: Andreas Kloeckner <inform@tiker.net>
 License-Expression: MIT
@@ -10,7 +10,6 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Environment :: Console :: Curses
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
@@ -27,6 +26,7 @@ Requires-Python: ~=3.8
 Requires-Dist: jedi<1,>=0.18
 Requires-Dist: packaging>=20.0
 Requires-Dist: pygments>=2.7.4
+Requires-Dist: typing-extensions>=4.13
 Requires-Dist: urwid!=3.0.0; python_version < '3.9'
 Requires-Dist: urwid-readline
 Requires-Dist: urwid; python_version >= '3.9'
@@ -41,9 +41,9 @@ PuDB: a console-based visual debugger for Python
 .. image:: https://gitlab.tiker.net/inducer/pudb/badges/main/pipeline.svg
     :alt: Gitlab Build Status
     :target: https://gitlab.tiker.net/inducer/pudb/commits/main
-.. image:: https://github.com/inducer/pudb/workflows/CI/badge.svg?branch=main&event=push
+.. image:: https://github.com/inducer/pudb/actions/workflows/ci.yml/badge.svg
     :alt: Github Build Status
-    :target: https://github.com/inducer/pudb/actions?query=branch%3Amain+workflow%3ACI+event%3Apush
+    :target: https://github.com/inducer/pudb/actions/workflows/ci.yml
 .. image:: https://badge.fury.io/py/pudb.png
     :alt: Python Package Index Release Page
     :target: https://pypi.org/project/pudb/

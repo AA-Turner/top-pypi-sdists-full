@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 import trafaret as t
 
@@ -21,7 +21,7 @@ from datarobot.models.api_object import APIObject
 from datarobot.models.status_check_job import StatusCheckJob
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class Strength(TypedDict):
         feature1: str

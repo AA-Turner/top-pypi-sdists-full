@@ -6,6 +6,7 @@ import torch
 from transformers import AutoConfig, AutoTokenizer, BitsAndBytesConfig, PreTrainedTokenizerBase
 from transformers.dynamic_module_utils import get_class_from_dynamic_module
 from transformers.models.auto.tokenization_auto import get_tokenizer_config
+from transformers.utils.versions import require_version
 
 from swift.llm import TemplateType
 from swift.utils import get_device_count, get_dist_setting, get_env_args, get_logger
@@ -666,19 +667,27 @@ def patch_qwen_vl_utils(vision_process):
             'fps_max_frames',
     ]:
         type_func = float if key == 'fps' else int
-        if not hasattr(vision_process, key.upper()):
+        default_value = getattr(vision_process, key.upper(), None)
+        if default_value is None:
+            # Skip keys not supported by the specific vision_process implementation
             continue
-        val = get_env_args(key, type_func, getattr(vision_process, key.upper()))
+        val = get_env_args(key, type_func, default_value)
         setattr(vision_process, key.upper(), val)
         res[key] = val
-    _read_video_decord = vision_process._read_video_decord
+    # Patch decord video reader if available
+    _read_video_decord = getattr(vision_process, '_read_video_decord', None)
+    if _read_video_decord is not None:
 
-    def _new_read_video_decord(ele: dict):
-        from swift.llm import load_file
-        ele['video'] = load_file(ele['video'])
-        return _read_video_decord(ele)
+        def _new_read_video_decord(ele: dict):
+            from swift.llm import load_file
+            ele['video'] = load_file(ele['video'])
+            return _read_video_decord(ele)
 
-    vision_process.VIDEO_READER_BACKENDS['decord'] = _new_read_video_decord
+        backends = getattr(vision_process, 'VIDEO_READER_BACKENDS', None)
+        if isinstance(backends, dict):
+            backends['decord'] = _new_read_video_decord
+        elif backends is None:  # keye_vl
+            vision_process._read_video_decord = _new_read_video_decord
     vision_process._patch = True
     return res
 
@@ -692,6 +701,7 @@ def get_model_tokenizer_qwen2_vl(*args, **kwargs):
         patch_get_input_embeddings(base_model.visual, 'patch_embed')
 
     from qwen_vl_utils import vision_process
+    require_version('qwen_vl_utils<0.0.12')
     global_vars = patch_qwen_vl_utils(vision_process)
     tokenizer.global_vars = global_vars  # In order to have different hashes for the template.
     return model, tokenizer

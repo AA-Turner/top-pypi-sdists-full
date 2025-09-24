@@ -24,6 +24,11 @@ class Vcs(Edatool):
             "type": "bool",
             "desc": "Run VCS in 2-stage (elaborate+compile => simulate) instead of 3-stage mode (elaborate => compile => simulate)",
         },
+        "analysis_options": {
+            "type": "str",
+            "desc": "Options that are passed to vcs in 2-stage mode or vhdlan/vlogan in 3-stage mode",
+            "list": True,
+        },
         "vlogan_options": {
             "type": "str",
             "desc": "Additional options for analysis with vlogan",
@@ -51,7 +56,7 @@ class Vcs(Edatool):
 
         self.commands = EdaCommands()
         self.f_files = {}
-        self.workdirs = []
+        self.workdirs = set()
         self.target_files = []
         self.user_files = []
 
@@ -79,7 +84,7 @@ class Vcs(Edatool):
         self.edam = edam.copy()
         self.edam["files"] = unused_files
 
-        binary_name = self.name + ".simv"
+        binary_name = self.name
         self.commands.add(
             ["vcs"]
             + full64
@@ -143,6 +148,7 @@ class Vcs(Edatool):
         options = ["-top", self.toplevel]
         if has_sv:
             options.append("-sverilog")
+        options += self.tool_options.get("analysis_options", [])
         options += self.tool_options.get("vcs_options", [])
         options += [defines]
         options += ["+incdir+" + d for d in incdirs]
@@ -153,15 +159,8 @@ class Vcs(Edatool):
         self.vcs_files = vlog_files
 
     def _threestage_setup(self, edam, incdirs, include_files, unused_files, full64):
-        def absorb_node(nodes, node_to_absorb):
-            for node, deps in nodes.items():
-                if node_to_absorb in deps:
-                    deps.remove(node_to_absorb)
-                    deps += nodes[node_to_absorb]
-            del nodes[node_to_absorb]
-
-        libs = {}
-        has_sv = False
+        filegroups = []
+        prev_fileopts = ("", "", "")  # file_type, logical_name, defines
         for f in unused_files.copy():
             lib = f.get("logical_name", "work")
 
@@ -169,9 +168,6 @@ class Vcs(Edatool):
             if file_type.startswith("verilogSource") or file_type.startswith(
                 "systemVerilogSource"
             ):
-
-                if file_type.startswith("systemVerilogSource"):
-                    has_sv = True
 
                 vlog_defines = self.vlogdefine.copy()
                 vlog_defines.update(f.get("define", {}))
@@ -196,64 +192,64 @@ class Vcs(Edatool):
             if not "simulation" in f.get("tags", ["simulation"]):
                 cmd = None
 
+            # Iterate over all relevant source files. If a file has
+            # different file_type, logical_name or defines compared
+            # to the previous file, we put it in a new file group
             if cmd:
-                if not lib in libs:
-                    libs[lib] = []
-                libs[lib].append((cmd, f["name"], defines))
+                fileopts = (cmd, file_type, lib, defines)
+                if fileopts != prev_fileopts:
+                    filegroups.append((fileopts, []))
+                filegroups[-1][1].append(f["name"])
                 unused_files.remove(f)
+                prev_fileopts = fileopts
 
-        libdeps = self.edam.get("library_dependencies", {})
-        for lib in libdeps.copy():
-            if not lib in libs:
-                absorb_node(libdeps, lib)
-
-        for lib, files in libs.items():
-            cmds = {}
-            has_vlog = False
-            # Group into individual commands
-            for cmd, fname, defines in files:
-                if not (cmd, defines) in cmds:
-                    cmds[(cmd, defines)] = []
-                cmds[(cmd, defines)].append(fname)
+        cmds = []
+        depfiles = []
+        for fg in filegroups:
+            # Ignore empty file groups
+            if fg[1]:
+                (cmd, file_type, lib, defines) = fg[0]
+                depfiles += fg[1]
+                options = self.tool_options.get("analysis_options", []).copy()
                 if cmd == "vlogan":
-                    has_vlog = True
-            i = 0
-            f_files = {}
-            for (cmd, defines), fnames in cmds.items():
-                depfiles = fnames.copy()
-                options = []
-                if cmd == "vlogan":
-                    if has_sv:
+                    if file_type.startswith("systemVerilogSource"):
                         options.append("-sverilog")
                     options += self.tool_options.get("vlogan_options", [])
                     options += [defines]
                     options += ["+incdir+" + d for d in incdirs]
-                    target_file = "AN.DB/make.vlogan"
+                    target_file = f"{lib}.workdir/AN.DB/make.vlogan"
+                    depfiles += include_files
                 elif cmd == "vhdlan":
                     options += self.tool_options.get("vhdlan_options", [])
-                    target_file = "64/vhmra.sdb"
-                suffix = f"_{i}" if i else ""
-                f_file = f"{lib}{suffix}.f"
-                f_files[f_file] = options
-                workdir = lib + suffix
-                self.workdirs.append(workdir)
-                i += 1
-                if has_vlog:
-                    depfiles += include_files
-                libdepfiles = []
-                for l in libdeps.get(lib, []):
-                    if l in libs:
-                        libdepfiles.append(l + "/AN.DB/make.vlogan")
-                self.commands.add(
+                    target_file = f"{lib}.workdir/64/vhmra.sdb"
+
+                # Find a free name for a f file and log file
+                f_file = lib + ".f"
+                libsuffix = f"{lib}"
+                suffix = ""
+                i = 0
+                if f_file in self.f_files:
+                    while f_file in self.f_files:
+                        i += 1
+                        libsuffix = f"{lib}_{i}"
+                        f_file = f"{libsuffix}.f"
+                logfile = f"{libsuffix}.log"
+
+                self.f_files[f_file] = options
+
+                self.workdirs.add(lib)
+
+                if not target_file in self.target_files:
+                    self.target_files.append(target_file)
+
+                cmds.append(
                     [cmd]
                     + full64
-                    + ["-file", f_file, "-work", workdir, "-l", workdir + ".log"]
-                    + fnames,
-                    [workdir + "/" + target_file],
-                    depfiles + [f_file] + libdepfiles,
+                    + ["-file", f_file, "-work", lib, "-l", logfile]
+                    + fg[1]
                 )
-                self.target_files.append(workdir + "/" + target_file)
-            self.f_files.update(f_files)
+
+        self.commands.add(cmds, self.target_files, depfiles + list(self.f_files.keys()))
 
         self.f_files["vcs.f"] = ["-top", self.toplevel] + self.tool_options.get(
             "vcs_options", []
@@ -264,7 +260,7 @@ class Vcs(Edatool):
         s = "WORK > DEFAULT\nDEFAULT : ./work\n"
         for lib in self.workdirs:
             if lib != "work":
-                s += f"{lib} : ./{lib}\n"
+                s += f"{lib} : ./{lib}.workdir\n"
         self.update_config_file("synopsys_sim.setup", s)
         for k, v in self.f_files.items():
             self.update_config_file(k, " ".join(v) + "\n")

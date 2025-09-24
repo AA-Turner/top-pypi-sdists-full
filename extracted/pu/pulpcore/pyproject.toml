@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "pulpcore"
-version = "3.89.1"
+version = "3.90.0"
 description = "Pulp Django Application and Related Modules"
 readme = "README.md"
 authors = [
@@ -31,16 +31,16 @@ dependencies = [
   "asyncio-throttle>=1.0,<=1.0.2",  # Unsure about versioning, but not released often anyway.
   "backoff>=2.1.2,<2.3",  # Looks like only bugfixes in z-Stream.
   "click>=8.1.0,<8.3",  # Uses milestone.feature.fix https://palletsprojects.com/versions .
-  "cryptography>=44.0.3,<46.0",  # SemVer compatible https://cryptography.io/en/latest/api-stability/#versioning .
+  "cryptography>=44.0.3,<47.0",  # SemVer compatible https://cryptography.io/en/latest/api-stability/#versioning .
   "Django~=4.2.0",  # LTS version, switch only if we have a compelling reason to".
-  "django-filter>=23.1,<=25.1",  # Looks like CalVer.
+  "django-filter>=23.1,<=25.1",  # Uses CalVer, not released often https://github.com/carltongibson/django-filter
   "django-guid>=3.3.0,<3.6",  # Looks like only bugfixes in z-Stream.
   "django-import-export>=2.9,<3.4.0",
   "django-lifecycle>=1.0,<=1.2.4",
   "djangorestframework>=3.14.0,<=3.16.1",
   "djangorestframework-queryfields>=1.0,<=1.1.0",
   "drf-access-policy>=1.1.2,<1.5.1",
-  "drf-nested-routers>=0.93.4,<=0.94.2",
+  "drf-nested-routers>=0.93.4,<=0.95.0",
   "drf-spectacular==0.27.2",  # We monkeypatch this so we need a very narrow requirement string.
   "dynaconf>=3.2.5,<3.3.0",
   "gunicorn>=22.0,<23.1.0",
@@ -48,9 +48,9 @@ dependencies = [
   "json_stream>=2.3.2,<2.4",
   "jq>=1.6.0,<1.11.0",
   "PyOpenSSL<26.0",
-  "opentelemetry-api>=1.27.0,<1.37",
-  "opentelemetry-sdk>=1.27.0,<1.37",
-  "opentelemetry-exporter-otlp-proto-http>=1.27.0,<1.37",
+  "opentelemetry-api>=1.27.0,<1.38",
+  "opentelemetry-sdk>=1.27.0,<1.38",
+  "opentelemetry-exporter-otlp-proto-http>=1.27.0,<1.38",
   "protobuf>=4.21.1,<7.0",
   "pulp-glue>=0.28.0,<0.37",
   "pygtrie>=2.5,<=2.5.0",
@@ -62,7 +62,7 @@ dependencies = [
   "tablib>=3.5.0,<3.6",  # 3.6.0 breaks with import export. Not sure about semver.
   "url-normalize>=1.4.3,<2.3",  # SemVer. https://github.com/niksite/url-normalize/blob/master/CHANGELOG.md#changelog
   "uuid6>=2023.5.2,<=2025.0.1",
-  "whitenoise>=5.0,<6.10.0",
+  "whitenoise>=5.0,<6.12.0",
   "yarl>=1.9.1,<1.21",  # Seems to follow SemVer https://yarl.aio-libs.org/en/latest/contributing/release_guide/#pre-release-activities .
 ]
 
@@ -204,7 +204,7 @@ ignore = [
 [tool.bumpversion]
 # This section is managed by the plugin template. Do not edit manually.
 
-current_version = "3.89.1"
+current_version = "3.90.0"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<alpha>0a)?(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

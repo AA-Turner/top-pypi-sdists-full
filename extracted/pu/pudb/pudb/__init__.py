@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+
 __copyright__ = """
 Copyright (C) 2009-2017 Andreas Kloeckner
 Copyright (C) 2014-2017 Aaron Meurer
@@ -22,17 +25,29 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
-
-
 import re
 import sys
 from importlib import metadata
+from typing import TYPE_CHECKING, Any, TypeVar
+
+from typing_extensions import ParamSpec
 
 from pudb.settings import load_config
 
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping, Sequence
+    from types import TracebackType
+
+    from pudb.debugger import Debugger
+
+
+P = ParamSpec("P")
+ResultT = TypeVar("ResultT")
+
+
 VERSION = metadata.version("pudb")
-_ver_match = re.match("^([0-9.]+)([a-z0-9]*?)$", VERSION)
+_ver_match = re.match(r"^([0-9.]+)([a-z0-9]*?)$", VERSION)
 assert _ver_match
 NUM_VERSION = tuple(int(nr) for nr in _ver_match.group(1).split("."))
 __version__ = VERSION
@@ -69,7 +84,7 @@ def _tty_override():
     return os.environ.get("PUDB_TTY")
 
 
-def _open_tty(tty_path):
+def _open_tty(tty_path: str):
     import io
     import os
     tty_file = io.TextIOWrapper(open(tty_path, "r+b", buffering=0))
@@ -116,19 +131,32 @@ def runmodule(*args, **kwargs):
     runscript(*args, **kwargs)
 
 
-def runscript(mainpyfile, steal_output=False, _continue_at_start=False,
-              **kwargs):
+def runscript(
+            mainpyfile: str,
+            steal_output: bool = False,
+            _continue_at_start: bool = False,
+            args: Sequence[str] | None = None,
+            pre_run: str = "",
+            run_as_module: bool = False,
+        ):
     try:
         dbg = _get_debugger(
             steal_output=steal_output,
             _continue_at_start=_continue_at_start,
         )
-        _runscript(mainpyfile, dbg, **kwargs)
+        _runscript(mainpyfile, dbg,
+                   args=args, pre_run=pre_run, run_as_module=run_as_module)
     finally:
         dbg.__del__()
 
 
-def _runscript(mainpyfile, dbg, args=None, pre_run="", run_as_module=False):
+def _runscript(
+            mainpyfile: str,
+            dbg: Debugger,
+            args: Sequence[str] | None = None,
+            pre_run: str = "",
+            run_as_module: bool = False,
+        ):
 
     # Note on saving/restoring sys.argv: it's a good idea when sys.argv was
     # modified by the script being debugged. It's a bad idea when it was
@@ -141,7 +169,7 @@ def _runscript(mainpyfile, dbg, args=None, pre_run="", run_as_module=False):
         if run_as_module:
             sys.argv = args
         else:
-            sys.argv = [mainpyfile] + args
+            sys.argv = [mainpyfile, *args]
 
     # replace pudb's dir with script's dir in front of module search path.
     from pathlib import Path
@@ -177,7 +205,7 @@ def _runscript(mainpyfile, dbg, args=None, pre_run="", run_as_module=False):
                 except SystemExit:
                     se = sys.exc_info()[1]
                     status_msg = "The debuggee exited normally with " \
-                            "status code %s.\n\n" % se.code
+                            f"status code {se.code}.\n\n"
         except Exception:
             dbg.post_mortem = True
             dbg.interaction(None, sys.exc_info())
@@ -191,10 +219,9 @@ def _runscript(mainpyfile, dbg, args=None, pre_run="", run_as_module=False):
 
             result = dbg.ui.call_with_ui(dbg.ui.dialog,
                 urwid.ListBox(urwid.SimpleListWalker([urwid.Text(
-                    "Your PuDB session has ended.\n\n%s"
+                    f"Your PuDB session has ended.\n\n{status_msg}"
                     "Would you like to quit PuDB or restart your program?\n"
-                    "You may hit 'q' to quit."
-                    % status_msg),
+                    "You may hit 'q' to quit."),
                     urwid.Text("\n\nIf you decide to restart, this command "
                     "will be run prior to actually restarting:"),
                     urwid.AttrMap(pre_run_edit, "input", "focused input")
@@ -226,7 +253,11 @@ def _runscript(mainpyfile, dbg, args=None, pre_run="", run_as_module=False):
     sys.path = prev_sys_path
 
 
-def runstatement(statement, globals=None, locals=None):
+def runstatement(
+            statement: str,
+            globals: dict[str, Any] | None = None,
+            locals: Mapping[str, Any] | None = None
+        ):
     return _get_debugger().run(statement, globals, locals)
 
 
@@ -234,11 +265,15 @@ def runeval(expression, globals=None, locals=None):
     return _get_debugger().runeval(expression, globals, locals)
 
 
-def runcall(*args, **kwargs):
-    return _get_debugger().runcall(*args, **kwargs)
+def runcall(
+            func: Callable[P, ResultT],
+            *args: P.args,
+            **kwargs: P.kwargs
+        ) -> ResultT | None:
+    return _get_debugger().runcall(func, *args, **kwargs)
 
 
-def set_trace(paused=True):
+def set_trace(paused: bool = True):
     """
     Start the debugger
 
@@ -322,11 +357,16 @@ def set_interrupt_handler(interrupt_signal=None):
                 stacklevel=2)
 
 
-def post_mortem(tb=None, e_type=None, e_value=None):
+def post_mortem(
+            tb: TracebackType | None = None,
+            e_type: type[BaseException] | None = None,
+            e_value: BaseException | None = None):
     if tb is None:
         import sys
         exc_info = sys.exc_info()
     else:
+        assert e_type is not None
+        assert e_value is not None
         exc_info = (e_type, e_value, tb)
 
     dbg = _get_debugger()

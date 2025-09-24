@@ -26,7 +26,7 @@ Settings are:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional
 
 import trafaret as t
 
@@ -99,7 +99,7 @@ class OverallModerationConfig(APIObject):
         self: OverallModerationConfig, new_response: OverallModerationConfig
     ) -> None:
         # called by update() and refresh()
-        fields: Set[str] = self._fields()  # type: ignore[no-untyped-call]
+        fields = self._fields()
         for attr in fields:
             new_value = getattr(new_response, attr)
             setattr(self, attr, new_value)
@@ -132,15 +132,11 @@ class OverallModerationConfig(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        data = unpaginate(
-            cls._path,
-            {"entityId": entity_id, "entityType": entity_type.value},
-            cls._client,
-        )
-        result = next(data, None)
-        if not result:
-            return None
-        return cls.from_server_data(result)
+        params = {
+            "entityId": entity_id,
+            "entityType": entity_type.value,
+        }
+        return cls.from_location(cls._path, params=params)
 
     @classmethod
     def locate(

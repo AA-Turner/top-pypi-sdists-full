@@ -38,7 +38,7 @@ class SetParam(Command):
         return value
 
     def completion(self, _: ReplState):
-        return {SetParam.COMMAND: {key: None for key in Config().keys()}}
+        return {SetParam.COMMAND: {key: ({'true': None, 'false': None} if Config().get(key, None) in [True, False] else None) for key in Config().keys()}}
 
     def help(self, _: ReplState):
         return f"{SetParam.COMMAND} <key> <value>\t sets a Kaqing parameter to a different value"

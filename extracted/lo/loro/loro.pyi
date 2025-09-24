@@ -2253,6 +2253,30 @@ class UndoManager:
         """
         ...
 
+    def top_undo_meta(self) -> typing.Optional[UndoItemMeta]:
+        r"""
+        Get the metadata of the top undo stack item, if any.
+        """
+        ...
+    
+    def top_redo_meta(self) -> typing.Optional[UndoItemMeta]:
+        r"""
+        Get the metadata of the top redo stack item, if any.
+        """
+        ...
+    
+    def top_undo_value(self) -> typing.Optional[LoroValue]:
+        r"""
+        Get the value associated with the top undo stack item, if any.
+        """
+        ...
+    
+    def top_redo_value(self) -> typing.Optional[LoroValue]:
+        r"""
+        Get the value associated with the top redo stack item, if any.
+        """
+        ...
+
 class VersionVector:
     def __new__(
         cls,

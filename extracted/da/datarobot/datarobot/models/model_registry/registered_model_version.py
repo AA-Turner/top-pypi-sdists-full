@@ -9,11 +9,13 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.enums import RegisteredModelDeploymentSortKey, RegisteredModelSortDirection
 from datarobot.models.api_object import APIObject
 from datarobot.models.model_registry.common import UserMetadata

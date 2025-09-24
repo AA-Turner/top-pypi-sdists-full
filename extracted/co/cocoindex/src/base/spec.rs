@@ -124,12 +124,6 @@ impl fmt::Display for ConstantMapping {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CollectionMapping {
-    pub field: FieldMapping,
-    pub scope_name: ScopeName,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StructMapping {
     pub fields: Vec<NamedSpec<ValueMapping>>,
 }
@@ -522,15 +516,14 @@ pub struct TransientFlowSpec {
     pub output_value: ValueMapping,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SimpleSemanticsQueryHandlerSpec {
-    pub name: String,
-    pub flow_instance_name: String,
-    pub export_target_name: String,
-    pub query_transform_flow: TransientFlowSpec,
-    pub default_similarity_metric: VectorSimilarityMetric,
+impl<T> AuthEntryReference<T> {
+    pub fn new(key: String) -> Self {
+        Self {
+            key,
+            _phantom: std::marker::PhantomData,
+        }
+    }
 }
-
 pub struct AuthEntryReference<T> {
     pub key: String,
     _phantom: std::marker::PhantomData<T>,
@@ -550,10 +543,7 @@ impl<T> fmt::Display for AuthEntryReference<T> {
 
 impl<T> Clone for AuthEntryReference<T> {
     fn clone(&self) -> Self {
-        Self {
-            key: self.key.clone(),
-            _phantom: std::marker::PhantomData,
-        }
+        Self::new(self.key.clone())
     }
 }
 
@@ -577,10 +567,7 @@ impl<'de, T> Deserialize<'de> for AuthEntryReference<T> {
         D: serde::Deserializer<'de>,
     {
         let untyped_ref = UntypedAuthEntryReference::<String>::deserialize(deserializer)?;
-        Ok(AuthEntryReference {
-            key: untyped_ref.key,
-            _phantom: std::marker::PhantomData,
-        })
+        Ok(AuthEntryReference::new(untyped_ref.key))
     }
 }
 

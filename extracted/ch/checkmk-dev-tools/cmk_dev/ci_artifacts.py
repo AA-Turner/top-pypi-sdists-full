@@ -109,6 +109,12 @@ def parse_args() -> Args:
             action="store_true",
             help="Search in InfluxDB for matching jobs",
         )
+        subparser.add_argument(
+            "--no-raise",
+            dest="no_raise",
+            action="store_true",
+            help="Do not raise an Exception in case of errors",
+        )
 
     def apply_request_args(subparser: ArgumentParser) -> None:
         subparser.add_argument(
@@ -284,7 +290,8 @@ def download_artifacts(
     out_dir: Path,
     total_download_timeout: int = 60,
     no_remove_others: bool = False,
-) -> tuple[Sequence[str], Sequence[str]]:
+    no_raise: bool = False,
+) -> tuple[Sequence[str | None], Sequence[str | None]]:
     """Downloads all artifacts listed for given job/build to @out_dir"""
     # pylint: disable=protected-access
     # pylint: disable=too-many-locals
@@ -303,7 +310,11 @@ def download_artifacts(
     log().debug("fetch artifact fingerprints from %s", fp_url)
 
     if not build.artifacts:
-        raise Fatal("Job has no artifacts!")
+        log().info("No artifacts available for this build")
+        if no_raise:
+            return [], []
+        else:
+            raise Fatal("Job has no artifacts!")
 
     # create new fingerprints from artifact names an fingerprint hashes, keeping their order
     artifact_hashes = dict(
@@ -741,6 +752,7 @@ async def _fn_await_and_handle_build(args: Args) -> None:
             path_hashes=None,
             allow_to_cancel=False,
             next_check_sleep=args.poll_sleep,
+            no_raise=args.no_raise,
         )
         print(
             json.dumps(
@@ -755,6 +767,7 @@ async def _fn_await_and_handle_build(args: Args) -> None:
                                     out_dir,
                                     args.total_download_timeout,
                                     args.no_remove_others,
+                                    args.no_raise,
                                 )
                             )
                         )
@@ -856,6 +869,7 @@ async def _fn_fetch(args: Args) -> None:
             check_result=True,
             path_hashes=path_hashes,
             next_check_sleep=args.poll_sleep,
+            no_raise=args.no_raise,
         )
         downloaded_artifacts = (
             list(
@@ -866,6 +880,7 @@ async def _fn_fetch(args: Args) -> None:
                         out_dir,
                         args.total_download_timeout,
                         args.no_remove_others,
+                        args.no_raise
                     )
                 )
             )
@@ -1079,6 +1094,7 @@ async def await_build(
     path_hashes: None | PathHashes,
     allow_to_cancel: bool = True,
     next_check_sleep: int = 60,
+    no_raise: bool = False,
 ) -> Build:
     """Awaits a Jenkins job build specified by @job_full_path and @build_number and returns the
     awaited Build object. Unexpected build failures or non-matching path hashes will be raised on.
@@ -1098,7 +1114,7 @@ async def await_build(
 
         log().info("build finished with result=%s", current_build_info.result)
 
-    if check_result and current_build_info.result != "SUCCESS":
+    if all([check_result, current_build_info.result != "SUCCESS", not no_raise]):
         raise Fatal(
             "The build we started has "
             f"result={current_build_info.result} ({current_build_info.url})"
@@ -1160,8 +1176,8 @@ def main() -> None:
         # for some reasons terminal type and properties are not recognized correctly by rich,
         # so 'temporarily' we force width and color
         if "CI" in os.environ:
-            os.environ["FORCE_COLOR"] = "true"
-            os.environ["COLUMNS"] = "200"
+            os.environ.setdefault("FORCE_COLOR", "true")
+            os.environ.setdefault("COLUMNS", "200")
 
         setup_logging(
             logger=log(),

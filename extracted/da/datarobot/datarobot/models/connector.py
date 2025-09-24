@@ -19,7 +19,7 @@ import trafaret as t
 from datarobot._compat import String
 from datarobot.models.api_object import APIObject
 
-from ..enums import DEFAULT_MAX_WAIT
+from ..enums import DEFAULT_MAX_WAIT, DataTypes
 from ..utils import deprecation_warning, get_id_from_location
 from ..utils.waiters import wait_for_async_resolution
 
@@ -71,9 +71,15 @@ class Connector(APIObject):
         self._connector_type = connector_type
 
     @classmethod
-    def list(cls) -> List[Connector]:
+    def list(cls, data_type: Optional[DataTypes] = None) -> List[Connector]:
         """
         Returns list of available connectors.
+
+        Parameters
+        ----------
+        data_type : DataTypes
+            If specified, returns the connectors that support the specified data type. If not specified, it will
+            default to DataTypes.ALL
 
         Returns
         -------
@@ -89,7 +95,10 @@ class Connector(APIObject):
             >>> connectors
             [Connector('ADLS Gen2 Connector'), Connector('S3 Connector')]
         """
-        r_data = cls._client.get(cls._path).json()
+        if data_type is not None:
+            r_data = cls._client.get(cls._path, params={"dataType": str(data_type)}).json()
+        else:
+            r_data = cls._client.get(cls._path).json()
         return [cls.from_server_data(item) for item in r_data["data"]]
 
     @classmethod

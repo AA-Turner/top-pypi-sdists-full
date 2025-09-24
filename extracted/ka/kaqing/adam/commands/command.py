@@ -22,7 +22,6 @@ class Command:
     # Do not do child of child!!!
     @abstractmethod
     def run(self, cmd: str, state: ReplState):
-        Config().debug(cmd)
         if self._successor:
             return self._successor.run(cmd, state)
 

@@ -3,7 +3,7 @@ name = "vellum-ai"
 
 [tool.poetry]
 name = "vellum-ai"
-version = "1.4.2"
+version = "1.5.1"
 description = ""
 readme = "README.md"
 authors = []
@@ -131,6 +131,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 vellum = "vellum_cli:main"
+generate_node_definitions = "vellum_ee.scripts.generate_node_definitions:main"
 
 [tool.isort]
 skip = ["src/vellum/client", "tests/client", ".venv", "src/vellum/__init__.py", "examples/workflows", "src/vellum/client/raw_client.py"]

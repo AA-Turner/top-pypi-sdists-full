@@ -118,8 +118,9 @@ class SSOOIDCClient(BaseClient):
         self, **kwargs: Unpack[CreateTokenWithIAMRequestTypeDef]
     ) -> CreateTokenWithIAMResponseTypeDef:
         """
-        Creates and returns access and refresh tokens for clients and applications that
-        are authenticated using IAM entities.
+        Creates and returns access and refresh tokens for authorized client
+        applications that are authenticated using any IAM entity, such as a service
+        role or user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-oidc/client/create_token_with_iam.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_oidc/client/#create_token_with_iam)

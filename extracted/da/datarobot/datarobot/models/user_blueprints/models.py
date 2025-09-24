@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, cast, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union, cast
 
 from requests import Response
 
@@ -21,18 +21,18 @@ from datarobot.models.api_object import APIObject
 from datarobot.utils.pagination import unpaginate
 
 from .trafarets import (
-    UserBlueprint_,
     UserBlueprintAddToMenuResponse_,
     UserBlueprintCatalogSearchItem_,
     UserBlueprintSharedRolesListResponseValidator_,
-    UserBlueprintsInputTypesResponse_,
-    UserBlueprintsValidateTaskParametersResponse_,
     UserBlueprintTasksResponse_,
     UserBlueprintValidationResponse_,
+    UserBlueprint_,
+    UserBlueprintsInputTypesResponse_,
+    UserBlueprintsValidateTaskParametersResponse_,
 )
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class UserBlueprintsHexColumnNameLookupEntryDict(TypedDict):
         colname: str

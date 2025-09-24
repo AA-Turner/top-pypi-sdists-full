@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-newrelic",
-    "version": "13.6.1",
+    "version": "13.6.2",
     "description": "Prebuilt newrelic Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-newrelic.git",
@@ -92,7 +92,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_newrelic._jsii": [
-            "provider-newrelic@13.6.1.jsii.tgz"
+            "provider-newrelic@13.6.2.jsii.tgz"
         ],
         "cdktf_cdktf_provider_newrelic": [
             "py.typed"

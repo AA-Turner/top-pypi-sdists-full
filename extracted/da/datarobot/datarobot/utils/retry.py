@@ -11,6 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 """This module is not considered part of the public interface. As of 2.3, anything here
 may change or be removed without warning."""
+from __future__ import annotations
 
 import itertools
 import time

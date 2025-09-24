@@ -9,9 +9,11 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from setuptools import find_packages, setup
 
-from common_setup import common_setup_kwargs, DEFAULT_CLASSIFIERS, DESCRIPTION_TEMPLATE, version
+from common_setup import DEFAULT_CLASSIFIERS, DESCRIPTION_TEMPLATE, common_setup_kwargs, version
 
 if "b" in version:
     msg = (

@@ -30,6 +30,8 @@ __all__ = (
     "InstanceAccessControlAttributeConfigurationStatusType",
     "InstanceStatusType",
     "JwksRetrievalOptionType",
+    "KmsKeyStatusType",
+    "KmsKeyTypeType",
     "ListAccountAssignmentCreationStatusPaginatorName",
     "ListAccountAssignmentDeletionStatusPaginatorName",
     "ListAccountAssignmentsForPrincipalPaginatorName",
@@ -78,8 +80,10 @@ GrantTypeType = Literal[
 InstanceAccessControlAttributeConfigurationStatusType = Literal[
     "CREATION_FAILED", "CREATION_IN_PROGRESS", "ENABLED"
 ]
-InstanceStatusType = Literal["ACTIVE", "CREATE_IN_PROGRESS", "DELETE_IN_PROGRESS"]
+InstanceStatusType = Literal["ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_IN_PROGRESS"]
 JwksRetrievalOptionType = Literal["OPEN_ID_DISCOVERY"]
+KmsKeyStatusType = Literal["ENABLED", "UPDATE_FAILED", "UPDATING"]
+KmsKeyTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KEY"]
 ListAccountAssignmentCreationStatusPaginatorName = Literal[
     "list_account_assignment_creation_status"
 ]

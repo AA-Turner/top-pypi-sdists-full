@@ -10,7 +10,7 @@
 #  Copyright (C) 2015-2023 Comet ML INC
 #  This source code is licensed under the MIT license.
 # *******************************************************
-from typing import IO, Any, Callable, Dict, Optional
+from typing import IO, Any, Callable, Dict, List, Optional, Union
 
 from .assets import asset_item
 from .config import UPLOAD_FILE_MAX_RETRIES, UPLOAD_FILE_RETRY_BACKOFF_FACTOR
@@ -25,6 +25,7 @@ class UploadOptions:
         upload_endpoint: str,
         timeout: float,
         verify_tls: bool,
+        critical: bool,
         estimated_size: int = 0,
         additional_params: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -40,6 +41,7 @@ class UploadOptions:
         self.estimated_size = estimated_size
         self.timeout = timeout
         self.verify_tls = verify_tls
+        self.critical = critical
         self.additional_params = additional_params
         self.metadata = metadata
         self.clean = clean
@@ -57,6 +59,7 @@ class UploadOptionsWithRetry(UploadOptions):
         upload_endpoint: str,
         timeout: float,
         verify_tls: bool,
+        critical: bool,
         estimated_size: int = 0,
         additional_params: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -75,6 +78,7 @@ class UploadOptionsWithRetry(UploadOptions):
             estimated_size=estimated_size,
             timeout=timeout,
             verify_tls=verify_tls,
+            critical=critical,
             additional_params=additional_params,
             metadata=metadata,
             clean=clean,
@@ -99,6 +103,7 @@ class FileUploadOptions(UploadOptionsWithRetry):
         estimated_size: int,
         timeout: float,
         verify_tls: bool,
+        critical: bool,
         additional_params: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         clean: bool = True,
@@ -116,6 +121,7 @@ class FileUploadOptions(UploadOptionsWithRetry):
             estimated_size=estimated_size,
             timeout=timeout,
             verify_tls=verify_tls,
+            critical=critical,
             additional_params=additional_params,
             metadata=metadata,
             clean=clean,
@@ -143,6 +149,7 @@ class FileLikeUploadOptions(UploadOptionsWithRetry):
         estimated_size: int,
         timeout: float,
         verify_tls: bool,
+        critical: bool,
         additional_params: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         clean: bool = True,
@@ -160,6 +167,7 @@ class FileLikeUploadOptions(UploadOptionsWithRetry):
             estimated_size=estimated_size,
             timeout=timeout,
             verify_tls=verify_tls,
+            critical=critical,
             additional_params=additional_params,
             metadata=metadata,
             clean=clean,
@@ -178,6 +186,7 @@ class RemoteAssetsUploadOptions(UploadOptions):
     def __init__(
         self,
         remote_uri: str,
+        upload_type: str,
         api_key: str,
         project_id: str,
         experiment_id: str,
@@ -185,6 +194,7 @@ class RemoteAssetsUploadOptions(UploadOptions):
         estimated_size: int,
         timeout: float,
         verify_tls: bool,
+        critical: bool,
         additional_params: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         clean: bool = True,
@@ -200,6 +210,7 @@ class RemoteAssetsUploadOptions(UploadOptions):
             estimated_size=estimated_size,
             timeout=timeout,
             verify_tls=verify_tls,
+            critical=critical,
             additional_params=additional_params,
             metadata=metadata,
             clean=clean,
@@ -208,6 +219,7 @@ class RemoteAssetsUploadOptions(UploadOptions):
             log_connection_error_as_debug=log_connection_error_as_debug,
         )
         self.remote_uri = remote_uri
+        self.upload_type = upload_type
 
 
 class AssetItemUploadOptions(UploadOptionsWithRetry):
@@ -222,12 +234,18 @@ class AssetItemUploadOptions(UploadOptionsWithRetry):
         estimated_size: int,
         timeout: float,
         verify_tls: bool,
+        critical: bool,
+        all_items: List[asset_item.AssetItem],
+        upload_type: str,
+        asset_name: str,
         additional_params: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         clean: bool = True,
         max_retries=UPLOAD_FILE_MAX_RETRIES,
         retry_backoff_factor=UPLOAD_FILE_RETRY_BACKOFF_FACTOR,
         log_connection_error_as_debug: bool = True,
+        on_asset_upload: Optional[Callable[[Any], None]] = None,
+        on_failed_asset_upload: Optional[Callable[[Any], None]] = None,
     ):
         super().__init__(
             api_key=api_key,
@@ -237,16 +255,22 @@ class AssetItemUploadOptions(UploadOptionsWithRetry):
             estimated_size=estimated_size,
             timeout=timeout,
             verify_tls=verify_tls,
+            critical=critical,
             additional_params=additional_params,
             metadata=metadata,
             clean=clean,
             max_retries=max_retries,
             retry_backoff_factor=retry_backoff_factor,
             log_connection_error_as_debug=log_connection_error_as_debug,
+            on_asset_upload=on_asset_upload,
+            on_failed_asset_upload=on_failed_asset_upload,
         )
 
         self.asset_id = asset_id
         self.asset_item = asset_item
+        self.all_items = all_items
+        self.upload_type = upload_type
+        self.asset_name = asset_name
 
 
 class ThumbnailUploadOptions(UploadOptionsWithRetry):
@@ -260,6 +284,7 @@ class ThumbnailUploadOptions(UploadOptionsWithRetry):
         estimated_size: int,
         timeout: float,
         verify_tls: bool,
+        critical: bool,
         additional_params: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         clean: bool = True,
@@ -275,6 +300,7 @@ class ThumbnailUploadOptions(UploadOptionsWithRetry):
             estimated_size=estimated_size,
             timeout=timeout,
             verify_tls=verify_tls,
+            critical=critical,
             additional_params=additional_params,
             metadata=metadata,
             clean=clean,
@@ -284,3 +310,12 @@ class ThumbnailUploadOptions(UploadOptionsWithRetry):
         )
 
         self.thumbnail_path = thumbnail_path
+
+
+AvailableUploadOptions = Union[
+    FileUploadOptions,
+    FileLikeUploadOptions,
+    RemoteAssetsUploadOptions,
+    AssetItemUploadOptions,
+    ThumbnailUploadOptions,
+]

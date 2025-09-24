@@ -38,7 +38,7 @@ class Login(Command):
         state, args = self.apply_state(args, state)
         args, debug = Command.extract_options(args, ['d'])
         if debug:
-            Config().set('debug.show-out', True)
+            Config().set('debug', True)
 
         username: str = os.getenv('USERNAME')
         if len(args) > 0:

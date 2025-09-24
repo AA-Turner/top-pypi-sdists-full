@@ -4727,3 +4727,4 @@ class GetDeployablePatchSnapshotForInstanceRequestTypeDef(TypedDict):
     InstanceId: str
     SnapshotId: str
     BaselineOverride: NotRequired[BaselineOverrideTypeDef]
+    UseS3DualStackEndpoint: NotRequired[bool]

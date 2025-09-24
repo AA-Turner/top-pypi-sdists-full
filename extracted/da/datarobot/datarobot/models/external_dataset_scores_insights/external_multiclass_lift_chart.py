@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Dict, List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import trafaret as t
 
@@ -24,7 +24,7 @@ from ..api_object import APIObject
 from .external_scores import DEFAULT_BATCH_SIZE
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
+    from datarobot._compat import TypedDict
 
     class LiftChartBin(TypedDict):
         actual: float

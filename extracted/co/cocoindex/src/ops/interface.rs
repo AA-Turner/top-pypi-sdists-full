@@ -236,7 +236,7 @@ pub struct ResourceSetupChangeItem<'a> {
     pub setup_change: &'a dyn setup::ResourceSetupChange,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum SetupStateCompatibility {
     /// The resource is fully compatible with the desired state.
     /// This means the resource can be updated to the desired state without any loss of data.
@@ -258,7 +258,7 @@ pub struct ExportDataCollectionBuildOutput {
 pub struct ExportDataCollectionSpec {
     pub name: String,
     pub spec: serde_json::Value,
-    pub key_fields_schema: Vec<FieldSchema>,
+    pub key_fields_schema: Box<[FieldSchema]>,
     pub value_fields_schema: Vec<FieldSchema>,
     pub index_options: IndexOptions,
 }

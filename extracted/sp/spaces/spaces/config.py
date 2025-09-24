@@ -17,7 +17,8 @@ from .zero.api import GPUSize
 
 GPUSizeConfig = Literal['auto', 'medium', 'large']
 
-ZEROGPU_OFFLOAD_DIR_DEFAULT = str(Path.home() / '.zerogpu' / 'tensors')
+
+ZEROGPU_HOME = Path.home() / '.zerogpu'
 
 
 def boolean(value: str | None) -> bool:
@@ -35,13 +36,13 @@ class Settings:
         self.zero_patch_torch_device = boolean(
             os.getenv('ZERO_GPU_PATCH_TORCH_DEVICE'))
         self.zero_gpu_v2 = boolean(
-            os.getenv('ZEROGPU_V2'))
+            os.getenv('ZEROGPU_V2', "true"))
         self.zerogpu_size: GPUSize | Literal['auto'] = cast(GPUSizeConfig,
             os.getenv('ZEROGPU_SIZE', 'large'))
         self.zerogpu_medium_size_threshold = int(
             os.getenv('ZEROGPU_MEDIUM_SIZE_THRESHOLD', 30 * 2**30))
         self.zerogpu_offload_dir = (
-            os.getenv('ZEROGPU_OFFLOAD_DIR', ZEROGPU_OFFLOAD_DIR_DEFAULT))
+            os.getenv('ZEROGPU_OFFLOAD_DIR', str(ZEROGPU_HOME / 'tensors')))
         self.zerogpu_proc_self_cgroup_path = (
             os.getenv('ZEROGPU_PROC_SELF_CGROUP_PATH', '/proc/self/cgroup'))
         self.zerogpu_cuda_device_name = (

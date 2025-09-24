@@ -1,3 +1,4 @@
+from adam.commands.alter_tables import AlterTables
 from adam.commands.app import App
 from adam.commands.app_ping import AppPing
 from adam.commands.deploy.code_start import CodeStart
@@ -10,6 +11,7 @@ from adam.commands.deploy.undeploy import Undeploy
 from adam.commands.deploy.undeploy_frontend import UndeployFrontend
 from adam.commands.deploy.undeploy_pg_agent import UndeployPgAgent
 from adam.commands.deploy.undeploy_pod import UndeployPod
+from adam.commands.describe_keyspace import DescribeKeyspace
 from adam.commands.shell import Shell
 from adam.commands.show.show_app_queues import ShowAppQueues
 from adam.commands.cp import ClipboardCopy
@@ -74,10 +76,11 @@ class ReplCommands:
                 GetParam(), SetParam(), ShowParams(), ShowKubectlCommands(), ShowLogin(), ShowAdam()]
 
     def cassandra_check() -> list[Command]:
-        return [ShowCassandraStatus(), ShowCassandraVersion(), ShowRepairs(), ShowStorage(), ShowProcesses(), Check(), Issues(), NodeTool(), Report()]
+        return [DescribeKeyspace(), ShowCassandraStatus(), ShowCassandraVersion(), ShowRepairs(), ShowStorage(), ShowProcesses(), Check(), Issues(), NodeTool(), Report()]
 
     def cassandra_ops() -> list[Command]:
-        return Medusa.cmd_list() + [Restart(), RollOut(), Watch()] + Reaper.cmd_list() + Repair.cmd_list()
+        # return Medusa.cmd_list() + [Restart(), RollOut(), Watch()] + Reaper.cmd_list() + Repair.cmd_list()
+        return [AlterTables()] + Medusa.cmd_list() + [Restart(), RollOut(), Watch()] + Reaper.cmd_list() + Repair.cmd_list()
 
     def tools() -> list[Command]:
         return [Cqlsh(), Postgres(), Bash(), Shell(), CodeStart(), CodeStop(), DeployFrontend(), UndeployFrontend(), DeployPod(), UndeployPod(), DeployPgAgent(), UndeployPgAgent()]

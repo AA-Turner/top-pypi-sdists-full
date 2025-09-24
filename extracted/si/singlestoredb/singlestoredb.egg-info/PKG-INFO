@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: singlestoredb
-Version: 1.15.6
+Version: 1.15.7
 Summary: Interface to the SingleStoreDB database and workspace management APIs
 Home-page: https://github.com/singlestore-labs/singlestoredb-python
 Author: SingleStore

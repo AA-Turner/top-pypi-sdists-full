@@ -175,7 +175,7 @@ if _ABLE_TO_COMPILE_EXTENSIONS and not SNOWFLAKE_DISABLE_COMPILE_ARROW_EXTENSION
     cmd_class = {"build_ext": MyBuildExt}
 
 setup(
-    version="2025.09.23",
+    version="2025.09.24",
     ext_modules=extensions,
     cmdclass=cmd_class,
 )

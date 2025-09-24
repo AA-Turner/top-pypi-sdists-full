@@ -11,7 +11,7 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 import trafaret as t
 
@@ -112,7 +112,7 @@ class ModerationTemplate(APIObject):
 
     def _update_values(self: ModerationTemplate, new_response: ModerationTemplate) -> None:
         # called by update() and refresh()
-        fields: Set[str] = self._fields()  # type: ignore[no-untyped-call]
+        fields = self._fields()
         for attr in fields:
             new_value = getattr(new_response, attr)
             setattr(self, attr, new_value)
@@ -148,7 +148,14 @@ class ModerationTemplate(APIObject):
         return cls.from_location(path)
 
     @classmethod
-    def list(cls) -> List[ModerationTemplate]:
+    def list(
+        cls,
+        include_agentic: Optional[bool] = None,
+        is_agentic: Optional[bool] = None,
+        for_playground: Optional[bool] = None,
+        for_production: Optional[bool] = None,
+        name: Optional[str] = None,
+    ) -> List[ModerationTemplate]:
         """List Templates.
 
         .. versionadded:: v3.6
@@ -169,9 +176,22 @@ class ModerationTemplate(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
+        params: Dict[str, Any] = {}
+
+        if include_agentic:
+            params["includeAgentic"] = include_agentic
+        if is_agentic:
+            params["isAgentic"] = is_agentic
+        if for_playground:
+            params["forPlayground"] = for_playground
+        if for_production:
+            params["forProduction"] = for_production
+        if name:
+            params["name"] = name
+
         data = unpaginate(
             cls._path,
-            {},
+            params,
             cls._client,
         )
         return [cls.from_server_data(item) for item in data]
@@ -199,15 +219,10 @@ class ModerationTemplate(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        data = unpaginate(
-            cls._path,
-            {"name": name},
-            cls._client,
-        )
-        kv_data = next(data, None)
-        if not kv_data:
-            return None
-        return cls.from_server_data(kv_data)
+        templates = cls.list(name=name, include_agentic=True)
+        if len(templates):
+            return templates[0]
+        return None
 
     @classmethod
     def create(

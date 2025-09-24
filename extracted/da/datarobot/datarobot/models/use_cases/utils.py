@@ -10,6 +10,8 @@
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
 # pylint: disable=cyclic-import
+from __future__ import annotations
+
 import contextvars
 import functools
 from inspect import Parameter, signature
@@ -21,9 +23,9 @@ from typing_extensions import ParamSpec
 from datarobot.enums import UseCaseReferenceEntityMap
 from datarobot.errors import InvalidUsageError, MultipleUseCasesNotAllowed
 from datarobot.models.use_cases.use_case import (
-    get_reference_entity_info,
     UseCase,
     UseCaseReferenceEntity,
+    get_reference_entity_info,
 )
 
 from ...context import Context

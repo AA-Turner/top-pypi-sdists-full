@@ -130,7 +130,7 @@ def get_reference_entity_info(
     Get the entity type and entity id for a reference entity instance
     Parameters
     ----------
-    entity : Union[UseCaseReferenceEntity, Project, Dataset, Application]
+    entity : Union[UseCaseReferenceEntity, Project, Dataset, Application, Files]
         The entity instance to add to a Use Case.
     Returns
     -------
@@ -139,6 +139,7 @@ def get_reference_entity_info(
     """
     from ..application import Application
     from ..dataset import Dataset
+    from ..files import Files
     from ..prediction_dataset import PredictionDataset
     from ..project import Project
 
@@ -146,6 +147,8 @@ def get_reference_entity_info(
         return UseCaseAPIPathEntityType.PROJECT, entity.id
     elif isinstance(entity, Dataset):
         return UseCaseAPIPathEntityType.DATASET, entity.id
+    elif isinstance(entity, Files):
+        return UseCaseAPIPathEntityType.FILE, entity.id
     elif isinstance(entity, Application):
         return UseCaseAPIPathEntityType.APPLICATION, entity.id
     elif isinstance(entity, UseCaseReferenceEntity):
@@ -153,7 +156,7 @@ def get_reference_entity_info(
         if entity_type:
             return entity_type, entity.entity_id
     error_message = (
-        f"Entity must be Project, Dataset, Application, "
+        f"Entity must be Project, Dataset, Application, Files, "
         f"or UseCaseReferenceEntity. Invalid type: {type(entity).__name__}."
     )
     if isinstance(entity, UseCaseReferenceEntity):
@@ -194,6 +197,8 @@ class UseCase(APIObject, BrowserMixin):
         The number of projects in a Use Case.
     datasets_count: int
         The number of datasets in a Use Case.
+    files_count: int
+        The number of files in a Use Case.
     notebooks_count: int
         The number of notebooks in a Use Case.
     applications_count: int
@@ -231,6 +236,7 @@ class UseCase(APIObject, BrowserMixin):
             t.Key("models_count"): t.Int,
             t.Key("projects_count"): t.Int,
             t.Key("datasets_count"): t.Int,
+            t.Key("files_count"): t.Int,
             t.Key("notebooks_count"): t.Int,
             t.Key("applications_count"): t.Int,
             t.Key("playgrounds_count", optional=True, default=0): t.Int,
@@ -251,6 +257,7 @@ class UseCase(APIObject, BrowserMixin):
         models_count: int,
         projects_count: int,
         datasets_count: int,
+        files_count: int,
         notebooks_count: int,
         applications_count: int,
         playgrounds_count: int,
@@ -269,6 +276,7 @@ class UseCase(APIObject, BrowserMixin):
         self.models_count: int = models_count
         self.projects_count: int = projects_count
         self.datasets_count: int = datasets_count
+        self.files_count: int = files_count
         self.notebooks_count: int = notebooks_count
         self.applications_count: int = applications_count
         self.playgrounds_count: int = playgrounds_count
@@ -286,6 +294,7 @@ class UseCase(APIObject, BrowserMixin):
             f"models={self.models_count}, "
             f"projects={self.projects_count}, "
             f"datasets={self.datasets_count}, "
+            f"files={self.files_count}, "
             f"notebooks={self.notebooks_count}, "
             f"applications={self.applications_count})"
         )
@@ -346,6 +355,7 @@ class UseCase(APIObject, BrowserMixin):
                 * ``description`` or ``-description``
                 * ``projects_count`` or ``-projects_count``
                 * ``datasets_count`` or ``-datasets_count``
+                * ``files_count`` or ``-files_count``
                 * ``notebooks_count`` or ``-notebooks_count``
                 * ``applications_count`` or ``-applications_count``
                 * ``created_at`` or ``-created_at``
@@ -483,7 +493,7 @@ class UseCase(APIObject, BrowserMixin):
 
         Parameters
         ----------
-        entity : Union[UseCaseReferenceEntity, Project, Dataset, Application]
+        entity : Union[UseCaseReferenceEntity, Project, Dataset, Application, Files]
             An existing entity to be linked to this Use Case.
             Cannot be used if entity_type and entity_id are passed.
         entity_type : UseCaseEntityType
@@ -522,7 +532,7 @@ class UseCase(APIObject, BrowserMixin):
 
         Parameters
         ----------
-        entity : Union[UseCaseReferenceEntity, Project, Dataset, Application]
+        entity : Union[UseCaseReferenceEntity, Project, Dataset, Application, Files]
             An existing entity instance to be removed from a Use Case.
             Cannot be used if entity_type and entity_id are passed.
         entity_type : UseCaseEntityType

@@ -16,7 +16,7 @@ from typing import Any, Dict
 
 import trafaret as t
 
-from datarobot.enums import enum_to_list, ModerationGuardAction
+from datarobot.enums import ModerationGuardAction, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.moderation.intervention import GuardInterventionCondition
 

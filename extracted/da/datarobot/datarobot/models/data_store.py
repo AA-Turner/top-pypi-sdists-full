@@ -14,11 +14,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
-from datarobot._compat import String
-from datarobot.enums import DATA_STORE_TABLE_TYPE, DataStoreListTypes, DataStoreTypes
+from datarobot._compat import String, TypedDict
+from datarobot.enums import DATA_STORE_TABLE_TYPE, DataStoreListTypes, DataStoreTypes, DataTypes
+from datarobot.errors import CredentialsError
 from datarobot.models.api_object import APIObject, ServerDataType
 from datarobot.models.credential import CredentialDataSchema
 from datarobot.models.sharing import SharingRole
@@ -99,13 +99,13 @@ class DataStoreParameters:
     def collect_payload(self) -> Dict[str, Any]:
         """Build a dict of the parameters to send to the server"""
         dat: Dict[str, Any] = {}
-        if self.driver_id:
+        if self.driver_id is not None:
             dat["driver_id"] = self.driver_id
-        if self.connector_id:
+        if self.connector_id is not None:
             dat["connector_id"] = self.connector_id
-        if self.jdbc_url:
+        if self.jdbc_url is not None:
             dat["jdbc_url"] = self.jdbc_url
-        if self.fields:
+        if self.fields is not None:
             dat["fields"] = self.fields
         return dat
 
@@ -141,6 +141,7 @@ class DataStore(APIObject):
             t.Key("params"): _data_store_params_converter,
             t.Key("updated"): parse_time,
             t.Key("role"): String(),
+            t.Key("driver_class_type", optional=True): t.Or(String(), t.Null()),
         }
     ).ignore_extra("*")
 
@@ -153,11 +154,13 @@ class DataStore(APIObject):
         updated: Optional[datetime] = None,
         params: Optional[DataStoreParameters] = None,
         role: Optional[str] = None,
+        driver_class_type: Optional[str] = None,
     ):
         self._id = data_store_id
         self._type = data_store_type
         self.canonical_name = canonical_name
         self._creator = creator
+        self._driver_class_type = driver_class_type
         self._updated = updated
         self.params = params
         self.role = role
@@ -168,6 +171,7 @@ class DataStore(APIObject):
         typ: Optional[Union[str, DataStoreListTypes]] = None,
         name: Optional[str] = None,
         substitute_url_parameters: Optional[bool] = False,
+        data_type: Optional[DataTypes] = None,
     ) -> List[DataStore]:
         """
         Returns list of available data stores.
@@ -182,6 +186,9 @@ class DataStore(APIObject):
             The search is case-insensitive.
         substitute_url_parameters: bool
             If specified, dynamic parameters in the URL will be substituted.
+        data_type : DataTypes
+            If specified, filters data stores which support the specified data type. If not specified it will
+            default to DataTypes.ALL
 
         Returns
         -------
@@ -204,6 +211,8 @@ class DataStore(APIObject):
             params["name"] = name
         if substitute_url_parameters:
             params["substituteUrlParameters"] = "True"
+        if data_type is not None:
+            params["dataType"] = str(data_type)
 
         if params:
             r_data = cls._client.get(cls._path, params=params).json()
@@ -373,6 +382,7 @@ class DataStore(APIObject):
         credential_id: Optional[str] = None,
         use_kerberos: Optional[bool] = None,
         credential_data: Optional[Dict[str, str]] = None,
+        set_default_credential: bool = False,
     ) -> TestResponse:
         """
         Tests database connection.
@@ -380,6 +390,9 @@ class DataStore(APIObject):
         .. versionchanged:: v3.2
            Added `credential_id`, `use_kerberos` and `credential_data` optional params and made
            `username` and `password` optional.
+        .. versionchanged:: v3.9
+           If credential_id is provided and set_default_credential is True and the connection test is successful,
+           the credential is set as the default for this data store.
 
         Parameters
         ----------
@@ -395,11 +408,19 @@ class DataStore(APIObject):
         credential_data : dict
             optional, the credentials to authenticate with the database, to use instead of
             user/password or credential ID
+        set_default_credential: bool
+            optional, if True and credential_id is provided, sets the credential as default for this data store
+            Default is False.
 
         Returns
         -------
         message : dict
             message with status.
+
+        Raises
+        ------
+        CredentialsError
+            If unable to set the provided credential_id as default for this data store.
 
         Examples
         --------
@@ -418,7 +439,15 @@ class DataStore(APIObject):
         }
         if credential_data:
             payload["credential_data"] = CredentialDataSchema(credential_data)
-        return self._client.post(f"{self._path}{self.id}/test/", data=to_api(payload)).json()  # type: ignore[no-any-return] # noqa: E501
+        response = self._client.post(f"{self._path}{self.id}/test/", data=to_api(payload))
+        if set_default_credential and response.status_code == 200 and credential_id is not None:
+            cred_assoc_resp = self._client.put(
+                f"credentials/{credential_id}/associations/dataconnection:{self.id}/",
+                json={"isDefault": True},
+            )
+            if cred_assoc_resp.status_code not in {200, 201}:
+                raise CredentialsError(f"Unable to set {credential_id} as default credential")
+        return response.json()  # type: ignore[no-any-return] # noqa: E501
 
     def schemas(self, username: str, password: str) -> SchemasResponse:
         """
@@ -515,6 +544,10 @@ class DataStore(APIObject):
     @property
     def updated(self) -> Optional[datetime]:
         return self._updated
+
+    @property
+    def driver_class_type(self) -> Optional[str]:
+        return self._driver_class_type
 
     def get_shared_roles(self) -> List[SharingRole]:
         """Retrieve what users have access to this data store

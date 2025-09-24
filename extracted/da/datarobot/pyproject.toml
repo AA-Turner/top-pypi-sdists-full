@@ -1,18 +1,68 @@
+[tool.ruff]
+line-length = 120
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    ".venv",
+    "drx",
+    # custom.py is test data for Custom Templates
+    "tests/fixtures/custom-templates/custom.py"
+]
+# TODO replace with project.requires-python
+target-version = "py37"
+
+[tool.ruff.per-file-target-version]
+"tests/*.py" = "py38"
+"datarobot/auth/*.py" = "py39"
+"sdk_docs/*.py" = "py311"
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # flake-simple
+    "F",
+    # numpy, since we are dependent on numpy
+    "NPY",
+    # pandas, since we are dependent on pandas
+    "PD",
+    # pyupgrade
+    "U",
+    # isort, since we are using isort
+    "I",
+    # pygrep-hooks
+    # don't blanket noqa something
+    "PGH",
+    # refurb
+    "FURB"
+]
+
+ignore = [
+    # PD901: https://docs.astral.sh/ruff/rules/pandas-df-variable-name/
+    "PD901", # deprecated and will be removed in the future
+    "UP006", # TODO lot of errors
+    "UP007", # TODO lot of errors
+    "UP009", # TODO was added recently, why?
+    "UP032", # TODO errors
+    "UP035", # TODO review me
+    "UP037", # TODO errors
+    # UP038: https://docs.astral.sh/ruff/rules/non-pep604-isinstance/
+    "UP038", # deprecated and will be removed in the future
+    "UP045", # TODO lot of errors
+    "PGH004", # TODO 23 errors, need to review each noqa
+    "FURB122", # TODO 10 errors, needs stronger testing
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = ["datarobotx", "datarobot"]
+case-sensitive = true
+required-imports = ["from __future__ import annotations"]
+
 [tool.black]
 line-length = 100
 target-version = ['py37', 'py38', 'py39', 'py310', 'py311', 'py312', 'py313']
-
-[tool.isort]
-profile = "black"
-# See https://pycqa.github.io/isort/docs/configuration/profiles/
-# Overrides for the profile:
-force_alphabetical_sort_within_sections = true
-force_sort_within_sections = true
-line_length = 100
-skip_gitignore = true
-skip = ["scripts"]
-known_first_party = ["datarobotx", "datarobot"]
-
 
 [tool.mypy]
 python_version = 3.9
@@ -66,8 +116,6 @@ module = [
     "datarobot.models.custom_task_version",
     "datarobot.models.data_engine_query_generator",
     "datarobot.models.datetime_trend_plots",
-    "datarobot.models.execution_environment",
-    "datarobot.models.execution_environment_version",
     "datarobot.models.feature",
     "datarobot.models.feature_effect",
     "datarobot.models.job",

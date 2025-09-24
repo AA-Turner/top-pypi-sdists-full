@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Mapping, Set, Tupl
 import attrs
 import google.protobuf.message
 import pyarrow as pa
-from typing_extensions import Annotated, TypeGuard, get_args, get_origin, is_typeddict
+from typing_extensions import Annotated, Literal, TypeGuard, get_args, get_origin, is_typeddict
 
 from chalk.features._encoding.http import HttpResponse, get_http_response_as_pyarrow
 from chalk.features._encoding.primitive import ChalkStructType, TPrimitive
@@ -81,6 +81,22 @@ def rich_to_pyarrow(
                     "Annotated types must contain the underlying type as the first argument -- e.g. Annotated[int, 'annotation']."
                 )
             return rich_to_pyarrow(args[0], name, in_struct=in_struct, respect_nullability=respect_nullability)
+        if origin in (Literal, getattr(typing, "Literal", Literal)):
+            if len(args) < 1:
+                raise TypeError(
+                    "Literal types must contain at least one argument, representing possible values -- e.g. Literal['enabled', 'disabled', 'unknown']."
+                )
+            first_type = type(args[0])
+            for idx, other_value in enumerate(args[1:]):
+                if other_value is None:
+                    # Allow 'Literal[1, None]', consider it as nullable int
+                    continue
+                # TODO we might want to get fancier for unequal but compatible types, e.g. int & float
+                if type(other_value) != first_type:
+                    raise TypeError(
+                        f"Literal annotation contains values of conflicting types: Value at index 0, {args[0]}, has type {type(args[0])}, while value at index {idx}, {other_value}, has type {type(other_value)}"
+                    )
+            return rich_to_pyarrow(first_type, name, in_struct=in_struct, respect_nullability=respect_nullability)
         if origin in (list, List, set, Set, frozenset, FrozenSet):
             typ_name = origin.__name__
             if len(args) == 0:

@@ -46,7 +46,7 @@ from crosshair.util import (
     in_debug,
     name_of_type,
 )
-from crosshair.z3util import z3Aassert, z3Not, z3PopNot
+from crosshair.z3util import z3Aassert, z3Not, z3Or, z3PopNot
 
 
 @functools.total_ordering
@@ -219,7 +219,7 @@ class StateSpaceCounter(Counter):
 
 
 class AbstractPathingOracle:
-    def pre_path_hook(self, root: "RootNode") -> None:
+    def pre_path_hook(self, space: "StateSpace") -> None:
         pass
 
     def post_path_hook(self, path: Sequence["SearchTreeNode"]) -> None:
@@ -350,6 +350,7 @@ def solver_is_sat(solver, *exprs) -> bool:
     ret = solver.check(*exprs)
     if ret == z3.unknown:
         debug("Z3 Unknown satisfiability. Reason:", solver.reason_unknown())
+        debug("Call stack at time of unknown sat:", ch_stack())
         if solver.reason_unknown() == "interrupted from keyboard":
             raise KeyboardInterrupt
         if exprs:
@@ -427,7 +428,7 @@ class RootNode(SinglePathNode):
         )
         from crosshair.pathing_oracle import CoveragePathingOracle  # circular import
 
-        self.pathing_oracle = CoveragePathingOracle()
+        self.pathing_oracle: AbstractPathingOracle = CoveragePathingOracle()
         self.iteration = 0
 
 
@@ -704,6 +705,17 @@ def debug_path_tree(node, highlights, prefix="") -> List[str]:
             return [f"{prefix} -> {str(node)} {node.stats()}"]
 
 
+def make_default_solver() -> z3.Solver:
+    """Create a new solver with default settings."""
+    smt_tactic = z3.Tactic("smt")
+    solver = smt_tactic.solver()
+    solver.set("mbqi", True)
+    # turn off every randomization thing we can think of:
+    solver.set("random-seed", 42)
+    solver.set("smt.random-seed", 42)
+    return solver
+
+
 class StateSpace:
     """Holds various information about the SMT solver's current state."""
 
@@ -717,18 +729,12 @@ class StateSpace:
         model_check_timeout: float,
         search_root: RootNode,
     ):
-        smt_tactic = z3.Tactic("smt")
-        self.solver = smt_tactic.solver()
+        self.solver = make_default_solver()
         if model_check_timeout < 1 << 63:
             self.smt_timeout: Optional[int] = int(model_check_timeout * 1000 + 1)
             self.solver.set(timeout=self.smt_timeout)
         else:
             self.smt_timeout = None
-        self.solver.set(mbqi=True)
-        # turn off every randomization thing we can think of:
-        self.solver.set("random-seed", 42)
-        self.solver.set("smt.random-seed", 42)
-        # self.solver.set('randomize', False)
         self.choices_made: List[SearchTreeNode] = []
         self.status_cap: Optional[VerificationStatus] = None
         self.heaps: List[List[Tuple[z3.ExprRef, Type, object]]] = [[]]
@@ -745,7 +751,7 @@ class StateSpace:
         self._deferred_assumptions = []
         assert search_root.iteration is not None
         search_root.iteration += 1
-        search_root.pathing_oracle.pre_path_hook(search_root)
+        search_root.pathing_oracle.pre_path_hook(self)
 
     def add(self, expr) -> None:
         with NoTracing():
@@ -1049,6 +1055,51 @@ class StateSpace:
         self.next_uniq += 1
         return "_{:x}".format(self.next_uniq)
 
+    @assert_tracing(False)
+    def smt_fanout(
+        self,
+        exprs_and_results: Sequence[Tuple[z3.ExprRef, object]],
+        desc: str,
+        weights: Optional[Sequence[float]] = None,
+        none_of_the_above_weight: float = 0.0,
+    ):
+        """Performs a weighted binary search over the given SMT expressions."""
+        exprs = [e for (e, _) in exprs_and_results]
+        final_weights = [1.0] * len(exprs) if weights is None else weights
+        if CROSSHAIR_EXTRA_ASSERTS:
+            if len(final_weights) != len(exprs):
+                raise CrossHairInternal("inconsistent smt_fanout exprs and weights")
+            if not all(0 < w for w in final_weights):
+                raise CrossHairInternal("smt_fanout weights must be greater than zero")
+            if not self.is_possible(z3Or(*exprs)):
+                raise CrossHairInternal(
+                    "no smt_fanout option is possible: " + repr(exprs)
+                )
+            if self.is_possible(z3Not(z3Or(*exprs))):
+                raise CrossHairInternal(
+                    "smt_fanout options are not exhaustive: " + repr(exprs)
+                )
+
+        def attempt(start: int, end: int):
+            size = end - start
+            if size == 1:
+                return exprs_and_results[start][1]
+            mid = (start + end) // 2
+            left_exprs = exprs[start:mid]
+            left_weight = sum(final_weights[start:mid])
+            right_weight = sum(final_weights[mid:end])
+            if self.smt_fork(
+                z3Or(*left_exprs),
+                probability_true=left_weight / (left_weight + right_weight),
+                desc=f"{desc}_fan_size_{size}",
+            ):
+                return attempt(start, mid)
+            else:
+                return attempt(mid, end)
+
+        return attempt(0, len(exprs))
+
+    @assert_tracing(False)
     def smt_fork(
         self,
         expr: Optional[z3.ExprRef] = None,
@@ -1061,6 +1112,14 @@ class StateSpace:
 
     def defer_assumption(self, description: str, checker: Callable[[], bool]) -> None:
         self._deferred_assumptions.append((description, checker))
+
+    def extend_timeouts(
+        self, constant_factor: float = 0.0, smt_multiple: Optional[float] = None
+    ) -> None:
+        self.execution_deadline += constant_factor
+        if self.smt_timeout is not None and smt_multiple is not None:
+            self.smt_timeout = int(self.smt_timeout * smt_multiple)
+            self.solver.set(timeout=self.smt_timeout)
 
     def detach_path(self, currently_handling: Optional[BaseException] = None) -> None:
         """
@@ -1075,13 +1134,9 @@ class StateSpace:
             if self.is_detached:
                 debug("Path is already detached")
                 return
-            else:
-                # Give ourselves a time extension for deferred assumptions and
-                # (likely) counterexample generation to follow.
-                self.execution_deadline += 4.0
-                if self.smt_timeout is not None:
-                    self.smt_timeout = self.smt_timeout * 2
-                    self.solver.set(timeout=self.smt_timeout)
+            # Give ourselves a time extension for deferred assumptions and
+            # (likely) counterexample generation to follow.
+            self.extend_timeouts(constant_factor=4.0, smt_multiple=2.0)
             for description, checker in self._deferred_assumptions:
                 with ResumedTracing():
                     check_ret = checker()

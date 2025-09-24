@@ -27,8 +27,8 @@ from torch.utils._pytree import tree_map_only
 from torch.utils.weak import WeakTensorKeyDictionary
 
 from ...config import Config
-from ...utils import malloc_trim
 from ..tqdm import tqdm
+from ..utils import malloc_trim
 from . import cudart
 from .packing import ZeroGPUTensorPack
 from .packing import pack_tensors

@@ -37,7 +37,7 @@ class Config:
         return get_deep_keys(self.params)
 
     def is_debug(self):
-        return Config().get('debug.show-out', False)
+        return Config().get('debug', False)
 
     def debug(self, s: None):
         if self.is_debug():

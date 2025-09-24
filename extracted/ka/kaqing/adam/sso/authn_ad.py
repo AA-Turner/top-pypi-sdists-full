@@ -137,7 +137,7 @@ class AdAuthenticator(Authenticator):
         return []
 
     def parse_id_token(self, id_token: str) -> IdToken:
-        jwks_url = Config().get('idps.ad.jwks-uri', 'https://login.microsoftonline.com/common/discovery/keys')
+        jwks_url = Config().get('idps.ad.jwks-uri', '')
         try:
             jwks_client = jwt.PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=360)
             signing_key = jwks_client.get_signing_key_from_jwt(id_token)

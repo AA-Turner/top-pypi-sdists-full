@@ -5,7 +5,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "kreuzberg"
-version = "3.17.2"
+version = "3.17.3"
 description = "Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats"
 readme = "README.md"
 keywords = [
@@ -111,7 +111,6 @@ scripts.kreuzberg-mcp = "kreuzberg._mcp.server:main"
 dev = [
   "covdefaults>=2.3.0",
   "mypy>=1.18.2",
-  "pre-commit>=4.3.0",
   "pytest>=8.4.2",
   "pytest-cov>=7.0.0",
   "pytest-mock>=3.15.1",

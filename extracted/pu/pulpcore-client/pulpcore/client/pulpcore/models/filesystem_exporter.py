@@ -29,7 +29,7 @@ class FilesystemExporter(BaseModel):
     """
     Serializer for FilesystemExporters.
     """ # noqa: E501
-    name: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Unique name of the file system exporter.")
+    name: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Unique name of the exporter.")
     path: Annotated[str, Field(min_length=1, strict=True)] = Field(description="File system location to export to.")
     method: Optional[MethodEnum] = Field(default=None, description="Method of exporting  * `write` - Export by writing * `hardlink` - Export by hardlinking * `symlink` - Export by symlinking")
     __properties: ClassVar[List[str]] = ["name", "path", "method"]

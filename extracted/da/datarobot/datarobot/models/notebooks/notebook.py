@@ -15,10 +15,10 @@ from datetime import datetime
 from io import IOBase
 from typing import Any, Dict, List, Optional
 
-from mypy_extensions import TypedDict
 from pytz import utc
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.errors import InvalidUsageError
 from datarobot.mixins.browser_mixin import BrowserMixin
 from datarobot.models.api_object import APIObject
@@ -44,9 +44,9 @@ from datarobot.models.notebooks.session import (
     StartSessionParameters,
     StartSessionPayload,
 )
-from datarobot.models.notebooks.settings import notebook_settings_trafaret, NotebookSettings
-from datarobot.models.notebooks.user import notebook_activity_trafaret, NotebookActivity
-from datarobot.models.use_cases.utils import resolve_use_cases, UseCaseLike
+from datarobot.models.notebooks.settings import NotebookSettings, notebook_settings_trafaret
+from datarobot.models.notebooks.user import NotebookActivity, notebook_activity_trafaret
+from datarobot.models.use_cases.utils import UseCaseLike, resolve_use_cases
 from datarobot.utils import assert_single_parameter
 from datarobot.utils.pagination import unpaginate
 

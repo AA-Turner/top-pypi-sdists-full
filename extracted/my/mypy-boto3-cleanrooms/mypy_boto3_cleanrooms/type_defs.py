@@ -38,6 +38,7 @@ from .literals import (
     DifferentialPrivacyAggregationTypeType,
     FilterableMemberStatusType,
     IdNamespaceTypeType,
+    JobTypeType,
     JoinOperatorType,
     MemberAbilityType,
     MembershipJobLogStatusType,
@@ -1343,6 +1344,7 @@ class QueryComputePaymentConfigTypeDef(TypedDict):
 class PopulateIdMappingTableInputTypeDef(TypedDict):
     idMappingTableIdentifier: str
     membershipIdentifier: str
+    jobType: NotRequired[JobTypeType]
 
 
 ProtectedJobWorkerComputeConfigurationTypeDef = TypedDict(

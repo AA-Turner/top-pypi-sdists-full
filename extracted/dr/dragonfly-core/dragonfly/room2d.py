@@ -26,6 +26,7 @@ from honeybee.boundarycondition import _BoundaryCondition, Outdoors, Surface, Gr
 from honeybee.facetype import Floor, Wall, AirBoundary, RoofCeiling
 from honeybee.facetype import face_types as ftyp
 from honeybee.door import Door
+from honeybee.aperture import Aperture
 from honeybee.face import Face
 from honeybee.room import Room
 
@@ -1286,8 +1287,8 @@ class Room2D(_BaseGeometry):
                 if seg_indices is None or i in seg_indices:
                     glz = glz.rectangularize(percent_area_change_threshold)
 
-    def assign_sub_faces(self, sub_faces, projection_distance=0, tolerance=0.01,
-                         angle_tolerance=1.0):
+    def assign_sub_faces(self, sub_faces, projection_distance=0, overwrite=True,
+                         tolerance=0.01, angle_tolerance=1.0):
         """Assign a list of orphaned SubFaces (Apertures and Doors) to this Room2D.
 
         The geometry of the SubFaces will automatically be converted to
@@ -1308,6 +1309,14 @@ class Room2D(_BaseGeometry):
                 then SubFaces within this distance of the parent wall will be
                 projected and added. Otherwise, Apertures/Doors will only be
                 added if they are coplanar with the parent wall segment.
+            overwrite: A boolean to note whether the existing window parameters
+                should be overwritten with the newly-supplied sub faces or
+                whether an attempt should be made to preserve existing windows/doors
+                in which case sub-faces will only be replaced if they are perfectly
+                duplicated between the current sub-faces and the newly-supplied
+                sub-faces. Note that setting this to False can significantly
+                increase the runtime since it requires translation to Honeybee
+                to be able to sense when windows/doors are duplicated. (Default: True).
             tolerance: The minimum difference in coordinate values for them
                 to be considered distinct from one another. (Default: 0.01,
                 suitable for objects in meters).
@@ -1347,6 +1356,28 @@ class Room2D(_BaseGeometry):
         for sf in sub_faces:
             if overlapping_bounding_boxes(bb_diagonal, sf.geometry, dist):
                 sf_to_add.append(sf)
+
+        # translate existing windows/doors and get a unique set if not overwrite
+        if not overwrite:
+            hb_room, _ = self.to_honeybee(tolerance=tolerance, enforce_bc=False,
+                                          enforce_solid=False)
+            unique_ap = []
+            for e_ap in hb_room.apertures:
+                for n_sf in sf_to_add:
+                    if isinstance(n_sf, Aperture) and \
+                            n_sf.is_centered_adjacent(e_ap, tolerance):
+                        break  # it's a duplicated in the input sub-faces
+                else:
+                    unique_ap.append(e_ap)
+            unique_dr = []
+            for e_dr in hb_room.doors:
+                for n_sf in sf_to_add:
+                    if isinstance(n_sf, Door) and \
+                            n_sf.is_centered_adjacent(e_dr, tolerance):
+                        break  # it's a duplicated in the input sub-faces
+                else:
+                    unique_dr.append(e_dr)
+            sf_to_add = unique_ap + unique_dr + sf_to_add
 
         # add the apertures to the room if any were found
         skylight_sfs = []
@@ -3860,21 +3891,43 @@ class Room2D(_BaseGeometry):
                         msgs.append(' Segment ({}) - {}'.format(i, msg))
                         help_geo.extend(wp.self_intersecting_geometries(seg, tolerance))
         if isinstance(self._skylight_parameters, DetailedSkylights):
+            sky_help_geo = []
             sp = self._skylight_parameters
             m_vec = Vector3D(0, 0, self.floor_to_ceiling_height)
             roof_face = self.floor_geometry.move(m_vec)
-            msg = sp.check_valid_for_face(roof_face)
-            if msg != '':
-                msgs.append(' Skylights - {}'.format(msg))
-                help_geo.extend(sp.invalid_face_geometries(roof_face))
-            msg = sp.check_overlaps(tolerance)
-            if msg != '':
-                msgs.append(' Skylights - {}'.format(msg))
-                help_geo.extend(sp.overlapping_geometries(roof_face, tolerance))
-            msg = self._skylight_parameters.check_self_intersecting(tolerance)
-            if msg != '':
-                msgs.append(' Skylights - {}'.format(msg))
-                help_geo.extend(sp.self_intersecting_geometries(roof_face, tolerance))
+            msg1 = sp.check_valid_for_face(roof_face)
+            if msg1 != '':
+                msgs.append(' Skylights - {}'.format(msg1))
+                sky_help_geo.extend(sp.invalid_face_geometries(roof_face))
+            msg2 = sp.check_overlaps(tolerance)
+            if msg2 != '':
+                msgs.append(' Skylights - {}'.format(msg2))
+                sky_help_geo.extend(sp.overlapping_geometries(roof_face, tolerance))
+            msg3 = self._skylight_parameters.check_self_intersecting(tolerance)
+            if msg3 != '':
+                msgs.append(' Skylights - {}'.format(msg3))
+                sky_help_geo.extend(sp.self_intersecting_geometries(roof_face, tolerance))
+            if len(sky_help_geo) != 0 and self.is_top_exposed and self.has_parent and \
+                    self.parent.roof is not None:
+                # translate the model to 3D so that we get accurate helper geometry
+                hb_room, _ = self.to_honeybee(tolerance=tolerance, enforce_bc=False,
+                                              enforce_solid=False)
+                skylights, sky_polys = [], []
+                for face in hb_room.faces:
+                    if isinstance(face.type, RoofCeiling):
+                        for ap in face.apertures:
+                            skylights.append(ap.geometry)
+                            pts_2 = [Point2D(pt.x, pt.y) for pt in ap.geometry.boundary]
+                            sky_polys.append(Polygon2D(pts_2))
+                new_sky_help_geo = []
+                for h_geo in sky_help_geo:
+                    h_poly = Polygon2D([Point2D(p.x, p.y) for p in h_geo.boundary])
+                    for skylight, s_poly in zip(skylights, sky_polys):
+                        poly_rel = h_poly.polygon_relationship(s_poly, tolerance)
+                        if poly_rel >= 0:
+                            new_sky_help_geo.append(skylight)
+                sky_help_geo = list(set(new_sky_help_geo))
+            help_geo.extend(sky_help_geo)
         if len(msgs) == 0:
             return [] if detailed else ''
         full_msg = 'Room2D "{}" contains invalid window parameters.' \

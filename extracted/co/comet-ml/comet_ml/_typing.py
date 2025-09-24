@@ -17,21 +17,20 @@ This module contains useful types and mirror the typing module
 
 """
 from enum import Enum
-
-# isort: off
-
 from typing import *  # noqa
-from typing import (
+from typing import (  # noqa
     IO,
-    Union,
-    Tuple,
-    Dict,
     Any,
     Callable,
+    Dict,
     List,
-    Optional,
     NamedTuple,
-)  # noqa
+    Optional,
+    Tuple,
+    Union,
+)
+
+# isort: off
 
 
 class ValidFilePath(str):
@@ -124,3 +123,23 @@ OnMessagesBatchSentCallback = Callable[[List[int], bool, bool, Optional[str]], N
 PanelColorMap = Dict[str, ColorWithShadesMap]
 
 Point = Union[List[float], Tuple[float, float]]
+
+
+class ExperimentThrottledStatus(NamedTuple):
+    """
+    Represents the throttled status of an experiment.
+
+    This class is a named tuple used to encapsulate information about whether an
+    experiment is throttled. It includes a flag indicating throttling status, an
+    optional message providing details about the throttling, and a list of optional
+    reasons justifying the throttling.
+
+    Attributes:
+        throttled: A boolean indicating whether the experiment is throttled.
+        message: An optional string providing details about the throttling status.
+        reasons: An optional list of strings specifying reasons for throttling.
+    """
+
+    throttled: bool
+    message: Optional[str]
+    reasons: Optional[List[str]]

@@ -59,6 +59,7 @@ class Cqlsh(Command):
                 'insert': {'into': None},
                 'select': None,
                 'update': None,
+                'describe': {'keyspaces': None},
             }
 
         return {}

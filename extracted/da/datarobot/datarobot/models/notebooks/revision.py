@@ -9,11 +9,13 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from typing import Optional
 
-from mypy_extensions import TypedDict
 import trafaret as t
 
+from datarobot._compat import TypedDict
 from datarobot.models.api_object import APIObject
 
 # TODO: We aren't handling `created` and `updated` for now

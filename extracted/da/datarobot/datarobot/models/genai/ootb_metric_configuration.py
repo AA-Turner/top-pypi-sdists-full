@@ -16,11 +16,11 @@ from typing import Any, Dict, List, Optional, Union
 import trafaret as t
 from typing_extensions import TypedDict
 
-from datarobot.enums import enum_to_list, ToolCallAccuracyArgumentComparisonMode
+from datarobot.enums import ToolCallAccuracyArgumentComparisonMode, enum_to_list
 from datarobot.models.api_object import APIObject
 from datarobot.models.genai.playground_moderation_configuration import (
-    moderation_configuration_without_id,
     ModerationConfigurationWithoutId,
+    moderation_configuration_without_id,
 )
 from datarobot.utils import from_api
 

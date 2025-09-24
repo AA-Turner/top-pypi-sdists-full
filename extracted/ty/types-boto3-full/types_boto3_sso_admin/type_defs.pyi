@@ -27,6 +27,8 @@ from .literals import (
     GrantTypeType,
     InstanceAccessControlAttributeConfigurationStatusType,
     InstanceStatusType,
+    KmsKeyStatusType,
+    KmsKeyTypeType,
     PrincipalTypeType,
     ProvisioningStatusType,
     ProvisionTargetTypeType,
@@ -120,6 +122,8 @@ __all__ = (
     "DetachManagedPolicyFromPermissionSetRequestTypeDef",
     "DisplayDataTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EncryptionConfigurationDetailsTypeDef",
+    "EncryptionConfigurationTypeDef",
     "GetApplicationAccessScopeRequestTypeDef",
     "GetApplicationAccessScopeResponseTypeDef",
     "GetApplicationAssignmentConfigurationRequestTypeDef",
@@ -434,6 +438,12 @@ class DescribeInstanceAccessControlAttributeConfigurationRequestTypeDef(TypedDic
 class DescribeInstanceRequestTypeDef(TypedDict):
     InstanceArn: str
 
+class EncryptionConfigurationDetailsTypeDef(TypedDict):
+    KeyType: NotRequired[KmsKeyTypeType]
+    KmsKeyArn: NotRequired[str]
+    EncryptionStatus: NotRequired[KmsKeyStatusType]
+    EncryptionStatusReason: NotRequired[str]
+
 class DescribePermissionSetProvisioningStatusRequestTypeDef(TypedDict):
     InstanceArn: str
     ProvisionPermissionSetRequestId: str
@@ -457,6 +467,10 @@ class DetachManagedPolicyFromPermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
     ManagedPolicyArn: str
+
+class EncryptionConfigurationTypeDef(TypedDict):
+    KeyType: KmsKeyTypeType
+    KmsKeyArn: NotRequired[str]
 
 class GetApplicationAccessScopeRequestTypeDef(TypedDict):
     ApplicationArn: str
@@ -491,6 +505,7 @@ class InstanceMetadataTypeDef(TypedDict):
     Name: NotRequired[str]
     CreatedDate: NotRequired[datetime]
     Status: NotRequired[InstanceStatusType]
+    StatusReason: NotRequired[str]
 
 class OperationStatusFilterTypeDef(TypedDict):
     Status: NotRequired[StatusValuesType]
@@ -646,10 +661,6 @@ class UntagResourceRequestTypeDef(TypedDict):
     TagKeys: Sequence[str]
     InstanceArn: NotRequired[str]
 
-class UpdateInstanceRequestTypeDef(TypedDict):
-    Name: str
-    InstanceArn: str
-
 class UpdatePermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
@@ -723,15 +734,6 @@ class DescribeApplicationAssignmentResponseTypeDef(TypedDict):
     PrincipalType: PrincipalTypeType
     PrincipalId: str
     ApplicationArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeInstanceResponseTypeDef(TypedDict):
-    InstanceArn: str
-    IdentityStoreId: str
-    OwnerAccountId: str
-    Name: str
-    CreatedDate: datetime
-    Status: InstanceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -840,6 +842,17 @@ class DescribePermissionSetResponseTypeDef(TypedDict):
     PermissionSet: PermissionSetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeInstanceResponseTypeDef(TypedDict):
+    InstanceArn: str
+    IdentityStoreId: str
+    OwnerAccountId: str
+    Name: str
+    CreatedDate: datetime
+    Status: InstanceStatusType
+    StatusReason: str
+    EncryptionConfigurationDetails: EncryptionConfigurationDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribePermissionSetProvisioningStatusResponseTypeDef(TypedDict):
     PermissionSetProvisioningStatus: PermissionSetProvisioningStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -847,6 +860,11 @@ class DescribePermissionSetProvisioningStatusResponseTypeDef(TypedDict):
 class ProvisionPermissionSetResponseTypeDef(TypedDict):
     PermissionSetProvisioningStatus: PermissionSetProvisioningStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateInstanceRequestTypeDef(TypedDict):
+    InstanceArn: str
+    Name: NotRequired[str]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
 class ListInstancesResponseTypeDef(TypedDict):
     Instances: List[InstanceMetadataTypeDef]

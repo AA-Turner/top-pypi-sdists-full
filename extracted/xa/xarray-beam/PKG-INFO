@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-beam
-Version: 0.9.2
+Version: 0.9.3
 Summary: Distributed Xarray with Apache Beam
 Author-email: Google LLC <noreply@google.com>
 Requires-Python: >=3.10
@@ -22,6 +22,7 @@ Requires-Dist: h5netcdf ; extra == "tests"
 Requires-Dist: hypothesis ; extra == "tests"
 Requires-Dist: pandas ; extra == "tests"
 Requires-Dist: pytest ; extra == "tests"
+Requires-Dist: zarr>=3 ; extra == "tests"
 Project-URL: documentation, https://xarray-beam.readthedocs.io
 Project-URL: source, https://github.com/google/xarray-beam
 Provides-Extra: docs

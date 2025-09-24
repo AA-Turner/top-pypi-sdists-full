@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, namedtuple
 
 from diff_cover.command_runner import execute, run_command_for_code
+from diff_cover.util import to_unix_path
 
 Violation = namedtuple("Violation", "line, message")
 
@@ -60,7 +61,7 @@ class BaseViolationReporter(ABC):
         """
         # An existing quality plugin "sqlfluff" depends on this
         # being not abstract and returning None
-        return None
+        del src_path
 
     def name(self):
         """
@@ -156,6 +157,10 @@ class QualityReporter(BaseViolationReporter):
                 self.violations_dict = self.driver.parse_reports(self.reports)
                 return self.violations_dict[src_path]
 
+            if not os.path.exists(src_path):
+                self.violations_dict[src_path] = []
+                return self.violations_dict[src_path]
+
             if self.driver_tool_installed is None:
                 self.driver_tool_installed = self.driver.installed()
             if not self.driver_tool_installed:
@@ -165,8 +170,7 @@ class QualityReporter(BaseViolationReporter):
             if self.options:
                 for arg in self.options.split():
                     command.append(arg)
-            if os.path.exists(src_path):
-                command.append(src_path.encode(sys.getfilesystemencoding()))
+            command.append(src_path.encode(sys.getfilesystemencoding()))
 
             stdout, stderr = execute(command, self.driver.exit_codes)
             output = stderr if self.driver.output_stderr else stdout
@@ -229,13 +233,15 @@ class RegexBasedDriver(QualityDriver):
             if self.expression.flags & re.MULTILINE:
                 matches = (match for match in re.finditer(self.expression, report))
             else:
-                matches = (self.expression.match(line) for line in report.split("\n"))
+                matches = (
+                    self.expression.match(line.rstrip()) for line in report.split("\n")
+                )
             for match in matches:
                 if match is not None:
                     src, line_number, message = match.groups()
                     # Transform src to a relative path, if it isn't already
-                    src = os.path.relpath(src)
-                    violation = Violation(int(line_number), message)
+                    src = to_unix_path(os.path.relpath(src))
+                    violation = Violation(int(line_number), message.rstrip())
                     violations_dict[src].append(violation)
         return violations_dict
 

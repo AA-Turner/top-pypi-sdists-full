@@ -4624,7 +4624,7 @@ l_transfer_admin = {
     "ar": "👩🏽‍💻 <b>المستخدم</b> {0} يجب أن يكون <b>مشرفًا</b> في <b>{1}</b>"
 }
 l_transfer_transfer = {
-    "ru": "👩🏽‍💻 <b>Передать</b> <b>admin</b>-права на <b>{0}</b> пользователю {1} в @{2}-боте?",
+    "ru": "👩🏽‍💻 <b>Передать</b> права администратора на <b>{0}</b> пользователю {1} в @{2}-боте?",
     "en": "👩🏽‍💻 <b>Transfer</b> <b>admin</b>-rights on <b>{0}</b> to user {1} in @{2}-bot?",
     "es": "👩🏽‍💻 ¿<b>Transferir</b> derechos de <b>admin</b> sobre <b>{0}</b> al usuario {1} en @{2}-bot?",
     "fr": "👩🏽‍💻 <b>Transférer</b> les droits <b>admin</b> sur <b>{0}</b> à l'utilisateur {1} dans @{2}-bot ?",
@@ -4640,7 +4640,7 @@ l_transfer_text = {
     "ar": "👩🏽‍💻 <b>لـ</b> نقل حقوق admin القناة في @{0}-bot استخدم الأمر:\n/transfer USER-ID، حيث المستخدم: مسؤول القناة وعضو في @{0}-bot (/id)\n\n⚙️ <b>الأوامر</b> /cmd"
 }
 l_transfer_done_to = {
-    "ru": "👩🏽‍💻 <b>Admin</b>-права на [<b>{0}</b>] успешно переданы {1}",
+    "ru": "👩🏽‍💻 <b>Права</b> админиистратора на [<b>{0}</b>] успешно переданы {1}",
     "en": "👩🏽‍💻 <b>Admin</b>-rights on [<b>{0}</b>] successfully transferred to {1}",
     "es": "👩🏽‍💻 Los derechos de <b>Admin</b> en [<b>{0}</b>] se transfirieron correctamente a {1}",
     "fr": "👩🏽‍💻 Les droits <b>Admin</b> sur [<b>{0}</b>] ont été transférés avec succès à {1}",
@@ -4648,7 +4648,7 @@ l_transfer_done_to = {
     "ar": "👩🏽‍💻 تم نقل حقوق <b>Admin</b> على [<b>{0}</b>] بنجاح إلى {1}"
 }
 l_transfer_done_from = {
-    "ru": "👩🏽‍💻 <b>Admin</b>-права на [<b>{0}</b>] успешно получены от {1}",
+    "ru": "👩🏽‍💻 <b>Права</b> администратора на [<b>{0}</b>] успешно получены от {1}",
     "en": "👩🏽‍💻 <b>Admin</b>-rights on [<b>{0}</b>] successfully obtained from {1}",
     "es": "👩🏽‍💻 Derechos de <b>Admin</b> en [<b>{0}</b>] obtenidos con éxito de {1}",
     "fr": "👩🏽‍💻 Les droits <b>Admin</b> sur [<b>{0}</b>] obtenus avec succès de {1}",
@@ -4657,7 +4657,7 @@ l_transfer_done_from = {
 }
 
 l_add_chn_text = {
-    "ru": "👮🏽‍♀️ <b>Добавь</b> @{0}-бота как <b>Administrator</b> через настройки своего канала:\n\n<blockquote>[👤 Добавить администратора]</blockquote>",
+    "ru": "👮🏽‍♀️ <b>Добавь</b> @{0}-бота как [<b>Администратор</b>] через настройки своего канала:\n\n<blockquote>[👤 Добавить администратора]</blockquote>",
     "en": "👮🏽‍♀️ <b>Add</b> @{0}-bot as <b>Administrator</b> through your channel settings:\n\n<blockquote>[👤 Add administrator]</blockquote>",
     "es": "👮🏽‍♀️ <b>Agrega</b> @{0}-bot como <b>Administrador</b> a través de la configuración de tu canal:\n\n<blockquote>[👤 Agregar administrador]</blockquote>",
     "fr": "👮🏽‍♀️ <b>Ajoutez</b> @{0}-bot en tant qu'<b>Administrateur</b> via les paramètres de votre chaîne :\n\n<blockquote>[👤 Ajouter un administrateur]</blockquote>",
@@ -5088,7 +5088,7 @@ l_cmd_txt_grp = {
     "ar": "👩🏽‍💻 <b>انقر</b> [➕ إضافة مجموعة]",
 }
 l_add_group_text = {
-    "ru": "👇🏽 <b>Жми</b> на [➕ Добавить группу], чтобы добавить в свою группу (с настройками по ум) бота: @{0}\n\n<blockquote>👮🏽‍♀️ <b>Или</b> добавь бота как <b>Administrator</b> через настройки своей группы:\n[👤 Добавить администратора]\n\n👮🏽‍♀️ <b>Если</b> не добавляется группа, то измени <b>Должность</b> (см. скрин)</blockquote>",
+    "ru": "👇🏽 <b>Жми</b> на [➕ Добавить группу], чтобы добавить в свою группу (с настройками по ум) бота: @{0}\n\n<blockquote>👮🏽‍♀️ <b>Или</b> добавь бота как [<b>Администратор</b>] через настройки своей группы:\n[👤 Добавить администратора]\n\n👮🏽‍♀️ <b>Если</b> не добавляется группа, то измени <b>Должность</b> (см. скрин)</blockquote>",
     "en": "👇🏽 <b>Click</b> on [➕ Add group] to add the bot to your group (with default settings): @{0}\n\n<blockquote>👮🏽‍♀️ <b>Or</b> add the bot as <b>Administrator</b> through your group's settings:\n[👤 Add administrator]\n\n👮🏽‍♀️ <b>If</b> the group is not added, change the <b>Role</b> (see screenshot)</blockquote>",
     "es": "👇🏽 <b>Haga clic</b> en [➕ Agregar grupo] para añadir el bot a su grupo (con configuración por defecto): @{0}\n\n<blockquote>👮🏽‍♀️ <b>O</b> añade el bot como <b>Administrador</b> desde la configuración de tu grupo:\n[👤 Agregar administrador]\n\n👮🏽‍♀️ <b>Si</b> el grupo no se añade, cambia la <b>Posición</b> (ver captura de pantalla)</blockquote>",
     "fr": "👇🏽 <b>Cliquez</b> sur [➕ Ajouter un groupe] pour ajouter le bot à votre groupe (avec paramètres par défaut) : @{0}\n\n<blockquote>👮🏽‍♀️ <b>Ou</b> ajoutez le bot en tant qu'<b>Administrateur</b> via les paramètres de votre groupe :\n[👤 Ajouter un administrateur]\n\n👮🏽‍♀️ <b>Si</b> le groupe n'est pas ajouté, modifiez la <b>Position</b> (voir capture d'écran)</blockquote>",
@@ -5137,7 +5137,7 @@ l_add_grp_button = {
     "ar": "➕ إضافة مجموعة"
 }
 l_add_grp_text = {
-    "ru": "👮🏽‍♀️ <b>Добавь</b> @{0}-бота как <b>Администратора</b> через настройки своей группы:\n\n<blockquote>[👤 Добавить администратора]</blockquote>",
+    "ru": "👮🏽‍♀️ <b>Добавь</b> @{0}-бота как [<b>Администратор</b>] через настройки своей группы:\n\n<blockquote>[👤 Добавить администратора]</blockquote>",
     "en": "👮🏽‍♀️ <b>Add</b> @{0}-bot as <b>Administrator</b> through your group settings:\n\n<blockquote>[👤 Add administrator]</blockquote>",
     "es": "👮🏽‍♀️ <b>Agrega</b> @{0}-bot como <b>Administrador</b> a través de la configuración de tu grupo:\n\n<blockquote>[👤 Agregar administrador]</blockquote>",
     "fr": "👮🏽‍♀️ <b>Ajoutez</b> @{0}-bot en tant qu'<b>Administrateur</b> via les paramètres de votre groupe :\n\n<blockquote>[👤 Ajouter un administrateur]</blockquote>",
@@ -5780,7 +5780,7 @@ l_userbot_cmd_all = {
     "ar": "\n<b>المستخدمون/الروبوتات/المجموعات/القنوات</b>: {0}",
 }
 l_userbot_cmd_admin = {
-    "ru": "\n\n<b>Админ</b> <u>групп/каналов</u>: <code>{0}</code>\n{1}",
+    "ru": "\n\n<b>Администратор</b> <u>групп/каналов</u>: <code>{0}</code>\n{1}",
     "en": "\n\n<b>Admin</b> <u>groups/channels</u>: <code>{0}</code>\n{1}",
     "es": "\n\n<b>Admin</b> <u>grupos/canales</u>: <code>{0}</code>\n{1}",
     "fr": "\n\n<b>Administrateur</b> <u>groupes/canaux</u> : <code>{0}</code>\n{1}",

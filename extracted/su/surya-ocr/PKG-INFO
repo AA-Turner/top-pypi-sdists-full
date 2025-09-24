@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: surya-ocr
-Version: 0.16.7
+Version: 0.17.0
 Summary: OCR, layout, reading order, and table recognition in 90+ languages
 License: GPL-3.0-or-later
+License-File: LICENSE
 Keywords: ocr,pdf,text detection,text recognition,tables
 Author: Vik Paruchuri
 Author-email: vik.paruchuri@gmail.com
@@ -13,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: click (>=8.1.8,<9.0.0)
 Requires-Dist: einops (>=0.8.1,<0.9.0)
 Requires-Dist: filetype (>=1.2.0,<2.0.0)
@@ -250,10 +252,12 @@ Setting the `LAYOUT_BATCH_SIZE` env var properly will make a big difference when
 
 ```python
 from PIL import Image
+from surya.foundation import FoundationPredictor
 from surya.layout import LayoutPredictor
+from surya.settings import settings
 
 image = Image.open(IMAGE_PATH)
-layout_predictor = LayoutPredictor()
+layout_predictor = LayoutPredictor(FoundationPredictor(checkpoint=settings.LAYOUT_MODEL_CHECKPOINT))
 
 # layout_predictions is a list of dicts, one per image
 layout_predictions = layout_predictor([image])

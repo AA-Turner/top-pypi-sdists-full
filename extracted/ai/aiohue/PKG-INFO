@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohue
-Version: 4.7.5
+Version: 4.8.0
 Summary: Python module to talk to Philips Hue.
 Author-email: Paulus Schoutsen <paulus@paulusschoutsen.nl>, Marcel van der Veldt <m.vanderveldt@outlook.com>
 License: Apache-2.0
@@ -16,17 +16,16 @@ Requires-Dist: asyncio-throttle
 Requires-Dist: awesomeversion
 Provides-Extra: test
 Requires-Dist: codespell==2.4.1; extra == "test"
-Requires-Dist: mypy==1.17.1; extra == "test"
+Requires-Dist: mypy==1.18.2; extra == "test"
 Requires-Dist: pre-commit==4.3.0; extra == "test"
 Requires-Dist: pre-commit-hooks==6.0.0; extra == "test"
 Requires-Dist: pylint==3.3.8; extra == "test"
-Requires-Dist: pytest==8.4.1; extra == "test"
-Requires-Dist: pytest-asyncio==1.1.0; extra == "test"
+Requires-Dist: pytest==8.4.2; extra == "test"
+Requires-Dist: pytest-asyncio==1.2.0; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"
-Requires-Dist: pytest-cov==6.2.1; extra == "test"
-Requires-Dist: ruff==0.12.10; extra == "test"
+Requires-Dist: pytest-cov==7.0.0; extra == "test"
+Requires-Dist: ruff==0.13.1; extra == "test"
 Requires-Dist: safety==3.3.1; extra == "test"
-Requires-Dist: tomli==2.2.1; extra == "test"
 Dynamic: license-file
 
 # Aiohue

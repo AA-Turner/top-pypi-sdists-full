@@ -41,7 +41,7 @@ class TaskResponse(BaseModel):
     started_at: Optional[datetime] = Field(default=None, description="Timestamp of when this task started execution.")
     finished_at: Optional[datetime] = Field(default=None, description="Timestamp of when this task stopped execution.")
     error: Optional[Dict[str, Any]] = Field(default=None, description="A JSON Object of a fatal error encountered during the execution of this task.")
-    worker: Optional[StrictStr] = Field(default=None, description="The worker associated with this task. This field is empty if a worker is not yet assigned.")
+    worker: Optional[StrictStr] = Field(default=None, description="DEPRECATED - Always null")
     parent_task: Optional[StrictStr] = Field(default=None, description="The parent task that spawned this task.")
     child_tasks: Optional[List[StrictStr]] = Field(default=None, description="Any tasks spawned by this task.")
     task_group: Optional[StrictStr] = Field(default=None, description="The task group that this task is a member of.")
@@ -123,6 +123,16 @@ class TaskResponse(BaseModel):
                 if _item_progress_reports:
                     _items.append(_item_progress_reports.to_dict())
             _dict['progress_reports'] = _items
+        # set to None if created_by (nullable) is None
+        # and model_fields_set contains the field
+        if self.created_by is None and "created_by" in self.model_fields_set:
+            _dict['created_by'] = None
+
+        # set to None if worker (nullable) is None
+        # and model_fields_set contains the field
+        if self.worker is None and "worker" in self.model_fields_set:
+            _dict['worker'] = None
+
         # set to None if result (nullable) is None
         # and model_fields_set contains the field
         if self.result is None and "result" in self.model_fields_set:

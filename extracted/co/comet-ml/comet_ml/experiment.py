@@ -77,6 +77,7 @@ from ._typing import (
     Callable,
     Dict,
     ExperimentCleanupResults,
+    ExperimentThrottledStatus,
     List,
     Optional,
     Point3D,
@@ -1132,7 +1133,7 @@ class CometExperiment(CommonExperiment):
             self.system_metrics_thread.join(2)
             successful_clean = not self.system_metrics_thread.is_alive()
 
-            if successful_clean:
+            if not successful_clean:
                 LOGGER.debug(
                     "SystemMetricsLoggingThread didn't clean successfully after 2s"
                 )
@@ -1143,8 +1144,8 @@ class CometExperiment(CommonExperiment):
 
     def _check_experiment_throttled(
         self,
-    ) -> Tuple[bool, Optional[str], Optional[List[str]]]:
-        return False, None, None
+    ) -> ExperimentThrottledStatus:
+        return ExperimentThrottledStatus(False, None, None)
 
     def _clean_logging(self) -> bool:
         if self.logger is not None:
@@ -2635,7 +2636,7 @@ class CometExperiment(CommonExperiment):
         text: str,
         step: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    ) -> Optional[Dict[str, str]]:
         """Logs the text. These strings appear on the Text Tab in the Comet UI.
 
         Args:
@@ -3809,10 +3810,10 @@ class CometExperiment(CommonExperiment):
         self._set_step(step)
 
         preprocessed = preprocess_remote_asset(
-            uri,
-            remote_file_name,
-            overwrite,
-            asset_type,
+            remote_uri=uri,
+            logical_path=remote_file_name,
+            overwrite=overwrite,
+            upload_type=asset_type,
             asset_id=asset_id,
             metadata=metadata,
             step=self._get_asset_upload_step(),

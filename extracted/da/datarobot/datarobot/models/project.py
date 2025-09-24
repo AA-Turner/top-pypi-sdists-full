@@ -15,7 +15,7 @@ from __future__ import annotations
 import collections
 from datetime import datetime
 import json
-from typing import Any, cast, Dict, List, Optional, Tuple, Type, TYPE_CHECKING, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
 import warnings
 
 from pandas import DataFrame
@@ -24,19 +24,19 @@ import trafaret as t
 from datarobot._compat import Int, String
 from datarobot.enums import (
     AUTOPILOT_MODE,
-    CredentialTypes,
     CV_METHOD,
     DEFAULT_MAX_WAIT,
     DEFAULT_TIMEOUT,
     LEADERBOARD_SORT_KEY,
     MONOTONICITY_FEATURELIST_DEFAULT,
-    NonPersistableProjectOptions,
     PROJECT_STAGE,
     QUEUE_STATUS,
     TARGET_TYPE,
-    UnsupervisedTypeEnum,
     VARIABLE_TYPE_TRANSFORM,
     VERBOSITY_LEVEL,
+    CredentialTypes,
+    NonPersistableProjectOptions,
+    UnsupervisedTypeEnum,
 )
 from datarobot.errors import (
     AppPlatformError,
@@ -55,8 +55,8 @@ from datarobot.helpers.eligibility_result import EligibilityResult
 from datarobot.helpers.partitioning_methods import (
     BasePartitioningMethod,
     DatetimePartitioningSpecification,
+    PartitioningMethod,
 )
-from datarobot.helpers.partitioning_methods import PartitioningMethod
 from datarobot.helpers.partitioning_methods import get_class as get_partition_class
 from datarobot.mixins.browser_mixin import BrowserMixin
 from datarobot.models.api_object import APIObject
@@ -90,7 +90,7 @@ from datarobot.models.restore_discarded_features import (
 )
 from datarobot.models.segmentation import SegmentationTask
 from datarobot.models.sharing import SharingAccess
-from datarobot.models.use_cases.utils import add_to_use_case, resolve_use_cases, UseCaseLike
+from datarobot.models.use_cases.utils import UseCaseLike, add_to_use_case, resolve_use_cases
 from datarobot.utils import (
     assert_single_or_zero_parameter,
     camelize,
@@ -116,8 +116,7 @@ logger = get_logger(__name__)
 
 
 if TYPE_CHECKING:
-    from mypy_extensions import TypedDict
-
+    from datarobot._compat import TypedDict
     from datarobot.models.dataset import Dataset
 
     class SegmentationDict(TypedDict):
@@ -1203,7 +1202,7 @@ OR individual keyword arguments. You cannot pass both."
             for binary classification targets.
         target_type : Optional[str]
             Override the automatically selected target_type. An example usage would be setting the
-            target_type='Multiclass' when you want to preform a multiclass classification task on a
+            target_type='Multiclass' when you want to perform a multiclass classification task on a
             numeric column that has a low cardinality.
             You can use ``TARGET_TYPE`` enum.
         unsupervised_mode : boolean, default ``False``
@@ -1604,7 +1603,7 @@ OR individual keyword arguments. You cannot pass both."
             unsuccessful.
         target_type : Optional[str]
             Override the automatically selected target_type. An example usage would be setting the
-            target_type='Multiclass' when you want to preform a multiclass classification task on a
+            target_type='Multiclass' when you want to perform a multiclass classification task on a
             numeric column that has a low cardinality. You can use ``TARGET_TYPE`` enum.
         credentials: Optional[List]
              a list of credentials for the datasets used in relationship configuration
@@ -1819,7 +1818,7 @@ OR individual keyword arguments. You cannot pass both."
             unsuccessful.
         target_type : Optional[str]
             Override the automatically selected `target_type`. An example usage would be setting the
-            `target_type=Multiclass' when you want to preform a multiclass classification task on a
+            `target_type=Multiclass' when you want to perform a multiclass classification task on a
             numeric column that has a low cardinality. You can use ``TARGET_TYPE`` enum.
         credentials: Optional[List]
              A list of credentials for the datasets used in relationship configuration
@@ -1998,43 +1997,37 @@ OR individual keyword arguments. You cannot pass both."
             attribute. If `None`, the default return is the order of
             default project metric.
 
-            Allowed attributes to sort by are:
-
-            * ``metric``
-            * ``sample_pct``
+            Allowed attributes to sort by are ``metric`` and ``sample_pct``.
 
             If the sort attribute is preceded by a hyphen, models will be sorted in descending
             order, otherwise in ascending order.
 
-            Multiple sort attributes can be included as a comma-delimited string or in a list
-            e.g. order_by=`sample_pct,-metric` or order_by=[`sample_pct`, `-metric`]
+            Multiple sort attributes can be included as a comma-delimited string or in a list,
+            e.g., order_by=``sample_pct,-metric`` or order_by=[``sample_pct``, ``-metric``].
 
-            Using `metric` to sort by will result in models being sorted according to their
+            Using ``metric`` to sort by will result in models being sorted according to their
             validation score by how well they did according to the project metric.
-        search_params : dict, optional.
-            If not `None`, the returned models are filtered by lookup.
-            Currently you can query models by:
 
-            * ``name``
-            * ``sample_pct``
-            * ``is_starred``
+        search_params : dict, optional.
+            If not ``None``, the returned models are filtered by lookup.
+            Currently you can query models by ``name``, ``sample_pct`` and ``is_starred``.
 
         with_metric : Optional[str].
-            If not `None`, the returned models will only have scores for this
+            If not ``None``, the returned models will only have scores for this
             metric. Otherwise all the metrics are returned.
 
-        use_new_models_retrieval: bool, False by default
-            If true, new retrieval route is used, which supports filtering and returns fewer attributes per
+        use_new_models_retrieval: bool, default ``False``
+            If ``true``, new retrieval route is used, which supports filtering and returns fewer attributes per
             individual model. Following attributes are absent and could be retrieved from the blueprint level:
-            `monotonic_increasing_featurelist_id`, `monotonic_decreasing_featurelist_id`, `supports_composable_ml`
-            and `supports_monotonic_constraints`. Following attributes are absent and could be retrieved from
-            the individual model level: `has_empty_clusters`, `is_n_clusters_dynamically_determined`,
-            `prediction_threshold` and `prediction_threshold_read_only`. Attribute `n_clusters` in `Model` is
-            renamed to `number_of_clusters` in `GenericModel` and is returned for unsupervised clustering models.
+            ``monotonic_increasing_featurelist_id``, ``monotonic_decreasing_featurelist_id``, ``supports_composable_ml``
+            and ``supports_monotonic_constraints``. Following attributes are absent and could be retrieved from
+            the individual model level: ``has_empty_clusters``, ``is_n_clusters_dynamically_determined``,
+            ``prediction_threshold`` and ``prediction_threshold_read_only``. Attribute ``n_clusters`` in ``Model`` is
+            renamed to ``number_of_clusters`` in ``GenericModel`` and is returned for unsupervised clustering models.
 
         Returns
         -------
-        models : a list of Model or a list of GenericModel if `use_new_models_retrieval` is True.
+        models : a list of Model or a list of GenericModel if ``use_new_models_retrieval`` is ``True``.
             All models trained in the project.
 
         Raises

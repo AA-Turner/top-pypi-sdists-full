@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
@@ -19,11 +21,11 @@ from datarobot.enums import (
     CategoricalStatsMethods,
     DatetimeSamplingStrategy,
     DownsamplingOperations,
-    enum_to_list,
     FilterOperationFunctions,
     NumericStatsMethods,
     SamplingOperations,
     WranglingOperations,
+    enum_to_list,
 )
 from datarobot.models.api_object import APIObject
 

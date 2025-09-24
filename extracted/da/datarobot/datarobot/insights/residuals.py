@@ -9,7 +9,9 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
-from typing import cast, Dict, List, Union
+from __future__ import annotations
+
+from typing import Dict, List, Union, cast
 
 import trafaret as t
 

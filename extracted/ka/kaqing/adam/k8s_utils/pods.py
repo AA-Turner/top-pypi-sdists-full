@@ -42,12 +42,12 @@ class Pods:
                 namespace: str,
                 body: Callable[[ThreadPoolExecutor, str, str, bool], T],
                 post: Callable[[T], T] = None,
-                action: str = 'action', max_workers=0, show_out=True) -> list[T]:
+                action: str = 'action', max_workers=0, show_out=True, on_any = False) -> list[T]:
         show_out = KubeContext.show_out(show_out)
 
         if not max_workers:
             max_workers = Config().action_workers(action, 0)
-        if max_workers > 0:
+        if not on_any and  max_workers > 0:
             # if parallel, node sampling is suppressed
             if KubeContext.show_parallelism():
                 log2(f'Executing on all nodes from statefulset in parallel...')
@@ -70,7 +70,7 @@ class Pods:
         else:
             results: list[T] = []
 
-            samples = Config().action_node_samples(action, sys.maxsize)
+            samples = 1 if on_any else Config().action_node_samples(action, sys.maxsize)
             l = min(len(pods), samples)
             adj = 'all'
             if l < len(pods):
@@ -233,9 +233,7 @@ class Pods:
             ))
         )
 
-    def wait_for_running(namespace: str, pod_name: str, msg: str=None, label_selector: str = None):
-        msged = False
-
+    def wait_for_running(namespace: str, pod_name: str, msg: str = None, label_selector: str = None):
         cnt = 2
         while (cnt < 302 and Pods.get_with_selector(namespace, label_selector) if label_selector else Pods.get(namespace, pod_name)).status.phase != 'Running':
             if not msg:
@@ -255,7 +253,7 @@ class Pods:
             time.sleep(1)
 
         log2(f'\r{msg}..'.ljust(max_len), nl=False)
-        if cnt < 300:
+        if cnt < 302:
             log2(' OK')
         else:
             log2(' Timed Out')

@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdktf/provider-newrelic",
-    "13.6.1",
+    "13.6.2",
     __name__[0:-6],
-    "provider-newrelic@13.6.1.jsii.tgz",
+    "provider-newrelic@13.6.2.jsii.tgz",
 )
 
 __all__ = [

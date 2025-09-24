@@ -9,6 +9,8 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
+from __future__ import annotations
+
 import re
 import sys
 
@@ -150,8 +152,7 @@ lint_require = (
     [
         "black==24.4.2",
         "black[jupyter]==24.4.2",
-        "isort==5.10.1",
-        "flake8==5.0.4",
+        "ruff>=0.12.7",
         "pylint==2.15.0",
     ]
     + _mypy_require
@@ -232,7 +233,6 @@ common_setup_kwargs = dict(
         "trafaret>=0.7,<2.2,!=1.1.0",
         "urllib3>=1.23",
         "typing-extensions>=4.3.0,<5",
-        "mypy-extensions>=0.4.0,<2",
         "strenum>=0.4.15",
     ],
     extras_require={

@@ -1,6 +1,5 @@
-# pylint: disable=attribute-defined-outside-init,not-callable
+# pylint: disable=attribute-defined-outside-init,use-implicit-booleaness-not-comparison
 
-import copy
 import json
 from io import BytesIO
 from textwrap import dedent

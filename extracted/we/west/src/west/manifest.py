@@ -560,6 +560,9 @@ def validate(data: Any) -> dict[str, Any]:
     if 'manifest' not in as_dict:
         raise MalformedManifest('manifest data contains no "manifest" key')
 
+    if as_dict['manifest'] is None:
+        as_dict['manifest'] = {}
+
     data = as_dict['manifest']
 
     # Make sure this version of west can load this manifest data.
@@ -597,6 +600,11 @@ def validate(data: Any) -> dict[str, Any]:
                             schema_files=[_SCHEMA_PATH]).validate()
     except pykwalify.errors.SchemaError as se:
         raise MalformedManifest(se.msg) from se
+
+    # Normalize all odd cases to an empty, iterable list (#823)
+    for k in ['projects']:
+        if data.get(k) is None:
+            data[k] = []
 
     return as_dict
 
@@ -2296,9 +2304,6 @@ class Manifest:
                        defaults: _defaults) -> None:
         # Load projects and add them to self._ctx.projects.
 
-        if 'projects' not in manifest:
-            return
-
         have_imports = []
         names = set()
         for pd in manifest['projects']:
@@ -2766,7 +2771,7 @@ class Manifest:
                 self._ctx.group_filter_q)
             for group_filter in self._ctx.group_filter_q:
                 _update_disabled_groups(self._disabled_groups, group_filter)
-            ret = [f'-{g}' for g in self._disabled_groups]
+            ret = [f'-{g}' for g in sorted(self._disabled_groups)]
             _logger.debug('final top level group-filter: %s', ret)
             return ret
 

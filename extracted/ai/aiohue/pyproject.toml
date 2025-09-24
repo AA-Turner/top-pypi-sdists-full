@@ -23,7 +23,7 @@ dependencies = [
 description = "Python module to talk to Philips Hue."
 readme = "README.md"
 requires-python = ">=3.11"
-version = "4.7.5"
+version = "4.8.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -31,17 +31,16 @@ text = "Apache-2.0"
 [project.optional-dependencies]
 test = [
     "codespell==2.4.1",
-    "mypy==1.17.1",
+    "mypy==1.18.2",
     "pre-commit==4.3.0",
     "pre-commit-hooks==6.0.0",
     "pylint==3.3.8",
-    "pytest==8.4.1",
-    "pytest-asyncio==1.1.0",
+    "pytest==8.4.2",
+    "pytest-asyncio==1.2.0",
     "pytest-aiohttp==1.1.0",
-    "pytest-cov==6.2.1",
-    "ruff==0.12.10",
+    "pytest-cov==7.0.0",
+    "ruff==0.13.1",
     "safety==3.3.1",
-    "tomli==2.2.1",
 ]
 
 [tool.codespell]
